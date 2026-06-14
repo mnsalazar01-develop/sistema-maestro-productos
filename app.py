@@ -52,4 +52,4 @@ st.info("💡 Consejo de ingeniería: Todos los programas satélites residirán 
 # ==============================================================================
 # 5. EJECUCIÓN DEL MOTOR DE NAVEGACIÓN PLANO (COMENTADA)
 # ==============================================================================
-# enrutador.run()
+enrutador.run()
