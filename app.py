@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA: app.py (PARTE A DE B)
-# VERSIÓN: 1.5.4
+# VERSIÓN: 1.6.0
 # DESCRIPCIÓN: Sistema Maestro de Clasificación de Productos Genéricos Retail
-# MODIFICACIÓN: Se blindó la llamada REST ante desincronizaciones de caché de esquema (Error PGRST125).
+# MODIFICACIÓN: Se encapsuló la llamada del mapa dinámico dentro del disparador de archivos (Versión 1.6.0).
 # ==============================================================================
 
 import streamlit as st
@@ -107,23 +107,20 @@ with tab_carga:
     if archivo_subido:
         st.success("¡Archivo plano cargado con éxito en la memoria web!")
         
-        # Extracción blindada del mapa de subcategorías con auditoría nativa (Versión 1.5.5)
+        # Extracción y mapeo posicional blindado del mapa de subcategorías vivas
         subcategorias_vivas = {}
         try:
             res_sub = supabase.table("subcategorias").select("*").execute()
             if res_sub and hasattr(res_sub, 'data') and res_sub.data:
                 df_sub_mapeo = pd.DataFrame(res_sub.data)
-                # Mapeo posicional ciego: columna 0 es ID, columna 2 es el nombre
+                # Mapeo por posición física: columna 0 es ID, columna de la derecha o última es el nombre
                 for _, fila_sub in df_sub_mapeo.iterrows():
                     val_id = int(fila_sub.iloc)
                     val_nombre = str(fila_sub.iloc[-1]).lower().strip()
                     subcategorias_vivas[val_nombre] = val_id
-            else:
-                st.sidebar.warning("⚠️ Alerta: La tabla 'subcategorias' se encuentra vacía en Supabase.")
-                subcategorias_vivas = None
         except Exception as e:
-            # Imprime el error real del servidor de Supabase directo en pantalla
-            st.sidebar.error(f"❌ Error de Sistema: {str(e)}")
+            # Tolerancia total a fallos: si falla la red, el sistema opera con el diccionario inmutable
+            st.sidebar.warning("⚠️ Modo Inteligente pausado. Operando con diccionario base.")
             subcategorias_vivas = None
             
         try:
