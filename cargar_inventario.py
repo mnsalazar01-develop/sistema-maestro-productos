@@ -56,28 +56,40 @@ archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos
 
 if archivo_subido:
     st.success("¡Archivo plano cargado con éxito en la memoria web!")
-    
-    # Descarga y purificación de tipos mediante extractor posicional ciego
+
+    # Descarga Diagnóstica de la Tabla Paramétrica (Versión 1.1.1)
     matriz_reglas_vivas = {}
     try:
         res_reglas = supabase.table("matriz_diccionario_reglas").select("*").execute()
         if res_reglas and hasattr(res_reglas, 'data') and res_reglas.data:
+            # AUDITORÍA EN PANTALLA: Inspeccionamos la primera fila real que devuelve tu Supabase
+            primera_fila_real = res_reglas.data[0]
+            st.sidebar.write("📋 Columnas reales en Supabase:", list(primera_fila_real.keys()))
+            st.sidebar.write("👀 Ejemplo de fila descargada:", primera_fila_real)
+            
             for fila_r in res_reglas.data:
-                # Extraemos las llaves del JSON de Supabase para buscar los valores por tipo primitivo
-                llaves_json = list(fila_r.keys())
+                # Extracción directa por nombres estándar (Asegurando string y entero puro)
+                token_clave = str(fila_r.get("palabra_clave", "")).lower().strip()
+                id_destino = int(fila_r.get("id_enlace_subcat", 0))
                 
-                # Buscamos la columna de texto y la columna numérica de enlace de subcategoría
-                col_texto = [k for k in llaves_json if "clave" in k.lower() or k.lower() == "palabra_clave"][0]
-                col_numero = [k for k in llaves_json if "subcat" in k.lower() or "enlace" in k.lower() or "id" in k.lower() and k.lower() != "id_regla"][0]
-                
-                token_clave = str(fila_r.get(col_texto, "")).lower().strip()
-                id_destino = int(fila_r.get(col_numero, 0))
+                # Si fallan los nombres estándar, intentamos por índices de posición nativos
+                if not token_clave or id_destino == 0:
+                    valores = list(fila_r.values())
+                    # Buscamos cuál valor es texto y cuál es número entero
+                    textos_fila = [v for v in valores if isinstance(v, str)]
+                    numeros_fila = [v for v in valores if isinstance(v, int) and v > 7] # IDs de subcat son > 7
+                    if textos_fila and numeros_fila:
+                        token_clave = str(textos_fila[0]).lower().strip()
+                        id_destino = int(numeros_fila[0])
                 
                 if token_clave and id_destino > 0:
                     matriz_reglas_vivas[token_clave] = id_destino
+                    
+            st.sidebar.success(f"🧠 Diccionario RAM cargado: {len(matriz_reglas_vivas)} reglas activas.")
     except Exception as e:
-        st.sidebar.warning(f"⚠️ Modo Inteligente pausado. Detalle: {e}")
+        st.sidebar.error(f"❌ Error en descarga paramétrica: {e}")
         matriz_reglas_vivas = None
+
     try:
         df = pd.read_csv(archivo_subido, encoding='utf-8')
     except UnicodeDecodeError:
