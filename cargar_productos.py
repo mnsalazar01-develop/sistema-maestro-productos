@@ -1,12 +1,13 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_productos.py (PARTE A DE B)
-# VERSIÓN: 1.0.0 (MÓDULO SUELTO RAÍZ)
-# DESCRIPCIÓN: Ingesta Manual Reactiva de Artículos Genéricos Nivel 5
-# MODIFICACIÓN: Creación como módulo independiente plano en la raíz del proyecto.
+# VERSIÓN: 1.1.0 (CONEXIÓN NUBE ACTIVA)
+# DESCRIPCIÓN: Ingesta Manual Reactiva de Artículos Genéricos Nivel 5 con Persistencia
+# MODIFICACIÓN: Integración del cliente Supabase usando la anon_key autorizada de la raíz.
 # ==============================================================================
 
 import streamlit as st
 import pandas as pd
+from supabase import create_client, Client
 
 # 1. CONFIGURACIÓN CORPORATIVA DE LA VENTANA WEB DE PRODUCCIÓN
 st.set_page_config(
@@ -16,21 +17,29 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Declaramos la ruta de regreso al Menú Principal exigida por el enrutador central
+# 2. HERENCIA DE CONEXIÓN SEGURA DESDE EL LAUNCHPAD CENTRAL (app.py)
+if "supabase_cliente" in st.session_state:
+    supabase = st.session_state["supabase_cliente"]
+else:
+    # Contingencia local en la raíz con tus variables de internet seguras
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    supabase = create_client(url, key)
+
+# Declaramos la ruta de regreso al Menú Principal
 pagina_principal = "app.py"
 
-# 2. BOTÓN DE RETORNO AL LAUNCHPAD CENTRAL
-col_volver, col_vacia = st.columns([1, 5])
+# 3. BOTÓN DE RETORNO AL LAUNCHPAD CENTRAL
+col_volver, col_vacia = st.columns()
 with col_volver:
     if st.button("⬅️ Menú Principal", use_container_width=True, key="btn_volver_menu_prod"):
         st.switch_page(pagina_principal)
 
 st.title("📝 Ingesta Manual y Registro de Productos (Nivel 5)")
-st.markdown("Alta reactiva de artículos nuevos y control de taxonomía retail en memoria local.")
+st.markdown("Alta reactiva de artículos nuevos con persistencia directa en la base de datos cloud.")
 st.markdown("---")
 
 st.subheader("📋 Formulario de Registro Técnico")
-st.markdown("Introduce las especificaciones comerciales del nuevo producto genérico puro:")
 
 # Mapa de respaldo local con las familias del supermercado para alimentar el selector
 familias_respaldo = {
@@ -48,7 +57,7 @@ familias_respaldo = {
 }
 
 # Diseño del contenedor del formulario usando grillas de alta densidad visual
-with st.form("formulario_ingesta_manual", clear_on_submit=False):
+with st.form("formulario_ingesta_manual", clear_on_submit=True): # clear_on_submit=True limpia los campos al guardar con éxito
     col_f1, col_f2 = st.columns(2)
     
     with col_f1:
@@ -70,30 +79,8 @@ with st.form("formulario_ingesta_manual", clear_on_submit=False):
             options=[f"{id_f} - {nombre_f}" for id_f, nombre_f in familias_respaldo.items()],
             help="Selecciona la familia correspondiente de la taxonomía core."
         )
-        
-        precio_sugerido = st.number_input(
-            "Costo base estimado comercial (USD):",
-            min_value=0.00,
-            value=0.00,
-            step=0.01,
-            format="%.2f"
-        )
     st.markdown("---")
-    st.markdown("#### 📸 Control Multimedia y Verificación Visual")
-    st.caption("Adjunta de forma opcional una fotografía del producto para auditar el empaque o la etiqueta nutrimental.")
-    
-    # Componente nativo de Streamlit para cargar imágenes de productos en bruto
-    foto_producto = st.file_uploader(
-        "Arrastra la imagen del artículo (.jpg, .jpeg, .png)", 
-        type=["jpg", "jpeg", "png"], 
-        key="uploader_foto_manual"
-    )
-    
-    if foto_producto:
-        st.image(foto_producto, caption="Pre-visualización de la etiqueta del producto", width=300)
-
-    st.markdown("---")
-    # Botón definitivo de envío del formulario
+    # Botón definitivo de envío del formulario con persistencia en la base de datos cloud
     boton_guardar_manual = st.form_submit_button("🚀 Confirmar y Registrar Producto en Catálogo")
     
     if boton_guardar_manual:
@@ -103,16 +90,47 @@ with st.form("formulario_ingesta_manual", clear_on_submit=False):
             # Extraemos el ID numérico de la subcategoría seleccionada en el combo
             id_subcat_final = int(subcat_seleccionada.split(" - ")[0])
             
-            # Estructuramos el reporte de auditoría visual en pantalla
-            st.balloons()
-            st.success(f"🎉 ¡Producto procesado con éxito en la memoria RAM del servidor local!")
-            
-            # Mostramos una tarjeta comercial con los datos que el software asimiló
-            st.markdown("### 📋 Ficha Técnica del Artículo Generado")
-            col_t1, col_t2 = st.columns(2)
-            with col_t1:
-                st.write(f"**📦 Descripción:** {nombre_ingresado.upper()}")
-                st.write(f"**🏷️ Subcategoría ID:** {id_subcat_final}")
-            with col_t2:
-                st.write(f"**🔢 Código GTIN:** {codigo_barras if codigo_barras else 'N/A'}")
-                st.write(f"**💵 Costo Base:** ${precio_sugerido:.2f} USD")
+            with st.spinner("Inyectando registro en la base de datos..."):
+                exito_insercion = False
+                error_final = None
+                
+                # Intento 1: Nomenclatura estándar de tu tabla física ('nombre' / 'id_subcat')
+                try:
+                    payload = {
+                        "nombre": nombre_ingresado.upper(),
+                        "id_subcat": id_subcat_final
+                    }
+                    supabase.table("productos").insert(payload).execute()
+                    exito_insercion = True
+                except Exception as e1:
+                    error_final = e1
+                    exito_insercion = False
+                    
+                # Intento 2 (Contingencia): Nomenclatura extendida de tu tabla física ('nombre_producto' / 'id_enlace_subcat')
+                if not exito_insercion:
+                    try:
+                        payload = {
+                            "nombre_producto": nombre_ingresado.upper(),
+                            "id_enlace_subcat": id_subcat_final
+                        }
+                        supabase.table("productos").insert(payload).execute()
+                        exito_insercion = True
+                    except Exception as e2:
+                        error_final = e2
+                        exito_insercion = False
+                
+                # Despliegue de resultados según el estatus de la inyección
+                if exito_insercion:
+                    st.balloons()
+                    st.success(f"🎉 ¡Éxito total! El producto '{nombre_ingresado.upper()}' quedó guardado de forma permanente en tu tabla de Supabase.")
+                    
+                    # Mostramos la ficha técnica del registro consolidado en la nube
+                    st.markdown("### 📋 Ficha Técnica del Artículo Guardado")
+                    col_t1, col_t2 = st.columns(2)
+                    with col_t1:
+                        st.write(f"**📦 Descripción:** {nombre_ingresado.upper()}")
+                        st.write(f"**🏷️ Subcategoría ID:** {id_subcat_final}")
+                    with col_t2:
+                        st.write(f"**🔢 Código GTIN:** {codigo_barras if codigo_barras else 'N/A'}")
+                else:
+                    st.error(f"❌ Error de persistencia: El servidor rechazó la inyección. Detalle: {error_final}")
