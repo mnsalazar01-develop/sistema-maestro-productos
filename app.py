@@ -1,8 +1,8 @@
 # ==============================================================================
-# PROGRAMA: app.py
-# VERSIÓN: 1.3.0
+# PROGRAMA: app.py (PARTE A DE B)
+# VERSIÓN: 1.5.0
 # DESCRIPCIÓN: Sistema Maestro de Clasificación de Productos Genéricos Retail
-# MODIFICACIÓN: Se migró el cargador masivo de formato Excel (.xlsx) a formato de archivo plano (.csv).
+# MODIFICACIÓN: Se dividió el archivo en dos bloques debido al límite de caracteres.
 # ==============================================================================
 
 import streamlit as st
@@ -56,7 +56,6 @@ with tab_inicio:
     3. **Productos (Nivel 5)**: Tu nueva propuesta de genéricos puros.
     """)
     st.info("Haz clic en la pestaña 'Cargar Inventario' de arriba para empezar a procesar tu archivo Excel.")
-
 # ----------------------------------------
 # SECCIÓN 2: CARGAR INVENTARIO
 # ----------------------------------------
@@ -64,7 +63,7 @@ with tab_carga:
     st.subheader("Procesador de Archivos en Bruto")
     st.markdown("Sube tu archivo plano o CSV con la columna `nombre` para clasificarlo automáticamente mediante reglas de retail.")
     
-    # El diccionario de reglas que traduce palabras clave en IDs de subcategorías de Supabase
+    # El diccionario de reglas base que traduce palabras clave en IDs de subcategorías de Supabase
     DICCIONARIO_REGLAS = {
         "gran": 8, "arroz": 8, "frijol": 8, "caraota": 8, "lenteja": 8, "cafe": 8, "café": 8,
         "harin": 9, "fororo": 9, "maicena": 9,
@@ -83,19 +82,44 @@ with tab_carga:
         "papel hig": 34
     }
 
-    def clasificar_texto(nombre_recibido):
+    # Función interna para clasificar un producto
+    def clasificar_texto(nombre_recibido, subcategorias_vivas=None):
         texto = str(nombre_recibido).lower().strip()
+        
+        # Estrategia 1: Validación estática por diccionario duro
         for palabra_clave, id_subcat in DICCIONARIO_REGLAS.items():
             if palabra_clave in texto:
                 return id_subcat
+                
+        # Estrategia 2: Inteligencia Dinámica por Coincidencia Léxica con Supabase
+        if subcategorias_vivas is not None:
+            palabras_token = texto.split()
+            if palabras_token:
+                primera_palabra = palabras_token[0]
+                # Si la primera palabra del producto coincide con una subcategoría viva, se auto-asigna
+                if primera_palabra in subcategorias_vivas:
+                    return subcategorias_vivas[primera_palabra]
+                    
         return None
 
-    # Componente visual reconfigurado estrictamente para aceptar archivos planos CSV
+    # Componente visual para aceptar archivos planos CSV
     archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"])
     
     if archivo_subido:
         st.success("¡Archivo plano cargado con éxito en la memoria web!")
         
+        # Descarga en tiempo real el mapa de subcategorías vivas de Supabase para alimentar la inteligencia
+        subcategorias_vivas = {}
+        try:
+            res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").execute()
+            for sub in res_sub.data:
+                # Almacenamos la raíz en minúsculas para un cruce ciego exacto
+                raiz_nombre = str(sub["nombre_subcat"]).lower().strip()
+                subcategorias_vivas[raiz_nombre] = sub["id_subcat"]
+        except Exception as e:
+            st.sidebar.warning(f"⚠️ No se pudo cargar el mapa dinámico de subcategorías: {e}")
+            subcategorias_vivas = None
+            
         try:
             df = pd.read_csv(archivo_subido, encoding='utf-8')
         except UnicodeDecodeError:
@@ -110,7 +134,7 @@ with tab_carga:
             
             for idx, fila in df.iterrows():
                 nombre_prod = fila['nombre']
-                id_subcat = clasificar_texto(nombre_prod)
+                id_subcat = clasificar_texto(nombre_prod, subcategorias_vivas)
                 
                 if id_subcat:
                     productos_clasificados.append({
@@ -118,7 +142,7 @@ with tab_carga:
                         "id_enlace_subcat": id_subcat
                     })
                 else:
-                    no_clasificados.append({"Producto No Clasificado": nombre_prod})
+                    no_clasificados.append({"nombre": nombre_prod})
             
             col1, col2 = st.columns(2)
             with col1:
@@ -128,7 +152,17 @@ with tab_carga:
             with col2:
                 st.metric("Productos sin clasificar (Omitidos)", len(no_clasificados))
                 if no_clasificados:
-                    st.dataframe(pd.DataFrame(no_clasificados), use_container_width=True)
+                    df_omitidos = pd.DataFrame(no_clasificados)
+                    st.dataframe(df_omitidos, use_container_width=True)
+                    
+                    csv_omitidos = df_omitidos.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label="⚠️ Descargar Omitidos para revisión",
+                        data=csv_omitidos,
+                        file_name="productos_omitidos.csv",
+                        mime="text/csv",
+                        key="btn_descargar_omitidos"
+                    )
             
             if productos_clasificados:
                 if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos"):
@@ -172,7 +206,7 @@ with tab_maestro:
                     st.warning(f"La tabla {tabla_seleccionada} se encuentra actualmente vacía.")
                     if "df_actual" in st.session_state: del st.session_state["df_actual"]
             except Exception as e:
-                st.error(f"Error al consultar la tabla {tabla_seleccionada} in Supabase: {e}")
+                st.error(f"Error al consultar la tabla {tabla_seleccionada} en Supabase: {e}")
 
     # Sub-módulo de Exportación a Excel
     if "df_actual" in st.session_state and st.session_state["df_actual"] is not None:
