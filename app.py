@@ -88,7 +88,7 @@ with tab_carga:
         return None
 
     # Componente visual para aceptar archivos planos CSV
-    archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_v191")
+    archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_v192")
     
     if archivo_subido:
         st.success("¡Archivo plano cargado con éxito en la memoria web!")
@@ -98,18 +98,16 @@ with tab_carga:
         try:
             res_reglas = supabase.table("matriz_diccionario_reglas").select("*").execute()
             if res_reglas and hasattr(res_reglas, 'data') and res_reglas.data:
-                # Procesamos el set de datos como un diccionario plano string-int puro de Python
+                # Procesamos las filas extrayendo valores primitivos puros de Python
                 for fila_r in res_reglas.data:
-                    # Evaluamos dinámicamente cómo se llaman las columnas de la fila recibida
-                    llaves = list(fila_r.keys())
-                    col_clave = [k for k in llaves if "clave" in k.lower() or k.lower() == "palabra_clave"][0]
-                    col_subcat = [k for k in llaves if "subcat" in k.lower() or "enlace" in k.lower()][0]
+                    # Extracción segura de diccionarios JSON nativos de la API de Supabase
+                    token_clave = str(fila_r.get("palabra_clave", "")).lower().strip()
+                    id_destino = int(fila_r.get("id_enlace_subcat", 0))
                     
-                    token_clave = str(fila_r[col_clave]).lower().strip()
-                    id_destino = int(fila_r[col_subcat])
-                    matriz_reglas_vivas[token_clave] = id_destino
+                    if token_clave and id_destino > 0:
+                        matriz_reglas_vivas[token_clave] = id_destino
         except Exception as e:
-            st.sidebar.warning("⚠️ Modo Inteligente pausado. Operando con lógica adaptativa.")
+            st.sidebar.warning(f"⚠️ Modo Inteligente pausado. Detalle: {e}")
             matriz_reglas_vivas = None
             
         try:
@@ -129,7 +127,6 @@ with tab_carga:
                 id_subcat = clasificar_texto_parametrizado(nombre_prod, matriz_reglas_vivas)
                 
                 if id_subcat:
-                    # Guardamos todas las combinaciones posibles de nombres de columna para blindar el destino
                     productos_clasificados.append({
                         "nombre": nombre_prod,
                         "nombre_producto": nombre_prod,
@@ -157,11 +154,11 @@ with tab_carga:
                         data=csv_omitidos,
                         file_name="productos_omitidos.csv",
                         mime="text/csv",
-                        key="btn_descargar_omitidos_v191"
+                        key="btn_descargar_omitidos_v192"
                     )
             
             if productos_clasificados:
-                if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos_v191"):
+                if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos_v192"):
                     with st.spinner("Inyectando registros en la base de datos..."):
                         exito_insercion = False
                         
@@ -195,6 +192,7 @@ with tab_carga:
                         if exito_insercion:
                             st.balloons()
                             st.success(f"¡Éxito total! Se guardaron {len(productos_clasificados)} productos genéricos en tu esquema privado.")
+
 # ----------------------------------------
 # SECCIÓN 3: MAESTRO DE DATOS
 # ----------------------------------------
