@@ -20,7 +20,7 @@ st.set_page_config(
 # ==============================================================================
 llamada_cargar = st.Page("cargar_inventario.py", title="Cargar Inventario", icon="📤")
 llamada_maestro = st.Page("maestro_datos.py", title="Maestro de Datos", icon="📊")
-# llamada_reglas = st.Page("reglas.py", title="Mantenedor de Reglas", icon="⚙️")
+llamada_reglas = st.Page("diccionario_reglas.py", title="Mantenedor de Reglas", icon="⚙️")
 
 # ==============================================================================
 # 3. CONSTRUCCIÓN DE LA NAVEGACIÓN EN LA BARRA LATERAL (COMENTADA)
@@ -28,7 +28,7 @@ llamada_maestro = st.Page("maestro_datos.py", title="Maestro de Datos", icon="�
 enrutador = st.navigation([
      llamada_cargar,
      llamada_maestro,
-#     llamada_reglas
+     llamada_reglas
 ])
 
 # ==============================================================================
