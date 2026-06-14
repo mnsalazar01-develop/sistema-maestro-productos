@@ -93,3 +93,48 @@ def clasificar_texto_local(nombre_recibido):
 
 # Componente visual para la carga de archivos
 archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_satelite_local")
+if archivo_subido:
+    try:
+        df = pd.read_csv(archivo_subido, encoding='utf-8')
+    except UnicodeDecodeError:
+        df = pd.read_csv(archivo_subido, encoding='latin-1')
+    
+    if 'nombre' not in df.columns:
+        st.error("❌ Error: Tu archivo plano debe contener una columna llamada exactamente 'nombre' (en minúsculas).")
+    else:
+        st.markdown("### 🧠 Pre-visualización de la Clasificación Automática Local")
+        productos_clasificados = []
+        no_clasificados = []
+        
+        # Iteración del catálogo masivo utilizando el diccionario duro local
+        for idx, fila in df.iterrows():
+            nombre_prod = fila['nombre']
+            id_subcat = clasificar_texto_local(nombre_prod)
+            
+            if id_subcat:
+                productos_clasificados.append({
+                    "nombre": nombre_prod,
+                    "id_subcat": id_subcat
+                })
+            else:
+                no_clasificados.append({"nombre": nombre_prod})
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Productos Aceptados (Locales)", len(productos_clasificados))
+            if productos_clasificados:
+                st.dataframe(pd.DataFrame(productos_clasificados), use_container_width=True)
+        with col2:
+            st.metric("Productos sin clasificar (Omitidos)", len(no_clasificados))
+            if no_clasificados:
+                df_omitidos = pd.DataFrame(no_clasificados)
+                st.dataframe(df_omitidos, use_container_width=True)
+                
+                csv_omitidos = df_omitidos.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="⚠️ Descargar Omitidos para revisión",
+                    data=csv_omitidos,
+                    file_name="productos_omitidos.csv",
+                    mime="text/csv",
+                    key="btn_descargar_omitidos_local_puro"
+                )
