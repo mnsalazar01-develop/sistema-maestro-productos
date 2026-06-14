@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE A DE B)
-# VERSIÓN: 1.1.0 (MÓDULO SUELTO RAÍZ)
+# VERSIÓN: 1.2.0 (MÓDULO SUELTO RAÍZ)
 # DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
-# MODIFICACIÓN: Inyección de extractor posicional adaptativo para corregir el set en cero.
+# MODIFICACIÓN: Entrega completa unificada con extractor directo JSON y control de red.
 # ==============================================================================
 
 import streamlit as st
@@ -10,14 +10,14 @@ import pandas as pd
 import io
 from supabase import create_client, Client
 
-# Configuración independiente de la ventana web
+# Configuración independiente de la ventana web de Streamlit
 st.set_page_config(
     page_title="Módulo de Carga masiva - Retail",
     page_icon="📤",
     layout="wide"
 )
 
-# Inicialización local de la conexión a base de datos
+# Inicialización local de la conexión a la base de datos de Supabase
 @st.cache_resource
 def init_supabase_local() -> Client:
     url = st.secrets["supabase"]["url"]
@@ -51,45 +51,34 @@ def clasificar_texto_parametrizado(nombre_recibido, mapa_reglas=None):
                 return mapa_reglas[primera_palabra]
     return None
 
-# Componente de arrastre de archivos planos
-archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="satelite_uploader")
+# Componente de arrastre de archivos planos CSV
+archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="satelite_uploader_v120")
 
 if archivo_subido:
     st.success("¡Archivo plano cargado con éxito en la memoria web!")
-
-    # Descarga Diagnóstica de la Tabla Paramétrica (Versión 1.1.1)
+    
+    # Descarga e Indexación de la Tabla Paramétrica Viva desde la Nube
     matriz_reglas_vivas = {}
     try:
-        res_reglas = supabase.table("matriz_diccionario_reglas").select("*").execute()
+        # Consultamos directamente las columnas oficiales creadas en el SQL Editor
+        res_reglas = supabase.table("matriz_diccionario_reglas").select("palabra_clave, id_enlace_subcat").execute()
         if res_reglas and hasattr(res_reglas, 'data') and res_reglas.data:
-            # AUDITORÍA EN PANTALLA: Inspeccionamos la primera fila real que devuelve tu Supabase
-            primera_fila_real = res_reglas.data[0]
-            st.sidebar.write("📋 Columnas reales en Supabase:", list(primera_fila_real.keys()))
-            st.sidebar.write("👀 Ejemplo de fila descargada:", primera_fila_real)
-            
             for fila_r in res_reglas.data:
-                # Extracción directa por nombres estándar (Asegurando string y entero puro)
+                # Extracción directa de diccionarios JSON nativos del cliente de Supabase
                 token_clave = str(fila_r.get("palabra_clave", "")).lower().strip()
                 id_destino = int(fila_r.get("id_enlace_subcat", 0))
-                
-                # Si fallan los nombres estándar, intentamos por índices de posición nativos
-                if not token_clave or id_destino == 0:
-                    valores = list(fila_r.values())
-                    # Buscamos cuál valor es texto y cuál es número entero
-                    textos_fila = [v for v in valores if isinstance(v, str)]
-                    numeros_fila = [v for v in valores if isinstance(v, int) and v > 7] # IDs de subcat son > 7
-                    if textos_fila and numeros_fila:
-                        token_clave = str(textos_fila[0]).lower().strip()
-                        id_destino = int(numeros_fila[0])
                 
                 if token_clave and id_destino > 0:
                     matriz_reglas_vivas[token_clave] = id_destino
                     
-            st.sidebar.success(f"🧠 Diccionario RAM cargado: {len(matriz_reglas_vivas)} reglas activas.")
+            st.sidebar.success(f"🧠 Matriz en RAM: {len(matriz_reglas_vivas)} reglas listas")
+        else:
+            st.sidebar.warning("⚠️ La tabla de reglas se encuentra vacía en este proyecto.")
+            matriz_reglas_vivas = None
     except Exception as e:
-        st.sidebar.error(f"❌ Error en descarga paramétrica: {e}")
+        st.sidebar.error(f"❌ Error en PostgREST: {e}")
+        st.sidebar.info("🌐 Verifique si las credenciales de los Secrets coinciden con su proyecto activo.")
         matriz_reglas_vivas = None
-
     try:
         df = pd.read_csv(archivo_subido, encoding='utf-8')
     except UnicodeDecodeError:
@@ -134,11 +123,11 @@ if archivo_subido:
                     data=csv_omitidos,
                     file_name="productos_omitidos.csv",
                     mime="text/csv",
-                    key="btn_descargar_omitidos_satelite"
+                    key="btn_descargar_omitidos_satelite_v120"
                 )
         
         if productos_clasificados:
-            if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos_satelite"):
+            if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos_satelite_v120"):
                 with st.spinner("Inyectando registros en la base de datos..."):
                     exito_insercion = False
                     
@@ -149,7 +138,7 @@ if archivo_subido:
                             payload_intento1.append({
                                 "nombre": p["nombre"],
                                 "id_subcat": p["id_subcat"]
-                            })
+                              })
                         supabase.table("productos").insert(payload_intento1).execute()
                         exito_insercion = True
                     except Exception:
