@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA: app.py (PARTE A DE B)
-# VERSIÓN: 1.5.1
+# VERSIÓN: 1.5.2
 # DESCRIPCIÓN: Sistema Maestro de Clasificación de Productos Genéricos Retail
-# MODIFICACIÓN: Se aplicó tolerancia a fallos en la consulta PostgREST de subcategorías (Error PGRST125).
+# MODIFICACIÓN: Se implementó mapeo dinámico de columnas ciegas para solucionar el error PGRST125.
 # ==============================================================================
 
 import streamlit as st
@@ -110,14 +110,18 @@ with tab_carga:
         # Descarga controlada el mapa de subcategorías vivas de Supabase
         subcategorias_vivas = {}
         try:
-            res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").execute()
+            res_sub = supabase.table("subcategorias").select("*").execute()
             if res_sub.data:
-                for sub in res_sub.data:
-                    raiz_nombre = str(sub["nombre_subcat"]).lower().strip()
-                    subcategorias_vivas[raiz_nombre] = sub["id_subcat"]
+                df_sub_mapeo = pd.DataFrame(res_sub.data)
+                # Buscamos de forma automatizada las columnas numéricas y de texto
+                col_id = [c for c in df_sub_mapeo.columns if "id" in c.lower() or c.lower() == "id_subcat"][0]
+                col_nombre = [c for c in df_sub_mapeo.columns if "nombre" in c.lower() or c.lower() == "nombre_subcat"][0]
+                
+                for _, fila_sub in df_sub_mapeo.iterrows():
+                    raiz_nombre = str(fila_sub[col_nombre]).lower().strip()
+                    subcategorias_vivas[raiz_nombre] = int(fila_sub[col_id])
         except Exception as e:
-            # Captura el error PGRST125 amablemente en la barra lateral sin tumbar la pestaña de carga
-            st.sidebar.warning("⚠️ Modo Inteligente Desactivado: Revisa el nombre de la tabla en Supabase.")
+            st.sidebar.warning("⚠️ Modo Inteligente Desactivado: Revisa las columnas en Supabase.")
             subcategorias_vivas = None
             
         try:
