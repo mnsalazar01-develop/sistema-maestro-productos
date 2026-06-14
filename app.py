@@ -29,7 +29,7 @@ enrutador = st.navigation([
      llamada_cargar,
 #     llamada_maestro,
 #     llamada_reglas
-# ])
+])
 
 # ==============================================================================
 # 4. COMPONENTE DE BIENVENIDA INTEGRADO
