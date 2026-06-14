@@ -19,7 +19,7 @@ st.set_page_config(
 # Todos los archivos residen sueltos en el directorio raíz del proyecto
 # ==============================================================================
 llamada_cargar = st.Page("cargar_inventario.py", title="Cargar Inventario", icon="📤")
-# llamada_maestro = st.Page("maestro.py", title="Maestro de Datos", icon="📊")
+llamada_maestro = st.Page("maestro_datos.py", title="Maestro de Datos", icon="📊")
 # llamada_reglas = st.Page("reglas.py", title="Mantenedor de Reglas", icon="⚙️")
 
 # ==============================================================================
@@ -27,7 +27,7 @@ llamada_cargar = st.Page("cargar_inventario.py", title="Cargar Inventario", icon
 # ==============================================================================
 enrutador = st.navigation([
      llamada_cargar,
-#     llamada_maestro,
+     llamada_maestro,
 #     llamada_reglas
 ])
 
