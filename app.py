@@ -1,63 +1,48 @@
 # ==============================================================================
-# PROGRAMA: app.py (ARCHIVO RAÍZ ÚNICO)
-# VERSIÓN: 2.1.0
-# DESCRIPCIÓN: Sistema Maestro de Clasificación de Productos Genéricos Retail
-# MODIFICACIÓN: Enfoque paramétrico puro unificado en raíz sin subcarpetas.
+# PROGRAMA: app.py (MENÚ PRINCIPAL Y ENRUTADOR RAÍZ)
+# VERSIÓN: 3.1.0
+# DESCRIPCIÓN: Panel Central y Enrutador Plano del Sistema Maestro de Productos
+# MODIFICACIÓN: Eliminación de inicio.py. Bienvenido integrado en la raíz.
 # ==============================================================================
 
 import streamlit as st
-import pandas as pd
-import io
-from supabase import create_client, Client
 
-# Configuración de la ventana web de Streamlit
+# 1. CONFIGURACIÓN CORPORATIVA DE LA VENTANA WEB DE PRODUCCIÓN
 st.set_page_config(
-    page_title="Sistema Maestro de Productos", 
+    page_title="Sistema Maestro de Productos",
     page_icon="📦",
     layout="wide"
 )
 
-# ========================================
-# RF-01: CONEXIÓN A BASE DE DATOS CACHEADA
-# ========================================
-@st.cache_resource
-def init_supabase() -> Client:
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
-    return create_client(url, key)
+# 2. DEFINICIÓN DE LLAMADAS A PROGRAMAS SATÉLITES EN EL MISMO NIVEL
+# Todos los archivos residen sueltos en el directorio raíz del proyecto
+llamada_cargar = st.Page("cargar.py", title="Cargar Inventario", icon="📤")
+llamada_maestro = st.Page("maestro.py", title="Maestro de Datos", icon="📊")
+llamada_reglas = st.Page("reglas.py", title="Mantenedor de Reglas", icon="⚙️")
 
-# Inicializar la conexión global de Supabase
-try:
-    supabase = init_supabase()
-    st.sidebar.success("⚡ Conectado a Supabase Cloud")
-except Exception as e:
-    st.sidebar.error(f"❌ Error de conexión: {e}")
-
-# ========================================
-# ARQUITECTURA DEL MENÚ (Mediante Pestañas)
-# ========================================
-st.title("📦 Sistema Maestro de Clasificación de Productos")
-st.markdown("Bienvenido al centro operativo de taxonomía retail.")
-
-# Estructura superior unificada en el archivo raíz
-tab_inicio, tab_carga, tab_maestro, tab_reglas = st.tabs([
-    "🏠 Inicio", 
-    "📤 Cargar Inventario", 
-    "📊 Maestro de Datos",
-    "⚙️ Mantenedor de Reglas"
+# 3. CONSTRUCCIÓN DE LA NAVEGACIÓN EN LA BARRA LATERAL
+# Añadimos las llamadas directas a los archivos sueltos
+enrutador = st.navigation([
+    llamada_cargar,
+    llamada_maestro,
+    llamada_reglas
 ])
 
-# ----------------------------------------
-# SECCIÓN 1: INICIO
-# ----------------------------------------
-with tab_inicio:
-    st.subheader("Panel de Bienvenida")
+# 4. COMPONENTE DE BIENVENIDA INTEGRADO (Evita crear un inicio.py)
+# Si el usuario no ha hecho clic en ninguna opción, se muestra este bloque
+if "current_page" not in st.session_state:
+    st.title("🏭 Centro de Operaciones Retail - Menú Principal")
+    st.markdown("---")
     st.markdown("""
-    Esta aplicación web te permite estructurar tu catálogo de productos en bruto bajo el estándar de la industria.
+    ### Bienvenido al Ecosistema de Taxonomía de Productos Genéricos
     
-    ### Tus 3 Pilares de Datos Activos:
-    1. **Categorías (Nivel 1)**: Los 7 pasillos principales sembrados en Supabase.
-    2. **Subcategorías (Nivel 3/4)**: Tus familias de competencia directa ya cargadas.
-    3. **Productos (Nivel 5)**: Tu nueva propuesta de genéricos puros.
+    Utiliza el menú desplegable de la **barra lateral izquierda** para ingresar directamente a los programas satélites operativos de la empresa:
+    
+    * **📤 Cargar Inventario (`cargar.py`)**: Procesador de archivos planos CSV con cruce paramétrico dinámico.
+    * **📊 Maestro de Datos (`maestro.py`)**: Visualizador de tablas de Supabase en tiempo real y descarga a Excel.
+    * **⚙️ Mantenedor de Reglas (`reglas.py`)**: Panel para inyectar y actualizar tokens de clasificación en caliente.
     """)
-    st.info("Haz clic en la pestaña 'Cargar Inventario' de arriba para empezar a procesar tu archivo Excel.")
+    st.info("💡 Consejo de ingeniería: Todos los programas satélites residen sueltos en la raíz de tu proyecto para evitar problemas de rutas de red.")
+
+# 5. EJECUCIÓN DEL MOTOR DE NAVEGACIÓN PLANO
+enrutador.run()
