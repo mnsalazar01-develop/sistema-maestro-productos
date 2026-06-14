@@ -95,7 +95,7 @@ with tab_carga:
         if subcategorias_vivas:
             palabras_token = texto.split()
             if palabras_token:
-                primera_palabra = palabras_token[0]
+                primera_palabra = palabras_token
                 if primera_palabra in subcategorias_vivas:
                     return subcategorias_vivas[primera_palabra]
                     
@@ -107,21 +107,23 @@ with tab_carga:
     if archivo_subido:
         st.success("¡Archivo plano cargado con éxito en la memoria web!")
         
-        # Extracción blindada del mapa de subcategorías viva
+        # Extracción blindada del mapa de subcategorías con auditoría nativa (Versión 1.5.5)
         subcategorias_vivas = {}
         try:
-            # Forzamos una consulta limpia sin descriptores explícitos
             res_sub = supabase.table("subcategorias").select("*").execute()
             if res_sub and hasattr(res_sub, 'data') and res_sub.data:
                 df_sub_mapeo = pd.DataFrame(res_sub.data)
-                # Mapeo posicional ciego: columna 0 es ID, columna 2 (o última de texto) es el nombre
+                # Mapeo posicional ciego: columna 0 es ID, columna 2 es el nombre
                 for _, fila_sub in df_sub_mapeo.iterrows():
-                    val_id = int(fila_sub.iloc[0])
+                    val_id = int(fila_sub.iloc)
                     val_nombre = str(fila_sub.iloc[-1]).lower().strip()
                     subcategorias_vivas[val_nombre] = val_id
+            else:
+                st.sidebar.warning("⚠️ Alerta: La tabla 'subcategorias' se encuentra vacía en Supabase.")
+                subcategorias_vivas = None
         except Exception as e:
-            # Captura la desincronización PGRST125 de forma aislada sin tumbar la interfaz
-            st.sidebar.warning("⚠️ Alerta: El mapa de autoaprendizaje se encuentra en mantenimiento temporal.")
+            # Imprime el error real del servidor de Supabase directo en pantalla
+            st.sidebar.error(f"❌ Error de Sistema: {str(e)}")
             subcategorias_vivas = None
             
         try:
