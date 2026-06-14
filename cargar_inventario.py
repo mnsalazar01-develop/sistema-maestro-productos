@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE A DE B)
-# VERSIÓN: 1.0.0 (MÓDULO SUELTO RAÍZ)
+# VERSIÓN: 1.1.0 (MÓDULO SUELTO RAÍZ)
 # DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
-# MODIFICACIÓN: Extracción de matriz viva de Supabase sin código duro local.
+# MODIFICACIÓN: Inyección de extractor posicional adaptativo para corregir el set en cero.
 # ==============================================================================
 
 import streamlit as st
@@ -57,14 +57,21 @@ archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos
 if archivo_subido:
     st.success("¡Archivo plano cargado con éxito en la memoria web!")
     
-    # Descarga y purificación de tipos primitivos JSON de Supabase
+    # Descarga y purificación de tipos mediante extractor posicional ciego
     matriz_reglas_vivas = {}
     try:
         res_reglas = supabase.table("matriz_diccionario_reglas").select("*").execute()
         if res_reglas and hasattr(res_reglas, 'data') and res_reglas.data:
             for fila_r in res_reglas.data:
-                token_clave = str(fila_r.get("palabra_clave", "")).lower().strip()
-                id_destino = int(fila_r.get("id_enlace_subcat", 0))
+                # Extraemos las llaves del JSON de Supabase para buscar los valores por tipo primitivo
+                llaves_json = list(fila_r.keys())
+                
+                # Buscamos la columna de texto y la columna numérica de enlace de subcategoría
+                col_texto = [k for k in llaves_json if "clave" in k.lower() or k.lower() == "palabra_clave"][0]
+                col_numero = [k for k in llaves_json if "subcat" in k.lower() or "enlace" in k.lower() or "id" in k.lower() and k.lower() != "id_regla"][0]
+                
+                token_clave = str(fila_r.get(col_texto, "")).lower().strip()
+                id_destino = int(fila_r.get(col_numero, 0))
                 
                 if token_clave and id_destino > 0:
                     matriz_reglas_vivas[token_clave] = id_destino
