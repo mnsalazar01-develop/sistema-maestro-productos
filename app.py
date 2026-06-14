@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA: app.py
-# VERSIÓN: 1.2.0
+# VERSIÓN: 1.3.0
 # DESCRIPCIÓN: Sistema Maestro de Clasificación de Productos Genéricos Retail
-# MODIFICACIÓN: Se integró el sub-módulo de exportación binaria a Excel (BytesIO) en Sección 3.
+# MODIFICACIÓN: Se migró el cargador masivo de formato Excel (.xlsx) a formato de archivo plano (.csv).
 # ==============================================================================
 
 import streamlit as st
@@ -62,7 +62,7 @@ with tab_inicio:
 # ----------------------------------------
 with tab_carga:
     st.subheader("Procesador de Archivos en Bruto")
-    st.markdown("Sube tu archivo Excel con la columna `nombre` para clasificarlo automáticamente mediante reglas de retail.")
+    st.markdown("Sube tu archivo plano o CSV con la columna `nombre` para clasificarlo automáticamente mediante reglas de retail.")
     
     # El diccionario de reglas que traduce palabras clave en IDs de subcategorías de Supabase
     DICCIONARIO_REGLAS = {
@@ -90,15 +90,19 @@ with tab_carga:
                 return id_subcat
         return None
 
-    # Componente visual para arrastrar y soltar el archivo Excel
-    archivo_subido = st.file_uploader("Selecciona tu archivo .xlsx de productos", type=["xlsx"])
+    # Componente visual reconfigurado estrictamente para aceptar archivos planos CSV
+    archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"])
     
     if archivo_subido:
-        st.success("¡Archivo cargado con éxito en la memoria web!")
-        df = pd.read_excel(archivo_subido)
+        st.success("¡Archivo plano cargado con éxito en la memoria web!")
+        
+        try:
+            df = pd.read_csv(archivo_subido, encoding='utf-8')
+        except UnicodeDecodeError:
+            df = pd.read_csv(archivo_subido, encoding='latin-1')
         
         if 'nombre' not in df.columns:
-            st.error("❌ Error: Tu archivo Excel debe contener una columna llamada exactamente 'nombre' (en minúsculas).")
+            st.error("❌ Error: Tu archivo plano debe contener una columna llamada exactamente 'nombre' (en minúsculas).")
         else:
             st.markdown("### 🧠 Pre-visualización de la Clasificación Automática")
             productos_clasificados = []
@@ -127,7 +131,7 @@ with tab_carga:
                     st.dataframe(pd.DataFrame(no_clasificados), use_container_width=True)
             
             if productos_clasificados:
-                if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud"):
+                if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos"):
                     with st.spinner("Inyectando registros en la base de datos..."):
                         try:
                             respuesta = supabase.table("productos").insert(productos_clasificados).execute()
@@ -168,7 +172,7 @@ with tab_maestro:
                     st.warning(f"La tabla {tabla_seleccionada} se encuentra actualmente vacía.")
                     if "df_actual" in st.session_state: del st.session_state["df_actual"]
             except Exception as e:
-                st.error(f"Error al consultar la tabla {tabla_seleccionada} en Supabase: {e}")
+                st.error(f"Error al consultar la tabla {tabla_seleccionada} in Supabase: {e}")
 
     # Sub-módulo de Exportación a Excel
     if "df_actual" in st.session_state and st.session_state["df_actual"] is not None:
