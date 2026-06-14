@@ -175,36 +175,94 @@ with tab_carga:
 					})
 				else:
 					no_clasificados.append({"nombre": nombre_prod})
-			
-			col1, col2 = st.columns(2)
-			with col1:
-				st.metric("Productos Listos para Supabase", len(productos_clasificados))
-				if productos_clasificados:
-					st.dataframe(pd.DataFrame(productos_clasificados), use_container_width=True)
-			with col2:
-				st.metric("Productos sin clasificar (Omitidos)", len(no_clasificados))
-				if no_clasificados:
-					df_omitidos = pd.DataFrame(no_clasificados)
-					st.dataframe(df_omitidos, use_container_width=True)
+
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Productos Listos para Supabase", len(productos_clasificados))
+                if productos_clasificados:
+                    df_previa = pd.DataFrame(productos_clasificados)[["nombre", "id_subcat"]]
+                    st.dataframe(df_previa, use_container_width=True)
+            with col2:
+                st.metric("Productos sin clasificar (Omitidos)", len(no_clasificados))
+                if no_clasificados:
+                    df_omitidos = pd.DataFrame(no_clasificados)
+                    st.dataframe(df_omitidos, use_container_width=True)
+                    
+                    csv_omitidos = df_omitidos.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label="⚠️ Descargar Omitidos para revisión",
+                        data=csv_omitidos,
+                        file_name="productos_omitidos.csv",
+                        mime="text/csv",
+                        key="btn_descargar_omitidos_v192"
+                    )
+            
+            if productos_clasificados:
+                if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos_v192"):
+                    with st.spinner("Inyectando registros en la base de datos..."):
+                        exito_insercion = False
+                        
+                        # Intento 1: Estructura estándar de columnas ('nombre' / 'id_subcat')
+                        try:
+                            payload_intento1 = []
+                            for p in productos_clasificados:
+                                payload_intento1.append({
+                                    "nombre": p["nombre"],
+                                    "id_subcat": p["id_subcat"]
+                                })
+                            supabase.table("productos").insert(payload_intento1).execute()
+                            exito_insercion = True
+                        except Exception:
+                            exito_insercion = False
+                            
+                        # Intento 2 (Contingencia): Estructura extendida si tu Supabase usa ('nombre_producto' / 'id_enlace_subcat')
+                        if not exito_insercion:
+                            try:
+                                payload_intento2 = []
+                                for p in productos_clasificados:
+                                    payload_intento2.append({
+                                        "nombre_producto": p["nombre_producto"],
+                                        "id_enlace_subcat": p["id_enlace_subcat"]
+                                    })
+                                supabase.table("productos").insert(payload_intento2).execute()
+                                exito_insercion = True
+                            except Exception as e_final:
+                                st.error(f"Error definitivo de persistencia en Supabase: {e_final}")
+                                
+                        if exito_insercion:
+                            st.balloons()
+                            st.success(f"¡Éxito total! Se guardaron {len(productos_clasificados)} productos genéricos en tu esquema privado.")
+                            			
+#			col1, col2 = st.columns(2)
+#			with col1:
+#				st.metric("Productos Listos para Supabase", len(productos_clasificados))
+#				if productos_clasificados:
+#				st.dataframe(pd.DataFrame(productos_clasificados), use_container_width=True)
+#			with col2:
+#				st.metric("Productos sin clasificar (Omitidos)", len(no_clasificados))
+#				if no_clasificados:
+#					df_omitidos = pd.DataFrame(no_clasificados)
+#					st.dataframe(df_omitidos, use_container_width=True)
 					
-					csv_omitidos = df_omitidos.to_csv(index=False).encode('utf-8')
-					st.download_button(
-						label="⚠️ Descargar Omitidos para revisión",
-						data=csv_omitidos,
-						file_name="productos_omitidos.csv",
-						mime="text/csv",
-						key="btn_descargar_omitidos_v180"
-					)
+#					csv_omitidos = df_omitidos.to_csv(index=False).encode('utf-8')
+#					st.download_button(
+#						label="⚠️ Descargar Omitidos para revisión",
+#						data=csv_omitidos,
+#						file_name="productos_omitidos.csv",
+#						mime="text/csv",
+#						key="btn_descargar_omitidos_v180"
+#					)
 			
-			if productos_clasificados:
-				if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos_v180"):
-					with st.spinner("Inyectando registros en la base de datos..."):
-						try:
-							respuesta = supabase.table("productos").insert(productos_clasificados).execute()
-							st.balloons()
-							st.success(f"¡Éxito total! Se guardaron {len(productos_clasificados)} productos genéricos en Supabase.")
-						except Exception as e:
-							st.error(f"Error al guardar en Supabase: {e}")
+#			if productos_clasificados:
+#				if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos_v180"):
+#					with st.spinner("Inyectando registros en la base de datos..."):
+#						try:
+#							respuesta = supabase.table("productos").insert(productos_clasificados).execute()
+#							st.balloons()
+#							st.success(f"¡Éxito total! Se guardaron {len(productos_clasificados)} productos genéricos en Supabase.")
+#						except Exception as e:
+#							st.error(f"Error al guardar en Supabase: {e}")
 
 # ----------------------------------------
 # SECCIÓN 3: MAESTRO DE DATOS
