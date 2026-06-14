@@ -1,8 +1,14 @@
+# ==============================================================================
+# PROGRAMA: app.py
+# VERSIÓN: 1.0.0
+# DESCRIPCIÓN: Sistema Maestro de Clasificación de Productos Genéricos Retail
+# ==============================================================================
+
 import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
 
-# 1. Configuración de la ventana web de Streamlit
+# Configuración de la ventana web de Streamlit
 st.set_page_config(
     page_title="Sistema Maestro de Productos", 
     page_icon="📦",
@@ -54,14 +60,79 @@ with tab_inicio:
 # ----------------------------------------
 with tab_carga:
     st.subheader("Procesador de Archivos en Bruto")
-    st.markdown("Sube tu archivo Excel con la columna `nombre` para clasificarlo automáticamente.")
+    st.markdown("Sube tu archivo Excel con la columna `nombre` para clasificarlo automáticamente mediante reglas de retail.")
     
+    # El diccionario de reglas que traduce palabras clave en IDs de subcategorías de Supabase
+    DICCIONARIO_REGLAS = {
+        "gran": 8, "arroz": 8, "frijol": 8, "caraota": 8, "lenteja": 8, "cafe": 8, "café": 8,
+        "harin": 9, "fororo": 9, "maicena": 9,
+        "aceit": 10, "oliva": 10,
+        "mantec": 11, "margar": 11, "manteq": 11,
+        "atun": 12, "atún": 12, "sardin": 12,
+        "mayon": 14, "salsa": 14, "ketchup": 14,
+        "sal ": 15, "pimient": 15,
+        "avena": 16, "cereal": 16,
+        "lech": 17, "queso": 17, "crema": 17,
+        "yog": 18,
+        "jabon": 30, "jabón": 30,
+        "shamp": 31, "champ": 31,
+        "desod": 32,
+        "crema dent": 33, "pasta dent": 33,
+        "papel hig": 34
+    }
+
+    def clasificar_texto(nombre_recibido):
+        texto = str(nombre_recibido).lower().strip()
+        for palabra_clave, id_subcat in DICCIONARIO_REGLAS.items():
+            if palabra_clave in texto:
+                return id_subcat
+        return None
+
     # Componente visual para arrastrar y soltar el archivo Excel
     archivo_subido = st.file_uploader("Selecciona tu archivo .xlsx de productos", type=["xlsx"])
     
     if archivo_subido:
-        st.success("File uploaded successfully!")
-        # Aquí procesaremos el archivo con pandas en el siguiente paso
+        st.success("¡Archivo cargado con éxito en la memoria web!")
+        df = pd.read_excel(archivo_subido)
+        
+        if 'nombre' not in df.columns:
+            st.error("❌ Error: Tu archivo Excel debe contener una columna llamada exactamente 'nombre' (en minúsculas).")
+        else:
+            st.markdown("### 🧠 Pre-visualización de la Clasificación Automática")
+            productos_clasificados = []
+            no_clasificados = []
+            
+            for idx, fila in df.iterrows():
+                nombre_prod = fila['nombre']
+                id_subcat = clasificar_texto(nombre_prod)
+                
+                if id_subcat:
+                    productos_clasificados.append({
+                        "nombre_producto": nombre_prod,
+                        "id_enlace_subcat": id_subcat
+                    })
+                else:
+                    no_clasificados.append({"Producto No Clasificado": nombre_prod})
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Productos Listos para Supabase", len(productos_clasificados))
+                if productos_clasificados:
+                    st.dataframe(pd.DataFrame(productos_clasificados), use_container_width=True)
+            with col2:
+                st.metric("Productos sin clasificar (Omitidos)", len(no_clasificados))
+                if no_clasificados:
+                    st.dataframe(pd.DataFrame(no_clasificados), use_container_width=True)
+            
+            if productos_clasificados:
+                if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud"):
+                    with st.spinner("Inyectando registros en la base de datos..."):
+                        try:
+                            respuesta = supabase.table("productos").insert(productos_clasificados).execute()
+                            st.balloons()
+                            st.success(f"¡Éxito total! Se guardaron {len(productos_clasificados)} productos genéricos en Supabase.")
+                        except Exception as e:
+                            st.error(f"Error al guardar en Supabase: {e}")
 
 # ----------------------------------------
 # SECCIÓN 3: MAESTRO DE DATOS
@@ -72,7 +143,6 @@ with tab_maestro:
     
     if st.button("🔄 Refrescar datos de Supabase"):
         try:
-            # Consulta rápida de prueba para jalar tus 7 categorías de la nube
             respuesta = supabase.table("categorias").select("*").execute()
             df_cat = pd.DataFrame(respuesta.data)
             st.dataframe(df_cat, use_container_width=True)
