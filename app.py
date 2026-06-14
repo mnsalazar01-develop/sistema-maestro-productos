@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA: app.py (PARTE A DE C)
-# VERSIÓN: 1.8.1
+# VERSIÓN: 1.9.0
 # DESCRIPCIÓN: Sistema Maestro de Clasificación de Productos Genéricos Retail
-# MODIFICACIÓN: Corrección estricta de TabError mediante espacios puros unificados.
+# MODIFICACIÓN: Desacoplamiento total a matriz parametrizada usando anon_key base.
 # ==============================================================================
 
 import streamlit as st
@@ -67,106 +67,44 @@ with tab_inicio:
 with tab_carga:
     st.subheader("Procesador de Archivos en Bruto")
     st.markdown("Sube tu archivo plano o CSV con la columna `nombre` para clasificarlo automáticamente mediante la matriz paramétrica de Supabase.")
-    
-    # El diccionario de reglas base expandido masivamente (Versión 1.8.1)
-    DICCIONARIO_REGLAS = {
-        # 1. Alimentos Frescos
-        "carne": 1, "res ": 1, "bistec": 1, "molida": 1, "pollo": 1, "pechuga": 1, "cerdo": 1, # Carnicería
-        "charc": 2, "jamon": 2, "jamón": 2, "mortad": 2, "salchic": 2, "tocin": 2,            # Charcutería
-        "frut": 3, "manzan": 3, "cambur": 3, "naranj": 3, "fresa": 3,                           # Frutería
-        "verdu": 4, "papa ": 4, "ceboll": 4, "tomate": 4, "zanah": 4, "aliño": 4,               # Verdulería
-        "pesca": 5, "camar": 5, "marisc": 5, "merlu": 5,                                       # Pescadería
-        "pan ": 6, "baguet": 6, "canill": 6, "acem": 6,                                        # Panadería
-        "tort": 7, "pastg": 7, "ponqu": 7, "hojald": 7,                                        # Pastelería
 
-        # 2. Víveres (Despensa)
-        "gran": 8, "arroz": 8, "frijol": 8, "caraota": 8, "lenteja": 8, "cafe": 8, "café": 8,   # Granos
-        "harin": 9, "fororo": 9, "maicena": 9, "pasta": 9, "espagu": 9, "fideo": 9,            # Harinas y Pastas
-        "aceit": 10, "oliva": 10,                                                               # Aceites Comestibles
-        "mantec": 11, "margar": 11, "manteq": 11,                                               # Grasas
-        "atun": 12, "atún": 12, "sardin": 12, "pepito": 12,                                     # Enlatados
-        "mermel": 13, "conserv": 13,                                                            # Conservas
-        "mayon": 14, "salsa": 14, "ketchup": 14, "mostaz": 14,                                  # Salsas y Aderezos
-        "sal ": 15, "pimient": 15, "condim": 15, "orég": 15,                                    # Condimentos
-        "avena": 16, "cereal": 16, "corn": 16, "azucar": 16, "azúcar": 16,                       # Desayuno y Azúcar
-
-        # 3. Refrigerados y Congelados
-        "lech": 17, "queso": 17, "crema": 17, "lact": 17,                                       # Lácteos y Leches
-        "yog": 18, "yogu": 18,                                                                  # Yogures
-        "nugget": 19, "papas cong": 19,                                                         # Comidas Preparadas
-        "brocol cong": 20,                                                                      # Vegetales Congelados
-        "helad": 21, "palet": 21,                                                               # Helados
-
-        # 4. Bebidas y Bodegón
-        "agua": 22, "mineral": 22,                                                              # Agua
-        "jugo": 23, "nectar": 23,                                                               # Jugos
-        "refres": 24, "soda": 24, "cola": 24,                                                   # Refrescos
-        "energ": 25, "red bull": 25,                                                           # Bebidas Energéticas
-        "ron ": 26, "caciqu": 26,                                                               # Ron
-        "cerve": 27, "frías": 27,                                                               # Cerveza
-        "vino": 28, "tinto": 28,                                                                # Vino
-        "whis": 29, "bucan": 29,                                                                # Whisky
-
-        # 5. Cuidado Personal e Higiene
-        "jabon": 30, "jabón": 30,                                                               # Jabón
-        "shamp": 31, "champ": 31, "acondic": 31,                                                # Champú
-        "desod": 32, "axila": 32,                                                               # Desodorante
-        "crema dent": 33, "pasta dent": 33, "colgat": 33,                                       # Crema Dental
-        "papel hig": 34, "toilet": 34, "servill": 34,                                           # Papel Higiénico
-        "maquill": 35, "labial": 35,                                                            # Maquillaje
-
-        # 6. Cuidado del Hogar y Limpieza
-        "deterg": 36, "ace ": 36, "ariel": 36,                                                  # Detergentes
-        "suaviz": 37, "downy": 37,                                                              # Suavizantes
-        "limpia": 38, "cloro": 38,                                                              # Limpiadores
-        "desinf": 39, "lysol": 39,                                                              # Desinfectantes
-        "lavap": 40, "axion": 40, "crema lava": 40,                                             # Lavaplatos
-
-        # 7. Categorías Adicionales
-        "mascot": 41, "perrar": 41, "gatar": 41,                                                # Mascotas
-        "pañal": 42, "pamp": 42,                                                                # Pañales
-        "formul": 43, "infant": 43,                                                             # Fórmulas Infantiles
-        "ferret": 44, "tornill": 44, "clav": 44                                                 # Ferretería Ligera
-    }
-
-    # Función interna para clasificar un producto basado en las reglas locales y dinámicas
-    def clasificar_texto_parametrizado(nombre_recibido, subcategorias_vivas=None):
+    # Función interna para clasificar un producto basado en las reglas dinámicas descargadas
+    def clasificar_texto_parametrizado(nombre_recibido, mapa_reglas=None):
         texto = str(nombre_recibido).lower().strip()
         
-        # Estrategia 1: Validación estática por diccionario expandido
-        for palabra_clave, id_subcat in DICCIONARIO_REGLAS.items():
-            if palabra_clave in texto:
-                return id_subcat
-                
-        # Estrategia 2: Inteligencia Dinámica parametrizada
-        if subcategorias_vivas:
-            for token_clave, id_destino in subcategorias_vivas.items():
-                if token_clave in texto:
-                    return id_destino
+        # Validación dinámica recorriendo la matriz paramétrica viva de la base de datos
+        if mapa_reglas:
+            for palabra_clave, id_subcat in mapa_reglas.items():
+                if palabra_clave in texto:
+                    return id_subcat
         return None
+
     # Componente visual para aceptar archivos planos CSV
-    archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_v180")
+    archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_v190")
     
     if archivo_subido:
         st.success("¡Archivo plano cargado con éxito en la memoria web!")
         
-        # Extracción y mapeo posicional blindado de la tabla parametrizada
-        subcategorias_vivas = {}
+        # Extracción y mapeo en caliente de la nueva tabla de control viva
+        matriz_reglas_vivas = {}
         try:
+            # Consultamos la tabla paramétrica en la nube usando el cliente público base
             res_reglas = supabase.table("matriz_diccionario_reglas").select("*").execute()
             if res_reglas and hasattr(res_reglas, 'data') and res_reglas.data:
                 df_reglas_mapeo = pd.DataFrame(res_reglas.data)
                 
+                # Mapeo posicional ciego: buscamos la columna de texto clave y la de enlace de subcategoría
                 col_clave = [c for c in df_reglas_mapeo.columns if "clave" in c.lower() or c.lower() == "palabra_clave"]
                 col_subcat = [c for c in df_reglas_mapeo.columns if "subcat" in c.lower() or "enlace" in c.lower()]
                 
                 for _, fila_r in df_reglas_mapeo.iterrows():
                     token_clave = str(fila_r[col_clave]).lower().strip()
                     id_destino = int(fila_r[col_subcat])
-                    subcategorias_vivas[token_clave] = id_destino
+                    matriz_reglas_vivas[token_clave] = id_destino
         except Exception as e:
-            st.sidebar.warning("⚠️ Modo Inteligente pausado. Operando con diccionario base.")
-            subcategorias_vivas = None
+            # Tolerancia a fallos preventiva si las RLS restringen la lectura directa
+            st.sidebar.warning("⚠️ Alerta: Matriz paramétrica offline. Operando en modo restringido.")
+            matriz_reglas_vivas = None
             
         try:
             df = pd.read_csv(archivo_subido, encoding='utf-8')
@@ -182,21 +120,27 @@ with tab_carga:
             
             for idx, fila in df.iterrows():
                 nombre_prod = fila['nombre']
-                id_subcat = clasificar_texto_parametrizado(nombre_prod, subcategorias_vivas)
+                id_subcat = clasificar_texto_parametrizado(nombre_prod, matriz_reglas_vivas)
                 
                 if id_subcat:
+                    # ADAPTACIÓN DE ARQUITECTURA: Mapeo ciego universal
+                    # Inyectamos de forma simultánea tanto la etiqueta 'nombre' como 'id_subcat'
+                    # para que sea 100% compatible con cualquier nombre de columna física en Supabase.
                     productos_clasificados.append({
+                        "nombre": nombre_prod,
                         "nombre_producto": nombre_prod,
+                        "id_subcat": id_subcat,
                         "id_enlace_subcat": id_subcat
                     })
                 else:
                     no_clasificados.append({"nombre": nombre_prod})
-            
             col1, col2 = st.columns(2)
             with col1:
                 st.metric("Productos Listos para Supabase", len(productos_clasificados))
                 if productos_clasificados:
-                    st.dataframe(pd.DataFrame(productos_clasificados), use_container_width=True)
+                    # Mostramos visualmente solo una estructura limpia para el usuario
+                    df_previa = pd.DataFrame(productos_clasificados)[["nombre", "id_subcat"]]
+                    st.dataframe(df_previa, use_container_width=True)
             with col2:
                 st.metric("Productos sin clasificar (Omitidos)", len(no_clasificados))
                 if no_clasificados:
@@ -209,19 +153,45 @@ with tab_carga:
                         data=csv_omitidos,
                         file_name="productos_omitidos.csv",
                         mime="text/csv",
-                        key="btn_descargar_omitidos_v180"
+                        key="btn_descargar_omitidos_v190"
                     )
             
             if productos_clasificados:
-                if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos_v180"):
+                if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos_v190"):
                     with st.spinner("Inyectando registros en la base de datos..."):
+                        # Algoritmo Adaptativo de Escritura para evadir el error PGRST125
+                        exito_insercion = False
+                        
+                        # Intento 1: Estructura clásica (nombre / id_subcat)
                         try:
-                            respuesta = supabase.table("productos").insert(productos_clasificados).execute()
+                            payload_intento1 = []
+                            for p in productos_clasificados:
+                                payload_intento1.append({
+                                    "nombre": p["nombre"],
+                                    "id_subcat": p["id_subcat"]
+                                })
+                            supabase.table("productos").insert(payload_intento1).execute()
+                            exito_insercion = True
+                        except Exception:
+                            exito_insercion = False
+                            
+                        # Intento 2 (Contingencia): Estructura extendida si falla el intento 1
+                        if not exito_insercion:
+                            try:
+                                payload_intento2 = []
+                                for p in productos_clasificados:
+                                    payload_intento2.append({
+                                        "nombre_producto": p["nombre_producto"],
+                                        "id_enlace_subcat": p["id_enlace_subcat"]
+                                    })
+                                supabase.table("productos").insert(payload_intento2).execute()
+                                exito_insercion = True
+                            except Exception as e_final:
+                                st.error(f"Error definitivo de persistencia en Supabase: {e_final}")
+                                
+                        if exito_insercion:
                             st.balloons()
-                            st.success(f"¡Éxito total! Se guardaron {len(productos_clasificados)} productos genéricos en Supabase.")
-                        except Exception as e:
-                            st.error(f"Error al guardar en Supabase: {e}")
-
+                            st.success(f"¡Éxito total! Se guardaron {len(productos_clasificados)} productos genéricos en tu esquema privado.")
 # ----------------------------------------
 # SECCIÓN 3: MAESTRO DE DATOS
 # ----------------------------------------
@@ -232,10 +202,10 @@ with tab_maestro:
     tabla_seleccionada = st.selectbox(
         "Selecciona la tabla que deseas visualizar:",
         ["categorias", "subcategorias", "productos", "matriz_diccionario_reglas"],
-        key="selector_tablas_v180"
+        key="selector_tablas_v190"
     )
     
-    if st.button("🔄 Refrescar datos de Supabase", key="btn_refrescar_maestro_v180"):
+    if st.button("🔄 Refrescar datos de Supabase", key="btn_refrescar_maestro_v190"):
         with st.spinner(f"Consultando registros de la tabla {tabla_seleccionada}..."):
             try:
                 respuesta = supabase.table(tabla_seleccionada).select("*").execute()
@@ -273,11 +243,11 @@ with tab_maestro:
             data=data_excel,
             file_name=nombre_archivo,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key="btn_descargar_excel_v180"
+            key="btn_descargar_excel_v190"
         )
 
 # ----------------------------------------
-# SECCIÓN 4: MANTENEDOR DE REGLAS (PARTE 1 DE 2)
+# SECCIÓN 4: MANTENEDOR DE REGLAS
 # ----------------------------------------
 with tab_reglas:
     st.subheader("⚙️ Panel de Control y Actualización de Reglas")
@@ -288,19 +258,17 @@ with tab_reglas:
         res_sub_form = supabase.table("subcategorias").select("*").execute()
         if res_sub_form and hasattr(res_sub_form, 'data') and res_sub_form.data:
             df_sub_form = pd.DataFrame(res_sub_form.data)
-            col_id_f = [c for c in df_sub_form.columns if "id" in c.lower() or c.lower() == "id_subcat"][0]
-            col_nom_f = [c for c in df_sub_form.columns if "nombre" in c.lower() or c.lower() == "nombre_subcat"][0]
+            col_id_f = [c for c in df_sub_form.columns if "id" in c.lower() or c.lower() == "id_subcat"]
+            col_nom_f = [c for c in df_sub_form.columns if "nombre" in c.lower() or c.lower() == "nombre_subcat"]
             
             for _, f_sub in df_sub_form.iterrows():
-                label_combo = f"{f_sub[col_id_f]} - {f_sub[col_nom_f]}"
-                mapa_subcats_formulario[label_combo] = int(f_sub[col_id_f])
+                label_combo = f"{f_sub.iloc[col_id_f]} - {f_sub.iloc[col_nom_f]}"
+                mapa_subcats_formulario[label_combo] = int(f_sub.iloc[col_id_f])
         else:
             raise ValueError("Tabla vacía")
     except Exception:
-        # Contingencia de Infraestructura: Si las RLS bloquean la API, auto-generamos el mapa desde el diccionario local
+        # Contingencia de Infraestructura Segura (Mapeo Local Integrado)
         st.sidebar.info("💡 Formulario operando en Modo Privado Seguro (RLS Activo)")
-        
-        # Mapeo manual estandarizado de los IDs de las subcategorías core del negocio
         familias_respaldo = {
             1: "Carnicería", 2: "Charcutería", 3: "Frutería", 4: "Verdulería", 5: "Pescadería", 
             6: "Panadería", 7: "Pastelería", 8: "Granos y Café", 9: "Harinas y Pastas", 
@@ -316,9 +284,7 @@ with tab_reglas:
         }
         for id_f, nombre_f in familias_respaldo.items():
             mapa_subcats_formulario[f"{id_f} - {nombre_f}"] = id_f
-    # ----------------------------------------
-    # SECCIÓN 4: MANTENEDOR DE REGLAS (PARTE 2 DE 2)
-    # ----------------------------------------
+
     if mapa_subcats_formulario:
         with st.form("formulario_nuevas_reglas", clear_on_submit=True):
             col_input1, col_input2 = st.columns(2)
@@ -327,7 +293,6 @@ with tab_reglas:
                 nueva_palabra = st.text_input("Nueva Palabra Clave / Token a buscar:", placeholder="Ej: melon, ceboll, bife").strip()
             
             with col_input2:
-                # El menú desplegable se alimenta automáticamente del mapa de respaldo seguro
                 subcat_seleccionada = st.selectbox("Asociar de forma estricta a la subcategoría:", list(mapa_subcats_formulario.keys()))
             
             boton_guardar_regla = st.form_submit_button("💾 Guardar Nueva Regla en Supabase")
@@ -343,7 +308,6 @@ with tab_reglas:
                     }
                     
                     try:
-                        # La inserción se ejecuta directo en la tabla paramétrica blindada
                         supabase.table("matriz_diccionario_reglas").insert(registro_regla).execute()
                         st.success(f"✅ ¡Éxito! La regla '{nueva_palabra.lower()}' fue enlazada al ID {id_subcat_destino} exitosamente.")
                         st.info("💡 El clasificador asimiló el cambio en la nube. La próxima carga de archivo plano aplicará la regla al instante.")
