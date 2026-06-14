@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA: app.py (PARTE A DE B)
-# VERSIÓN: 1.6.0
+# VERSIÓN: 1.6.1
 # DESCRIPCIÓN: Sistema Maestro de Clasificación de Productos Genéricos Retail
-# MODIFICACIÓN: Se encapsuló la llamada del mapa dinámico dentro del disparador de archivos (Versión 1.6.0).
+# MODIFICACIÓN: Se robusteció el DICCIONARIO_REGLAS estático para mitigar la pausa del Modo Inteligente.
 # ==============================================================================
 
 import streamlit as st
@@ -63,23 +63,33 @@ with tab_carga:
     st.subheader("Procesador de Archivos en Bruto")
     st.markdown("Sube tu archivo plano o CSV con la columna `nombre` para clasificarlo automáticamente mediante reglas de retail.")
     
-    # El diccionario de reglas base que traduce palabras clave en IDs de subcategorías de Supabase
+    # El diccionario de reglas base robustecido (Versión 1.6.1)
     DICCIONARIO_REGLAS = {
+        # Víveres (Despensa)
         "gran": 8, "arroz": 8, "frijol": 8, "caraota": 8, "lenteja": 8, "cafe": 8, "café": 8,
         "harin": 9, "fororo": 9, "maicena": 9,
         "aceit": 10, "oliva": 10,
         "mantec": 11, "margar": 11, "manteq": 11,
         "atun": 12, "atún": 12, "sardin": 12,
-        "mayon": 14, "salsa": 14, "ketchup": 14,
-        "sal ": 15, "pimient": 15,
-        "avena": 16, "cereal": 16,
+        "mermel": 13, "conserv": 13,
+        "mayon": 14, "salsa": 14, "ketchup": 14, "mostaz": 14,
+        "sal ": 15, "pimient": 15, "condim": 15,
+        "avena": 16, "cereal": 16, "corn": 16, "azucar": 16, "azúcar": 16,
+        
+        # Refrigerados y Congelados
         "lech": 17, "queso": 17, "crema": 17,
         "yog": 18,
+        
+        # Bebidas y Bodegón
+        "agua": 22, "mineral": 22,
+        "jugo": 23, "refres": 24, "soda": 24,
+        
+        # Cuidado Personal e Higiene
         "jabon": 30, "jabón": 30,
-        "shamp": 31, "champ": 31,
+        "shamp": 31, "champ": 31, "acondic": 31,
         "desod": 32,
-        "crema dent": 33, "pasta dent": 33,
-        "papel hig": 34
+        "crema dent": 33, "pasta dent": 33, "colgat": 33,
+        "papel hig": 34, "toilet": 34
     }
 
     # Función interna para clasificar un producto
@@ -113,13 +123,11 @@ with tab_carga:
             res_sub = supabase.table("subcategorias").select("*").execute()
             if res_sub and hasattr(res_sub, 'data') and res_sub.data:
                 df_sub_mapeo = pd.DataFrame(res_sub.data)
-                # Mapeo por posición física: columna 0 es ID, columna de la derecha o última es el nombre
                 for _, fila_sub in df_sub_mapeo.iterrows():
                     val_id = int(fila_sub.iloc)
                     val_nombre = str(fila_sub.iloc[-1]).lower().strip()
                     subcategorias_vivas[val_nombre] = val_id
         except Exception as e:
-            # Tolerancia total a fallos: si falla la red, el sistema opera con el diccionario inmutable
             st.sidebar.warning("⚠️ Modo Inteligente pausado. Operando con diccionario base.")
             subcategorias_vivas = None
             
