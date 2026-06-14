@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA: app.py (PARTE A DE B)
-# VERSIÓN: 1.5.2
+# VERSIÓN: 1.5.3
 # DESCRIPCIÓN: Sistema Maestro de Clasificación de Productos Genéricos Retail
-# MODIFICACIÓN: Se implementó mapeo dinámico de columnas ciegas para solucionar el error PGRST125.
+# MODIFICACIÓN: Se implementó mapeo posicional puro de índices de datos (Index-Based Mapping) para activar Modo Inteligente.
 # ==============================================================================
 
 import streamlit as st
@@ -107,21 +107,22 @@ with tab_carga:
     if archivo_subido:
         st.success("¡Archivo plano cargado con éxito en la memoria web!")
         
-        # Descarga controlada el mapa de subcategorías vivas de Supabase
+        # Descarga controlada el mapa de subcategorías vivas de Supabase usando índices puros
         subcategorias_vivas = {}
         try:
             res_sub = supabase.table("subcategorias").select("*").execute()
             if res_sub.data:
                 df_sub_mapeo = pd.DataFrame(res_sub.data)
-                # Buscamos de forma automatizada las columnas numéricas y de texto
-                col_id = [c for c in df_sub_mapeo.columns if "id" in c.lower() or c.lower() == "id_subcat"][0]
-                col_nombre = [c for c in df_sub_mapeo.columns if "nombre" in c.lower() or c.lower() == "nombre_subcat"][0]
                 
+                # Mapeo posicional puro: columna 0 es ID, columna 2 (o última de texto) es el nombre
                 for _, fila_sub in df_sub_mapeo.iterrows():
-                    raiz_nombre = str(fila_sub[col_nombre]).lower().strip()
-                    subcategorias_vivas[raiz_nombre] = int(fila_sub[col_id])
+                    val_id = int(fila_sub.iloc[0])
+                    # Buscamos la columna de texto del nombre (habitualmente la última o posición 2)
+                    val_nombre = str(fila_sub.iloc[-1]).lower().strip()
+                    subcategorias_vivas[val_nombre] = val_id
         except Exception as e:
-            st.sidebar.warning("⚠️ Modo Inteligente Desactivado: Revisa las columnas en Supabase.")
+            # Captura y muestra el error interno real en la barra lateral para auditoría exacta
+            st.sidebar.error(f"❌ Error Interno Mapa: {e}")
             subcategorias_vivas = None
             
         try:
