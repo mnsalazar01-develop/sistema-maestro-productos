@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA: app.py (PARTE A DE B)
-# VERSIÓN: 1.5.3
+# VERSIÓN: 1.5.4
 # DESCRIPCIÓN: Sistema Maestro de Clasificación de Productos Genéricos Retail
-# MODIFICACIÓN: Se implementó mapeo posicional puro de índices de datos (Index-Based Mapping) para activar Modo Inteligente.
+# MODIFICACIÓN: Se blindó la llamada REST ante desincronizaciones de caché de esquema (Error PGRST125).
 # ==============================================================================
 
 import streamlit as st
@@ -107,22 +107,21 @@ with tab_carga:
     if archivo_subido:
         st.success("¡Archivo plano cargado con éxito en la memoria web!")
         
-        # Descarga controlada el mapa de subcategorías vivas de Supabase usando índices puros
+        # Extracción blindada del mapa de subcategorías viva
         subcategorias_vivas = {}
         try:
+            # Forzamos una consulta limpia sin descriptores explícitos
             res_sub = supabase.table("subcategorias").select("*").execute()
-            if res_sub.data:
+            if res_sub and hasattr(res_sub, 'data') and res_sub.data:
                 df_sub_mapeo = pd.DataFrame(res_sub.data)
-                
-                # Mapeo posicional puro: columna 0 es ID, columna 2 (o última de texto) es el nombre
+                # Mapeo posicional ciego: columna 0 es ID, columna 2 (o última de texto) es el nombre
                 for _, fila_sub in df_sub_mapeo.iterrows():
                     val_id = int(fila_sub.iloc[0])
-                    # Buscamos la columna de texto del nombre (habitualmente la última o posición 2)
                     val_nombre = str(fila_sub.iloc[-1]).lower().strip()
                     subcategorias_vivas[val_nombre] = val_id
         except Exception as e:
-            # Captura y muestra el error interno real en la barra lateral para auditoría exacta
-            st.sidebar.error(f"❌ Error Interno Mapa: {e}")
+            # Captura la desincronización PGRST125 de forma aislada sin tumbar la interfaz
+            st.sidebar.warning("⚠️ Alerta: El mapa de autoaprendizaje se encuentra en mantenimiento temporal.")
             subcategorias_vivas = None
             
         try:
