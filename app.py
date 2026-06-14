@@ -1,7 +1,8 @@
 # ==============================================================================
 # PROGRAMA: app.py
-# VERSIÓN: 1.0.0
+# VERSIÓN: 1.1.0
 # DESCRIPCIÓN: Sistema Maestro de Clasificación de Productos Genéricos Retail
+# MODIFICACIÓN: Se expandió la sección maestro de datos para visualizar tablas de forma dinámica.
 # ==============================================================================
 
 import streamlit as st
@@ -141,10 +142,25 @@ with tab_maestro:
     st.subheader("Visualizador de Tablas en Supabase")
     st.markdown("Monitorea el estado actual de tu base de datos en tiempo real.")
     
-    if st.button("🔄 Refrescar datos de Supabase"):
-        try:
-            respuesta = supabase.table("categorias").select("*").execute()
-            df_cat = pd.DataFrame(respuesta.data)
-            st.dataframe(df_cat, use_container_width=True)
-        except Exception as e:
-            st.error(f"Error al consultar Supabase: {e}")
+    tabla_seleccionada = st.selectbox(
+        "Selecciona la tabla que deseas visualizar:",
+        ["categorias", "subcategorias", "productos"]
+    )
+    
+    if st.button("🔄 Refrescar datos de Supabase", key="btn_refrescar_maestro"):
+        with st.spinner(f"Consultando registros de la tabla {tabla_seleccionada}..."):
+            try:
+                respuesta = supabase.table(tabla_seleccionada).select("*").execute()
+                
+                if respuesta.data:
+                    df_resultado = pd.DataFrame(respuesta.data)
+                    
+                    if tabla_seleccionada == "productos" and "fecha_registro" in df_resultado.columns:
+                        df_resultado["fecha_registro"] = pd.to_datetime(df_resultado["fecha_registro"]).dt.strftime('%Y-%m-%d %H:%M')
+                    
+                    st.metric(f"Total de registros en {tabla_seleccionada}", len(df_resultado))
+                    st.dataframe(df_resultado, use_container_width=True)
+                else:
+                    st.warning(f"La tabla {tabla_seleccionada} se encuentra actualmente vacía.")
+            except Exception as e:
+                st.error(f"Error al consultar la tabla {tabla_seleccionada} en Supabase: {e}")
