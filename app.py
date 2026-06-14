@@ -18,15 +18,15 @@ st.set_page_config(
 # 2. DEFINICIÓN DE LLAMADAS A PROGRAMAS SATÉLITES EN EL MISMO NIVEL (COMENTADAS)
 # Todos los archivos residen sueltos en el directorio raíz del proyecto
 # ==============================================================================
-# llamada_cargar = st.Page("cargar.py", title="Cargar Inventario", icon="📤")
+llamada_cargar = st.Page("cargar_inventario.py", title="Cargar Inventario", icon="📤")
 # llamada_maestro = st.Page("maestro.py", title="Maestro de Datos", icon="📊")
 # llamada_reglas = st.Page("reglas.py", title="Mantenedor de Reglas", icon="⚙️")
 
 # ==============================================================================
 # 3. CONSTRUCCIÓN DE LA NAVEGACIÓN EN LA BARRA LATERAL (COMENTADA)
 # ==============================================================================
-# enrutador = st.navigation([
-#     llamada_cargar,
+enrutador = st.navigation([
+     llamada_cargar,
 #     llamada_maestro,
 #     llamada_reglas
 # ])
