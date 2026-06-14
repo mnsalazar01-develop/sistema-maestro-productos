@@ -1,34 +1,24 @@
 # ==============================================================================
-# PROGRAMA SATÉLITE: cargar_inventario.py (PARTE A DE B)
-# VERSIÓN: 1.2.0 (MÓDULO SUELTO RAÍZ)
+# PROGRAMA SATÉLITE: cargar_inventario.py (VERSION REESTRUCTURADA CONEXIÓN)
+# VERSIÓN: 1.3.0 (MÓDULO SUELTO RAÍZ)
 # DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
-# MODIFICACIÓN: Entrega completa unificada con extractor directo JSON y control de red.
+# MODIFICACIÓN: Uso de st.session_state para heredar la conexión exitosa de app.py
 # ==============================================================================
 
 import streamlit as st
 import pandas as pd
 import io
-from supabase import create_client, Client
 
-# Configuración independiente de la ventana web de Streamlit
-st.set_page_config(
-    page_title="Módulo de Carga masiva - Retail",
-    page_icon="📤",
-    layout="wide"
-)
-
-# Inicialización local de la conexión a la base de datos de Supabase
-@st.cache_resource
-def init_supabase_local() -> Client:
+# 1. HERENCIA DE CONEXIÓN SEGURA
+# Si el programa se ejecuta a través del Menú Principal, absorbe el cliente validado
+if "supabase_cliente" in st.session_state:
+    supabase = st.session_state["supabase_cliente"]
+else:
+    # Contingencia si se ejecuta de forma totalmente aislada en local
+    from supabase import create_client
     url = st.secrets["supabase"]["url"]
     key = st.secrets["supabase"]["key"]
-    return create_client(url, key)
-
-try:
-    supabase = init_supabase_local()
-    st.sidebar.success("⚡ Conexión Dedicada Activa")
-except Exception as e:
-    st.sidebar.error(f"❌ Error de Conexión: {e}")
+    supabase = create_client(url, key)
 
 st.title("📤 Procesador de Inventarios en Bruto (Nivel 5)")
 st.markdown("Clasificación automatizada mediante matriz de control parametrizada en la nube.")
@@ -36,14 +26,10 @@ st.markdown("Clasificación automatizada mediante matriz de control parametrizad
 # Función interna de cruce léxico plano
 def clasificar_texto_parametrizado(nombre_recibido, mapa_reglas=None):
     texto = str(nombre_recibido).lower().strip()
-    
-    # Estrategia 1: Evaluación dinámica contra la tabla de control viva
     if mapa_reglas:
         for palabra_clave, id_subcat in mapa_reglas.items():
             if palabra_clave in texto:
                 return id_subcat
-                
-        # Estrategia 2: Autoaprendizaje léxico por primera palabra tokenizada
         palabras_token = texto.split()
         if palabras_token:
             primera_palabra = palabras_token[0]
@@ -52,7 +38,7 @@ def clasificar_texto_parametrizado(nombre_recibido, mapa_reglas=None):
     return None
 
 # Componente de arrastre de archivos planos CSV
-archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="satelite_uploader_v120")
+archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_v130_fijo")
 
 if archivo_subido:
     st.success("¡Archivo plano cargado con éxito en la memoria web!")
@@ -60,25 +46,21 @@ if archivo_subido:
     # Descarga e Indexación de la Tabla Paramétrica Viva desde la Nube
     matriz_reglas_vivas = {}
     try:
-        # Consultamos directamente las columnas oficiales creadas en el SQL Editor
         res_reglas = supabase.table("matriz_diccionario_reglas").select("palabra_clave, id_enlace_subcat").execute()
         if res_reglas and hasattr(res_reglas, 'data') and res_reglas.data:
             for fila_r in res_reglas.data:
-                # Extracción directa de diccionarios JSON nativos del cliente de Supabase
                 token_clave = str(fila_r.get("palabra_clave", "")).lower().strip()
                 id_destino = int(fila_r.get("id_enlace_subcat", 0))
-                
                 if token_clave and id_destino > 0:
                     matriz_reglas_vivas[token_clave] = id_destino
-                    
             st.sidebar.success(f"🧠 Matriz en RAM: {len(matriz_reglas_vivas)} reglas listas")
         else:
             st.sidebar.warning("⚠️ La tabla de reglas se encuentra vacía en este proyecto.")
             matriz_reglas_vivas = None
     except Exception as e:
         st.sidebar.error(f"❌ Error en PostgREST: {e}")
-        st.sidebar.info("🌐 Verifique si las credenciales de los Secrets coinciden con su proyecto activo.")
         matriz_reglas_vivas = None
+
     try:
         df = pd.read_csv(archivo_subido, encoding='utf-8')
     except UnicodeDecodeError:
@@ -94,12 +76,11 @@ if archivo_subido:
         for idx, fila in df.iterrows():
             nombre_prod = fila['nombre']
             id_subcat = clasificar_texto_parametrizado(nombre_prod, matriz_reglas_vivas)
-            
             if id_subcat:
                 productos_clasificados.append({
                     "nombre": nombre_prod,
-                    "nombre_producto": nombre_prod,
                     "id_subcat": id_subcat,
+                    "nombre_producto": nombre_prod,
                     "id_enlace_subcat": id_subcat
                 })
             else:
@@ -123,36 +104,23 @@ if archivo_subido:
                     data=csv_omitidos,
                     file_name="productos_omitidos.csv",
                     mime="text/csv",
-                    key="btn_descargar_omitidos_satelite_v120"
+                    key="btn_descargar_v130"
                 )
         
         if productos_clasificados:
-            if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos_satelite_v120"):
+            if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_v130"):
                 with st.spinner("Inyectando registros en la base de datos..."):
                     exito_insercion = False
-                    
-                    # Intento 1: Estructura estándar de columnas ('nombre' / 'id_subcat')
                     try:
-                        payload_intento1 = []
-                        for p in productos_clasificados:
-                            payload_intento1.append({
-                                "nombre": p["nombre"],
-                                "id_subcat": p["id_subcat"]
-                              })
+                        payload_intento1 = [{"nombre": p["nombre"], "id_subcat": p["id_subcat"]} for p in productos_clasificados]
                         supabase.table("productos").insert(payload_intento1).execute()
                         exito_insercion = True
                     except Exception:
                         exito_insercion = False
                         
-                    # Intento 2 (Contingencia): Estructura extendida si tu Supabase usa ('nombre_producto' / 'id_enlace_subcat')
                     if not exito_insercion:
                         try:
-                            payload_intento2 = []
-                            for p in productos_clasificados:
-                                payload_intento2.append({
-                                    "nombre_producto": p["nombre_producto"],
-                                    "id_enlace_subcat": p["id_enlace_subcat"]
-                                })
+                            payload_intento2 = [{"nombre_producto": p["nombre_producto"], "id_enlace_subcat": p["id_enlace_subcat"]} for p in productos_clasificados]
                             supabase.table("productos").insert(payload_intento2).execute()
                             exito_insercion = True
                         except Exception as e_final:
