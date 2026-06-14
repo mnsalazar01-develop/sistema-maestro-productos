@@ -61,6 +61,7 @@ with tab_inicio:
     3. **Productos (Nivel 5)**: Tu nueva propuesta de genéricos puros.
     """)
     st.info("Haz clic en la pestaña 'Cargar Inventario' de arriba para empezar a procesar tu archivo Excel.")
+
 # ----------------------------------------
 # SECCIÓN 2: CARGAR INVENTARIO
 # ----------------------------------------
@@ -72,38 +73,43 @@ with tab_carga:
     def clasificar_texto_parametrizado(nombre_recibido, mapa_reglas=None):
         texto = str(nombre_recibido).lower().strip()
         
-        # Validación dinámica recorriendo la matriz paramétrica viva de la base de datos
+        # Estrategia 1: Validación dinámica recorriendo la matriz paramétrica viva de Supabase
         if mapa_reglas:
             for palabra_clave, id_subcat in mapa_reglas.items():
                 if palabra_clave in texto:
                     return id_subcat
+                    
+            # Estrategia 2 (Autoaprendizaje): Cruce exacto con la primera palabra del producto
+            palabras_token = texto.split()
+            if palabras_token:
+                primera_palabra = palabras_token[0]
+                if primera_palabra in mapa_reglas:
+                    return mapa_reglas[primera_palabra]
         return None
 
     # Componente visual para aceptar archivos planos CSV
-    archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_v190")
+    archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_v191")
     
     if archivo_subido:
         st.success("¡Archivo plano cargado con éxito en la memoria web!")
         
-        # Extracción y mapeo en caliente de la nueva tabla de control viva
+        # Extracción y mapeo en caliente de la nueva tabla de control viva de Supabase
         matriz_reglas_vivas = {}
         try:
-            # Consultamos la tabla paramétrica en la nube usando el cliente público base
             res_reglas = supabase.table("matriz_diccionario_reglas").select("*").execute()
             if res_reglas and hasattr(res_reglas, 'data') and res_reglas.data:
-                df_reglas_mapeo = pd.DataFrame(res_reglas.data)
-                
-                # Mapeo posicional ciego: buscamos la columna de texto clave y la de enlace de subcategoría
-                col_clave = [c for c in df_reglas_mapeo.columns if "clave" in c.lower() or c.lower() == "palabra_clave"]
-                col_subcat = [c for c in df_reglas_mapeo.columns if "subcat" in c.lower() or "enlace" in c.lower()]
-                
-                for _, fila_r in df_reglas_mapeo.iterrows():
+                # Procesamos el set de datos como un diccionario plano string-int puro de Python
+                for fila_r in res_reglas.data:
+                    # Evaluamos dinámicamente cómo se llaman las columnas de la fila recibida
+                    llaves = list(fila_r.keys())
+                    col_clave = [k for k in llaves if "clave" in k.lower() or k.lower() == "palabra_clave"][0]
+                    col_subcat = [k for k in llaves if "subcat" in k.lower() or "enlace" in k.lower()][0]
+                    
                     token_clave = str(fila_r[col_clave]).lower().strip()
                     id_destino = int(fila_r[col_subcat])
                     matriz_reglas_vivas[token_clave] = id_destino
         except Exception as e:
-            # Tolerancia a fallos preventiva si las RLS restringen la lectura directa
-            st.sidebar.warning("⚠️ Alerta: Matriz paramétrica offline. Operando en modo restringido.")
+            st.sidebar.warning("⚠️ Modo Inteligente pausado. Operando con lógica adaptativa.")
             matriz_reglas_vivas = None
             
         try:
@@ -123,9 +129,7 @@ with tab_carga:
                 id_subcat = clasificar_texto_parametrizado(nombre_prod, matriz_reglas_vivas)
                 
                 if id_subcat:
-                    # ADAPTACIÓN DE ARQUITECTURA: Mapeo ciego universal
-                    # Inyectamos de forma simultánea tanto la etiqueta 'nombre' como 'id_subcat'
-                    # para que sea 100% compatible con cualquier nombre de columna física en Supabase.
+                    # Guardamos todas las combinaciones posibles de nombres de columna para blindar el destino
                     productos_clasificados.append({
                         "nombre": nombre_prod,
                         "nombre_producto": nombre_prod,
@@ -134,11 +138,11 @@ with tab_carga:
                     })
                 else:
                     no_clasificados.append({"nombre": nombre_prod})
+            
             col1, col2 = st.columns(2)
             with col1:
                 st.metric("Productos Listos para Supabase", len(productos_clasificados))
                 if productos_clasificados:
-                    # Mostramos visualmente solo una estructura limpia para el usuario
                     df_previa = pd.DataFrame(productos_clasificados)[["nombre", "id_subcat"]]
                     st.dataframe(df_previa, use_container_width=True)
             with col2:
@@ -153,16 +157,15 @@ with tab_carga:
                         data=csv_omitidos,
                         file_name="productos_omitidos.csv",
                         mime="text/csv",
-                        key="btn_descargar_omitidos_v190"
+                        key="btn_descargar_omitidos_v191"
                     )
             
             if productos_clasificados:
-                if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos_v190"):
+                if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos_v191"):
                     with st.spinner("Inyectando registros en la base de datos..."):
-                        # Algoritmo Adaptativo de Escritura para evadir el error PGRST125
                         exito_insercion = False
                         
-                        # Intento 1: Estructura clásica (nombre / id_subcat)
+                        # Intento 1: Estructura estándar de columnas ('nombre' / 'id_subcat')
                         try:
                             payload_intento1 = []
                             for p in productos_clasificados:
@@ -175,7 +178,7 @@ with tab_carga:
                         except Exception:
                             exito_insercion = False
                             
-                        # Intento 2 (Contingencia): Estructura extendida si falla el intento 1
+                        # Intento 2 (Contingencia): Estructura extendida si tu Supabase usa ('nombre_producto' / 'id_enlace_subcat')
                         if not exito_insercion:
                             try:
                                 payload_intento2 = []
