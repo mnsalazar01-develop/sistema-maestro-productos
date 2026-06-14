@@ -1,20 +1,18 @@
 # ==============================================================================
-# PROGRAMA SATÉLITE: cargar_inventario.py (VERSION REESTRUCTURADA CONEXIÓN)
-# VERSIÓN: 1.3.0 (MÓDULO SUELTO RAÍZ)
+# PROGRAMA SATÉLITE: cargar_inventario.py (VERSIÓN BATCHING CORPORATIVO)
+# VERSIÓN: 1.4.0 (MÓDULO SUELTO RAÍZ)
 # DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
-# MODIFICACIÓN: Uso de st.session_state para heredar la conexión exitosa de app.py
+# MODIFICACIÓN: Segmentación de cargas en bloques de 50 para evitar error PGRST125.
 # ==============================================================================
 
 import streamlit as st
 import pandas as pd
 import io
 
-# 1. HERENCIA DE CONEXIÓN SEGURA
-# Si el programa se ejecuta a través del Menú Principal, absorbe el cliente validado
+# 1. ABSORCIÓN DE CONEXIÓN GLOBAL VALIDADA
 if "supabase_cliente" in st.session_state:
     supabase = st.session_state["supabase_cliente"]
 else:
-    # Contingencia si se ejecuta de forma totalmente aislada en local
     from supabase import create_client
     url = st.secrets["supabase"]["url"]
     key = st.secrets["supabase"]["key"]
@@ -37,13 +35,13 @@ def clasificar_texto_parametrizado(nombre_recibido, mapa_reglas=None):
                 return mapa_reglas[primera_palabra]
     return None
 
-# Componente de arrastre de archivos planos CSV
-archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_v130_fijo")
+# Componente visual de arrastre de archivos planos
+archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_v140")
 
 if archivo_subido:
     st.success("¡Archivo plano cargado con éxito en la memoria web!")
     
-    # Descarga e Indexación de la Tabla Paramétrica Viva desde la Nube
+    # Descarga e Indexación de la Tabla Paramétrica
     matriz_reglas_vivas = {}
     try:
         res_reglas = supabase.table("matriz_diccionario_reglas").select("palabra_clave, id_enlace_subcat").execute()
@@ -58,7 +56,7 @@ if archivo_subido:
             st.sidebar.warning("⚠️ La tabla de reglas se encuentra vacía en este proyecto.")
             matriz_reglas_vivas = None
     except Exception as e:
-        st.sidebar.error(f"❌ Error en PostgREST: {e}")
+        st.sidebar.error(f"❌ Error en PostgREST al leer reglas: {e}")
         matriz_reglas_vivas = None
 
     try:
@@ -104,28 +102,49 @@ if archivo_subido:
                     data=csv_omitidos,
                     file_name="productos_omitidos.csv",
                     mime="text/csv",
-                    key="btn_descargar_v130"
+                    key="btn_descargar_v140"
                 )
         
         if productos_clasificados:
-            if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_v130"):
-                with st.spinner("Inyectando registros en la base de datos..."):
-                    exito_insercion = False
-                    try:
-                        payload_intento1 = [{"nombre": p["nombre"], "id_subcat": p["id_subcat"]} for p in productos_clasificados]
-                        supabase.table("productos").insert(payload_intento1).execute()
-                        exito_insercion = True
-                    except Exception:
-                        exito_insercion = False
+            if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_v140"):
+                with st.spinner("Inyectando registros segmentados en la base de datos..."):
+                    TAMANO_LOTE = 50
+                    total_guardados = 0
+                    error_registrado = None
+                    
+                    # Dividimos los productos en bloques de 50 para no saturar las cabeceras HTTP
+                    for i in range(0, len(productos_clasificados), TAMANO_LOTE):
+                        lote_actual = productos_clasificados[i:i + TAMANO_LOTE]
+                        exito_lote = False
                         
-                    if not exito_insercion:
+                        # Intento 1: Nomenclatura estándar
                         try:
-                            payload_intento2 = [{"nombre_producto": p["nombre_producto"], "id_enlace_subcat": p["id_enlace_subcat"]} for p in productos_clasificados]
-                            supabase.table("productos").insert(payload_intento2).execute()
-                            exito_insercion = True
-                        except Exception as e_final:
-                            st.error(f"Error definitivo de persistencia en Supabase: {e_final}")
+                            payload = [{"nombre": p["nombre"], "id_subcat": p["id_subcat"]} for p in lote_actual]
+                            supabase.table("productos").insert(payload).execute()
+                            exito_lote = True
+                        except Exception as e1:
+                            error_registrado = e1
+                            exito_lote = False
                             
-                    if exito_insercion:
+                        # Intento 2 (Contingencia): Nomenclatura extendida
+                        if not exito_lote:
+                            try:
+                                payload = [{"nombre_producto": p["nombre_producto"], "id_enlace_subcat": p["id_enlace_subcat"]} for p in lote_actual]
+                                supabase.table("productos").insert(payload).execute()
+                                exito_lote = True
+                            except Exception as e2:
+                                error_registrado = e2
+                                exito_lote = False
+                                
+                        if exito_lote:
+                            total_guardados += len(lote_actual)
+                        else:
+                            break
+                            
+                    if total_guardados == len(productos_clasificados):
                         st.balloons()
-                        st.success(f"¡Éxito total! Se guardaron {len(productos_clasificados)} productos genéricos en tu esquema privado de Supabase.")
+                        st.success(f"¡Éxito total! Se guardaron {total_guardados} productos genéricos en bloques seguros.")
+                    elif total_guardados > 0:
+                        st.warning(f"Carga parcial: Se lograron salvar {total_guardados} productos, pero el proceso se detuvo por: {error_registrado}")
+                    else:
+                        st.error(f"Error definitivo de persistencia: {error_registrado}")
