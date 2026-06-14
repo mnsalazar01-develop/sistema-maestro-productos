@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA: app.py (PARTE A DE B)
-# VERSIÓN: 1.5.0
+# VERSIÓN: 1.5.1
 # DESCRIPCIÓN: Sistema Maestro de Clasificación de Productos Genéricos Retail
-# MODIFICACIÓN: Se dividió el archivo en dos bloques debido al límite de caracteres.
+# MODIFICACIÓN: Se aplicó tolerancia a fallos en la consulta PostgREST de subcategorías (Error PGRST125).
 # ==============================================================================
 
 import streamlit as st
@@ -92,11 +92,10 @@ with tab_carga:
                 return id_subcat
                 
         # Estrategia 2: Inteligencia Dinámica por Coincidencia Léxica con Supabase
-        if subcategorias_vivas is not None:
+        if subcategorias_vivas:
             palabras_token = texto.split()
             if palabras_token:
                 primera_palabra = palabras_token[0]
-                # Si la primera palabra del producto coincide con una subcategoría viva, se auto-asigna
                 if primera_palabra in subcategorias_vivas:
                     return subcategorias_vivas[primera_palabra]
                     
@@ -108,16 +107,17 @@ with tab_carga:
     if archivo_subido:
         st.success("¡Archivo plano cargado con éxito en la memoria web!")
         
-        # Descarga en tiempo real el mapa de subcategorías vivas de Supabase para alimentar la inteligencia
+        # Descarga controlada el mapa de subcategorías vivas de Supabase
         subcategorias_vivas = {}
         try:
             res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").execute()
-            for sub in res_sub.data:
-                # Almacenamos la raíz en minúsculas para un cruce ciego exacto
-                raiz_nombre = str(sub["nombre_subcat"]).lower().strip()
-                subcategorias_vivas[raiz_nombre] = sub["id_subcat"]
+            if res_sub.data:
+                for sub in res_sub.data:
+                    raiz_nombre = str(sub["nombre_subcat"]).lower().strip()
+                    subcategorias_vivas[raiz_nombre] = sub["id_subcat"]
         except Exception as e:
-            st.sidebar.warning(f"⚠️ No se pudo cargar el mapa dinámico de subcategorías: {e}")
+            # Captura el error PGRST125 amablemente en la barra lateral sin tumbar la pestaña de carga
+            st.sidebar.warning("⚠️ Modo Inteligente Desactivado: Revisa el nombre de la tabla en Supabase.")
             subcategorias_vivas = None
             
         try:
