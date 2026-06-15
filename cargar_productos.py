@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE A DE B)
-# VERSIÓN: 1.8.0 (CONEXIÓN NUBE ACTIVA POR LOTES SEGUROS)
+# VERSIÓN: 1.9.0 (INTEGREGACIÓN INTELIGENCIA COMERCIAL)
 # DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
-# MODIFICACIÓN: Inclusión de botón de inyección a 'catalogo' en bloques de 50 y formato fiel al CSV.
+# MODIFICACIÓN: Detector de cortes frescos (atún/sardina) e inclusión de la tabla 'catalogo'.
 # ==============================================================================
 
 import streamlit as st
@@ -31,34 +31,40 @@ try:
 except Exception as e:
     st.sidebar.error(f"❌ Error de Conexión: {e}")
 
-# Declaramos la ruta de regreso al Launchpad central (app.py)
+# Declaramos la ruta de regreso al Launchpad central
 pagina_principal = "app.py"
 
-# 3. BOTÓN DE RETORNO DIRECTO SUELTO (Blindado contra fallos de tipo)
-if st.button("⬅️ Volver al Menú Principal", use_container_width=True, key="btn_regresar_launchpad_inv_v180"):
+# 3. BOTÓN DE RETORNO DIRECTO SUELTO
+if st.button("⬅️ Volver al Menú Principal", use_container_width=True, key="btn_regresar_launchpad_inv_v190"):
     st.switch_page(pagina_principal)
 
 st.title("📤 Procesador de Inventarios en Bruto (Nivel 5)")
-st.markdown("Clasificación automatizada local mediante la matriz de reglas fijas e inyección masiva en la nube.")
+st.markdown("Clasificación automatizada mediante matriz de reglas fijas e inyección masiva segmentada.")
 st.markdown("---")
 
-# El diccionario de reglas base unificado y expandido en código duro (100% Autónomo)
+# El diccionario de reglas base unificado y corregido con términos naturales del retail
 DICCIONARIO_REGLAS = {
     # 1. Alimentos Frescos
     "carne": 1, "res ": 1, "bistec": 1, "molida": 1, "pollo": 1, "pechuga": 1, "cerdo": 1,
     "charc": 2, "jamon": 2, "jamón": 2, "mortad": 2, "salchic": 2, "tocin": 2,
     "frut": 3, "manzan": 3, "cambur": 3, "naranj": 3, "fresa": 3,
     "verdu": 4, "papa ": 4, "ceboll": 4, "tomate": 4, "zanah": 4, "aliño": 4,
-    "pesca": 5, "camar": 5, "marisc": 5, "merlu": 5,
+    
+    # Pescadería (Prioridad de raíces y cortes del mar)
+    "pesca": 5, "camar": 5, "marisc": 5, "merlu": 5, "fresco": 5,
+    
     "pan ": 6, "baguet": 6, "canill": 6, "acem": 6,
-    "tort": 7, "pastg": 7, "ponqu": 7, "hojald": 7,
+    "torta": 7, "ponqu": 7, "hojald": 7, "pastel": 7, "cake": 7, # Removido 'pastg' por términos limpios
 
     # 2. Víveres (Despensa)
     "gran": 8, "arroz": 8, "frijol": 8, "caraota": 8, "lenteja": 8, "cafe": 8, "café": 8,
     "harin": 9, "fororo": 9, "maicena": 9, "pasta": 9, "espagu": 9, "fideo": 9,
     "aceit": 10, "oliva": 10,
     "mantec": 11, "margar": 11, "manteq": 11,
-    "atun": 12, "atún": 12, "sardin": 12, "pepito": 12,
+    
+    # Enlatados genéricos (Capturados si no cumplen la excepción de corte fresco)
+    "atun": 12, "atún": 12, "sardin": 12, "pepito": 12, "enlat": 12,
+    
     "mermel": 13, "conserv": 13,
     "mayon": 14, "salsa": 14, "ketchup": 14, "mostaz": 14,
     "sal ": 15, "pimient": 15, "condim": 15, "orég": 15,
@@ -103,16 +109,24 @@ DICCIONARIO_REGLAS = {
     "ferret": 44, "tornill": 44, "clav": 44
 }
 
-# Función de clasificación local pura contra la matriz en memoria
+# FUNCIÓN DE CLASIFICACIÓN CON CRITERIO COMERCIAL INTEGRADO
 def clasificar_texto_local(nombre_recibido):
     texto = str(nombre_recibido).lower().strip()
+    
+    # REGLA DE EXCLUSIÓN CRÍTICA (FRESCO VS ENLATADO)
+    # Si detecta Atún o Sardina, pero especifica formato físico de corte, viaja al pasillo 5 (Pescadería)
+    if "atun" in texto or "atún" in texto or "sardin" in texto:
+        if "rueda" in texto or "filet" in texto or "lomo" in texto:
+            return 5
+            
+    # Bucle tradicional sobre la matriz rígida hardcodeada
     for palabra_clave, id_subcat in DICCIONARIO_REGLAS.items():
         if palabra_clave in texto:
             return id_subcat
     return None
 
 # Componente visual para la carga de archivos planos
-archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v180")
+archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v190")
 if archivo_subido:
     try:
         df = pd.read_csv(archivo_subido, encoding='utf-8')
@@ -132,7 +146,7 @@ if archivo_subido:
             id_subcat = clasificar_texto_local(nombre_prod)
             
             if id_subcat:
-                # SE RESPETA EL FORMATO FIEL AL CSV ORIGINAL (Sin .upper() ni modificaciones)
+                # SE RESPETA EL FORMATO FIEL AL CSV ORIGINAL (Sin alteraciones tipográficas)
                 productos_clasificados.append({
                     "nombre_catalogo": str(nombre_prod).strip(),
                     "id_subcat": id_subcat
@@ -159,13 +173,13 @@ if archivo_subido:
                     data=csv_omitidos,
                     file_name="productos_omitidos.csv",
                     mime="text/csv",
-                    key="btn_descargar_omitidos_local_v180"
+                    key="btn_descargar_omitidos_local_v190"
                 )
         
         # SUB-MÓDULO DE PERSISTENCIA: BOTÓN INYECTOR POR LOTES SEGUROS (BATCHING)
         if productos_clasificados:
             st.markdown("---")
-            if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos_v180_fijo"):
+            if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos_v190_fijo"):
                 with st.spinner("Inyectando registros en bloques seguros de 50 hacia la tabla 'catalogo'..."):
                     TAMANO_LOTE = 50
                     total_guardados = 0
