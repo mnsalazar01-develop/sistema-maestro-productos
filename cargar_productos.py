@@ -146,7 +146,7 @@ if archivo_subido:
             id_subcat = clasificar_texto_local(nombre_prod)
             
             if id_subcat:
-                # SE RESPETA EL FORMATO FIEL AL CSV ORIGINAL (Sin alteraciones tipográficas)
+                # Se respeta el formato fiel al CSV original sin alteraciones tipográficas
                 productos_clasificados.append({
                     "nombre_catalogo": str(nombre_prod).strip(),
                     "id_subcat": id_subcat
@@ -158,13 +158,22 @@ if archivo_subido:
         with col1:
             st.metric("Productos Aceptados (Locales)", len(productos_clasificados))
             if productos_clasificados:
-                # Creamos el DataFrame para la visualización comercial ordenada
+                # COSTURA ESTÉTICA: Forzamos a Pandas a generar un DataFrame limpio
                 df_previa = pd.DataFrame(productos_clasificados)[["nombre_catalogo", "id_subcat"]]
+                
+                # Desplazamos el índice sumándole 1 para que la pantalla numere como los humanos (1, 2, 3...)
+                df_previa.index = df_previa.index + 1
+                
+                # Dibujamos la tabla comercial con su numeración real
                 st.dataframe(df_previa, use_container_width=True)
         with col2:
             st.metric("Productos sin clasificar (Omitidos)", len(no_clasificados))
             if no_clasificados:
                 df_omitidos = pd.DataFrame(no_clasificados)
+                
+                # Aplicamos el mismo ajuste de numeración real al contenedor de rechazados
+                df_omitidos.index = df_omitidos.index + 1
+                
                 st.dataframe(df_omitidos, use_container_width=True)
                 
                 csv_omitidos = df_omitidos.to_csv(index=False).encode('utf-8')
@@ -173,7 +182,7 @@ if archivo_subido:
                     data=csv_omitidos,
                     file_name="productos_omitidos.csv",
                     mime="text/csv",
-                    key="btn_descargar_omitidos_local_v190"
+                    key="btn_descargar_omitidos_local_v190_num"
                 )
         
         # SUB-MÓDULO DE PERSISTENCIA: BOTÓN INYECTOR POR LOTES SEGUROS (BATCHING)
@@ -185,13 +194,11 @@ if archivo_subido:
                     total_guardados = 0
                     error_registrado = None
                     
-                    # Dividimos la carga masiva en paquetes pequeños para mantener ligera la cabecera HTTP
                     for i in range(0, len(productos_clasificados), TAMANO_LOTE):
                         lote_actual = productos_clasificados[i:i + TAMANO_LOTE]
                         exito_lote = False
                         
                         try:
-                            # Preparamos el payload limpio alineado a tu tabla física real
                             payload = []
                             for p in lote_actual:
                                 payload.append({
@@ -199,7 +206,6 @@ if archivo_subido:
                                     "id_subcat": p["id_subcat"]
                                 })
                             
-                            # Disparamos la inyección hacia la tabla de la base de datos
                             supabase.table("catalogo").insert(payload).execute()
                             exito_lote = True
                         except Exception as e_lote:
@@ -209,10 +215,8 @@ if archivo_subido:
                         if exito_lote:
                             total_guardados += len(lote_actual)
                         else:
-                            # Si un paquete falla, detenemos el bucle para proteger la integridad de los datos
                             break
                             
-                    # Despliegue del estatus de la carga en pantalla
                     if total_guardados == len(productos_clasificados):
                         st.balloons()
                         st.success(f"¡Éxito total! Se guardaron {total_guardados} productos genéricos en tu tabla 'catalogo' con formato fiel al archivo.")
