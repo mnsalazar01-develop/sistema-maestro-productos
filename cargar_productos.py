@@ -1,138 +1,149 @@
 # ==============================================================================
-# PROGRAMA SATÉLITE: cargar_productos.py (PARTE A DE B)
-# VERSIÓN: 1.2.0 (MODULO LOCAL DESCONTAMINADO)
-# DESCRIPCIÓN: Normalizador y Limpiador Léxico Manual de Productos Nivel 5
-# MODIFICACIÓN: Aislamiento total de base de datos. Operación por código duro puro.
+# PROGRAMA SATÉLITE: cargar_inventario.py (PARTE A DE B)
+# VERSIÓN: 1.7.0 (MÓDULO SUELTO LOCAL PURO)
+# DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
+# MODIFICACIÓN: Ajuste de taxonomía real ('catalogo' y 'nombre_catalogo') con código duro.
 # ==============================================================================
 
 import streamlit as st
 import pandas as pd
-import re
+import io
 
-# 1. CONFIGURACIÓN CORPORATIVA DE LA VENTANA WEB DE PRODUCCIÓN
+# 1. CONFIGURACIÓN INDEPENDIENTE DE LA VENTANA WEB DE STREAMLIT
 st.set_page_config(
-    page_title="Normalizador de Productos - Retail",
-    page_icon="📝",
+    page_title="Módulo de Carga masiva - Retail",
+    page_icon="📤",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# Declaramos la ruta de regreso al Menú Principal
+# Declaramos la ruta de regreso al Launchpad central (app.py)
 pagina_principal = "app.py"
 
-# 2. BOTÓN DE RETORNO AL LAUNCHPAD CENTRAL (Inmune a interferencias)
-col_volver, col_vacia = st.columns()
-with col_volver:
-    if st.button("⬅️ Menú Principal", use_container_width=True, key="btn_volver_menu_prod_local"):
-        st.switch_page(pagina_principal)
+# 2. BOTÓN DE RETORNO DIRECTO SUELTO (Blindado contra fallos de tipo)
+if st.button("⬅️ Volver al Menú Principal", use_container_width=True, key="btn_regresar_launchpad_inv"):
+    st.switch_page(pagina_principal)
 
-st.title("📝 Normalizador Léxico de Productos (Nivel 5)")
-st.markdown("Herramienta local autónoma para corregir sintaxis y estandarizar nombres comerciales antes del catálogo.")
+st.title("📤 Procesador de Inventarios en Bruto (Nivel 5)")
+st.markdown("Clasificación automatizada local mediante la matriz de reglas fijas del negocio.")
 st.markdown("---")
 
-# Función interna local que limpia y formatea la descripción de un producto
-def normalizar_descripcion_retail(nombre_bruto):
-    # Convertimos a string y pasamos a mayúsculas
-    texto = str(nombre_bruto).upper().strip()
-    
-    # Expresión regular local para eliminar caracteres especiales molestos (como #, $, %, @, *, etc.)
-    texto = re.sub(r'[#\$%@\*\+=\[\]\{\}\/\\]', '', texto)
-    
-    # Eliminamos espacios dobles o triples entre palabras y los convertimos en un solo espacio limpio
-    texto = " ".join(texto.split())
-    
-    return texto
+# El diccionario de reglas base unificado y expandido en código duro (100% Autónomo)
+DICCIONARIO_REGLAS = {
+    # 1. Alimentos Frescos
+    "carne": 1, "res ": 1, "bistec": 1, "molida": 1, "pollo": 1, "pechuga": 1, "cerdo": 1,
+    "charc": 2, "jamon": 2, "jamón": 2, "mortad": 2, "salchic": 2, "tocin": 2,
+    "frut": 3, "manzan": 3, "cambur": 3, "naranj": 3, "fresa": 3,
+    "verdu": 4, "papa ": 4, "ceboll": 4, "tomate": 4, "zanah": 4, "aliño": 4,
+    "pesca": 5, "camar": 5, "marisc": 5, "merlu": 5,
+    "pan ": 6, "baguet": 6, "canill": 6, "acem": 6,
+    "tort": 7, "pastg": 7, "ponqu": 7, "hojald": 7,
 
-st.subheader("📋 Consola de Depuración de Nombres")
-st.markdown("Introduce la descripción del artículo en bruto para procesar su estructura:")
+    # 2. Víveres (Despensa)
+    "gran": 8, "arroz": 8, "frijol": 8, "caraota": 8, "lenteja": 8, "cafe": 8, "café": 8,
+    "harin": 9, "fororo": 9, "maicena": 9, "pasta": 9, "espagu": 9, "fideo": 9,
+    "aceit": 10, "oliva": 10,
+    "mantec": 11, "margar": 11, "manteq": 11,
+    "atun": 12, "atún": 12, "sardin": 12, "pepito": 12,
+    "mermel": 13, "conserv": 13,
+    "mayon": 14, "salsa": 14, "ketchup": 14, "mostaz": 14,
+    "sal ": 15, "pimient": 15, "condim": 15, "orég": 15,
+    "avena": 16, "cereal": 16, "corn": 16, "azucar": 16, "azúcar": 16,
 
-# Mapa de respaldo local con las familias del supermercado
-familias_respaldo = {
-    1: "Carnicería", 2: "Charcutería", 3: "Frutería", 4: "Verdulería", 5: "Pescadería", 
-    6: "Panadería", 7: "Pastelería", 8: "Granos y Café", 9: "Harinas y Pastas", 
-    10: "Aceites Comestibles", 11: "Grasas", 12: "Enlatados", 13: "Conservas", 
-    14: "Salsas y Aderezos", 15: "Condimentos", 16: "Desayuno y Azúcar", 
-    17: "Lácteos y Leches", 18: "Yogures", 19: "Comidas Preparadas", 
-    22: "Agua", 23: "Jugos", 24: "Refrescos", 25: "Bebidas Energéticas", 
-    26: "Ron", 27: "Cerveza", 28: "Vino", 29: "Whisky", 30: "Jabón", 
-    31: "Champú", 32: "Desodorante", 33: "Crema Dental", 34: "Papel Higiénico", 
-    35: "Maquillaje", 36: "Detergentes", 37: "Suavizantes", 38: "Limpiadores", 
-    39: "Desinfectantes", 40: "Lavaplatos", 41: "Mascotas", 42: "Pañales", 
-    43: "Fórmulas Infantiles", 44: "Ferretería Ligera"
+    # 3. Refrigerados y Congelados
+    "lech": 17, "queso": 17, "crema": 17, "lact": 17,
+    "yog": 18, "yogu": 18,
+    "nugget": 19, "papas cong": 19,
+    "brocol cong": 20,
+    "helad": 21, "palet": 21,
+
+    # 4. Bebidas y Bodegón
+    "agua": 22, "mineral": 22,
+    "jugo": 23, "nectar": 23,
+    "refres": 24, "soda": 24, "cola": 24,
+    "energ": 25, "red bull": 25,
+    "ron ": 26, "caciqu": 26,
+    "cerve": 27, "frías": 27,
+    "vino": 28, "tinto": 28,
+    "whis": 29, "bucan": 29,
+
+    # 5. Cuidado Personal e Higiene
+    "jabon": 30, "jabón": 30,
+    "shamp": 31, "champ": 31, "acondic": 31,
+    "desod": 32, "axila": 32,
+    "crema dent": 33, "pasta dent": 33, "colgat": 33,
+    "papel hig": 34, "toilet": 34, "servill": 34,
+    "maquill": 35, "labial": 35,
+
+    # 6. Cuidado del Hogar y Limpieza
+    "deterg": 36, "ace ": 36, "ariel": 36,
+    "suaviz": 37, "downy": 37,
+    "limpia": 38, "cloro": 38,
+    "desinf": 39, "lysol": 39,
+    "lavap": 40, "axion": 40, "crema lava": 40,
+
+    # 7. Categorías Adicionales
+    "mascot": 41, "perrar": 41, "gatar": 41,
+    "pañal": 42, "pamp": 42,
+    "formul": 43, "infant": 43,
+    "ferret": 44, "tornill": 44, "clav": 44
 }
-# Diseño del contenedor del formulario local interactivo
-with st.form("formulario_normalizador_manual", clear_on_submit=False):
-    col_f1, col_f2 = st.columns(2)
-    
-    with col_f1:
-        nombre_ingresado = st.text_input(
-            "Escribe la descripción del Producto en bruto (Sucia o con errores):",
-            placeholder="Ej:   ##bIfe   de_esPaldilla!! de res premium**  ",
-            help="Coloca el texto con espacios extra o caracteres especiales para probar el limpiador."
-        ).strip()
-        
-        codigo_barras = st.text_input(
-            "Código de Barras / GTIN (Numérico local):",
-            placeholder="Ej: 7501055310012",
-            max_chars=14
-        ).strip()
 
-    with col_f2:
-        subcat_seleccionada = st.selectbox(
-            "Asociar de forma estricta a la subcategoría de destino:",
-            options=[f"{id_f} - {nombre_f}" for id_f, nombre_f in familias_respaldo.items()],
-            help="Selecciona la familia correspondiente de tu taxonomía de confianza."
-        )
-        
-        precio_sugerido = st.number_input(
-            "Costo base estimado comercial (USD):",
-            min_value=0.00,
-            value=0.00,
-            step=0.01,
-            format="%.2f"
-        )
+# Función de clasificación local pura contra la matriz en memoria
+def clasificar_texto_local(nombre_recibido):
+    texto = str(nombre_recibido).lower().strip()
+    for palabra_clave, id_subcat in DICCIONARIO_REGLAS.items():
+        if palabra_clave in texto:
+            return id_subcat
+    return None
 
-    st.markdown("---")
-    # Botón operativo de ejecución del formulario en RAM
-    boton_procesar_manual = st.form_submit_button("🚀 Procesar, Normalizar y Verificar Producto")
+# Componente visual para la carga de archivos planos
+archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v170")
+if archivo_subido:
+    try:
+        df = pd.read_csv(archivo_subido, encoding='utf-8')
+    except UnicodeDecodeError:
+        df = pd.read_csv(archivo_subido, encoding='latin-1')
     
-    if boton_procesar_manual:
-        if not nombre_ingresado:
-            st.error("❌ Error de Validación: El cuadro de texto se encuentra vacío. Escribe un nombre.")
-        else:
-            # Ejecutamos la función de limpieza léxica local pura de la Parte A
-            nombre_limpio_final = normalizar_descripcion_retail(nombre_ingresado)
-            id_subcat_final = int(subcat_seleccionada.split(" - ")[0])
+    if 'nombre' not in df.columns:
+        st.error("❌ Error: Tu archivo plano debe contener una columna llamada exactamente 'nombre' (en minúsculas).")
+    else:
+        st.markdown("### 🧠 Pre-visualización de la Clasificación Automática Local")
+        productos_clasificados = []
+        no_clasificados = []
+        
+        # Iteración del catálogo masivo utilizando el diccionario duro local
+        for idx, fila in df.iterrows():
+            nombre_prod = fila['nombre']
+            id_subcat = clasificar_texto_local(nombre_prod)
             
-            st.balloons()
-            st.success("🎉 ¡Nombre comercial corregido y estandarizado con éxito en memoria local!")
-            
-            # Despliegue de la Ficha Técnica Comercial Normalizada en pantalla
-            st.markdown("### 📋 Ficha Técnica Estandarizada (Estándar Retail)")
-            
-            col_t1, col_t2 = st.columns(2)
-            with col_t1:
-                st.info(f"**📦 Descripción Limpia:** `{nombre_limpio_final}`")
-                st.write(f"**🏷️ Familia Asociada:** {subcat_seleccionada}")
-            with col_t2:
-                st.write(f"**🔢 Código de Control GTIN:** {codigo_barras if codigo_barras else 'N/A'}")
-                st.write(f"**💵 Costo de Operación:** ${precio_sugerido:.2f} USD")
-            
-            # Sub-módulo local de exportación a texto plano para el portapapeles del usuario
-            st.markdown("---")
-            reporte_texto = (
-                f"=== FICHA DE PRODUCTO NORMALIZADA ===\n"
-                f"DESCRIPCION: {nombre_limpio_final}\n"
-                f"SUBCATEGORIA_ID: {id_subcat_final}\n"
-                f"GTIN: {codigo_barras if codigo_barras else 'N/A'}\n"
-                f"COSTO_USD: {precio_sugerido:.2f}\n"
-                f"====================================="
-            )
-            
-            st.download_button(
-                label="📥 Descargar Ficha Técnica (.txt) para tu bitácora",
-                data=reporte_texto,
-                file_name=f"producto_{id_subcat_final}.txt",
-                mime="text/plain",
-                key="btn_descargar_txt_manual"
-            )
+            if id_subcat:
+                # Sincronización mandatoria con la nueva taxonomía real del negocio
+                productos_clasificados.append({
+                    "nombre_catalogo": nombre_prod.upper(),
+                    "id_subcat": id_subcat
+                })
+            else:
+                no_clasificados.append({"nombre": nombre_prod})
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Productos Aceptados (Locales)", len(productos_clasificados))
+            if productos_clasificados:
+                # Creamos el DataFrame para la visualización comercial ordenada
+                df_previa = pd.DataFrame(productos_clasificados)
+                st.dataframe(df_previa, use_container_width=True)
+        with col2:
+            st.metric("Productos sin clasificar (Omitidos)", len(no_clasificados))
+            if no_clasificados:
+                df_omitidos = pd.DataFrame(no_clasificados)
+                st.dataframe(df_omitidos, use_container_width=True)
+                
+                csv_omitidos = df_omitidos.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="⚠️ Descargar Omitidos para revisión",
+                    data=csv_omitidos,
+                    file_name="productos_omitidos.csv",
+                    mime="text/csv",
+                    key="btn_descargar_omitidos_local_v170"
+                )
