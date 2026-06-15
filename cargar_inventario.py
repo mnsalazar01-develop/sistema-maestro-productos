@@ -1,8 +1,8 @@
 # ==============================================================================
-# PROGRAMA SATÉLITE: cargar_productos.py (PARTE A DE B)
-# VERSIÓN: 1.2.1 (CORRECCIÓN DE TYPEERROR VISUAL)
-# DESCRIPCIÓN: Normalizador y Limpiador Léxico Manual de Productos Nivel 5
-# MODIFICACIÓN: Inyección de parámetro entero en st.columns(2) contra caídas.
+# PROGRAMA SATÉLITE: cargar_productos.py (BLOQUE ÚNICO DEFINITIVO)
+# VERSIÓN: 1.3.0 (AISLAMIENTO TOTAL SIN COLUMNAS)
+# DESCRIPCIÓN: Normalizador Léxico Manual de Productos Nivel 5
+# MODIFICACIÓN: Eliminación completa de st.columns() en cabecera contra TypeError.
 # ==============================================================================
 
 import streamlit as st
@@ -17,14 +17,12 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Declaramos la ruta de regreso al Menú Principal
+# Declaramos la ruta de regreso al Menú Principal exigida por app.py
 pagina_principal = "app.py"
 
-# 2. BOTÓN DE RETORNO AL LAUNCHPAD CENTRAL CORREGIDO (Inmune a TypeError)
-col_volver, col_vacia = st.columns(2) # Especificamos el número de columnas para el diseño gráfico
-with col_volver:
-    if st.button("⬅️ Menú Principal", use_container_width=True, key="btn_volver_menu_prod_local_v121"):
-        st.switch_page(pagina_principal)
+# 2. BOTÓN DE RETORNO DIRECTO SUELTO (Blindado al 100% contra TypeError)
+if st.button("⬅️ Volver al Menú Principal", use_container_width=True, key="btn_regresar_launchpad_fijo"):
+    st.switch_page(pagina_principal)
 
 st.title("📝 Normalizador Léxico de Productos (Nivel 5)")
 st.markdown("Herramienta local autónoma para corregir sintaxis y estandarizar nombres comerciales antes del catálogo.")
@@ -35,10 +33,10 @@ def normalizar_descripcion_retail(nombre_bruto):
     # Convertimos a string y pasamos a mayúsculas
     texto = str(nombre_bruto).upper().strip()
     
-    # Expresión regular local para eliminar caracteres especiales molestos (como #, $, %, @, *, etc.)
+    # Expresión regular local para eliminar caracteres especiales molestos
     texto = re.sub(r'[#\$%@\*\+=\[\]\{\}\/\\]', '', texto)
     
-    # Eliminamos espacios dobles o triples entre palabras y los convertimos en un solo espacio limpio
+    # Eliminamos espacios dobles o triples entre palabras
     texto = " ".join(texto.split())
     
     return texto
@@ -60,28 +58,30 @@ familias_respaldo = {
     39: "Desinfectantes", 40: "Lavaplatos", 41: "Mascotas", 42: "Pañales", 
     43: "Fórmulas Infantiles", 44: "Ferretería Ligera"
 }
+
 # Diseño del contenedor del formulario local interactivo
-with st.form("formulario_normalizador_manual_v121", clear_on_submit=False):
+with st.form("formulario_normalizador_manual_v130", clear_on_submit=False):
     col_f1, col_f2 = st.columns(2)
     
     with col_f1:
         nombre_ingresado = st.text_input(
             "Escribe la descripción del Producto en bruto (Sucia o con errores):",
             placeholder="Ej:   ##bIfe   de_esPaldilla!! de res premium**  ",
-            help="Coloca el texto con espacios extra o caracteres especiales para probar el limpiador."
+            key="input_texto_sucio"
         ).strip()
         
         codigo_barras = st.text_input(
             "Código de Barras / GTIN (Numérico local):",
             placeholder="Ej: 7501055310012",
-            max_chars=14
+            max_chars=14,
+            key="input_gtin_manual"
         ).strip()
 
     with col_f2:
         subcat_seleccionada = st.selectbox(
             "Asociar de forma estricta a la subcategoría de destino:",
             options=[f"{id_f} - {nombre_f}" for id_f, nombre_f in familias_respaldo.items()],
-            help="Selecciona la familia correspondiente de tu taxonomía de confianza."
+            key="select_subcat_manual"
         )
         
         precio_sugerido = st.number_input(
@@ -89,7 +89,8 @@ with st.form("formulario_normalizador_manual_v121", clear_on_submit=False):
             min_value=0.00,
             value=0.00,
             step=0.01,
-            format="%.2f"
+            format="%.2f",
+            key="input_precio_manual"
         )
 
     st.markdown("---")
@@ -100,16 +101,13 @@ with st.form("formulario_normalizador_manual_v121", clear_on_submit=False):
         if not nombre_ingresado:
             st.error("❌ Error de Validación: El cuadro de texto se encuentra vacío. Escribe un nombre.")
         else:
-            # Ejecutamos la función de limpieza léxica local pura de la Parte A
             nombre_limpio_final = normalizar_descripcion_retail(nombre_ingresado)
             id_subcat_final = int(subcat_seleccionada.split(" - ")[0])
             
             st.balloons()
             st.success("🎉 ¡Nombre comercial corregido y estandarizado con éxito en memoria local!")
             
-            # Despliegue de la Ficha Técnica Comercial Normalizada en pantalla
             st.markdown("### 📋 Ficha Técnica Estandarizada (Estándar Retail)")
-            
             col_t1, col_t2 = st.columns(2)
             with col_t1:
                 st.info(f"**📦 Descripción Limpia:** `{nombre_limpio_final}`")
@@ -118,7 +116,6 @@ with st.form("formulario_normalizador_manual_v121", clear_on_submit=False):
                 st.write(f"**🔢 Código de Control GTIN:** {codigo_barras if codigo_barras else 'N/A'}")
                 st.write(f"**💵 Costo de Operación:** ${precio_sugerido:.2f} USD")
             
-            # Sub-módulo local de exportación a texto plano para el portapapeles del usuario
             st.markdown("---")
             reporte_texto = (
                 f"=== FICHA DE PRODUCTO NORMALIZADA ===\n"
@@ -134,5 +131,5 @@ with st.form("formulario_normalizador_manual_v121", clear_on_submit=False):
                 data=reporte_texto,
                 file_name=f"producto_{id_subcat_final}.txt",
                 mime="text/plain",
-                key="btn_descargar_txt_manual_v121"
+                key="btn_descargar_txt_manual_v130"
             )
