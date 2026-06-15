@@ -1,13 +1,14 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE A DE B)
-# VERSIÓN: 1.7.0 (MÓDULO SUELTO LOCAL PURO)
+# VERSIÓN: 1.8.0 (CONEXIÓN NUBE ACTIVA POR LOTES SEGUROS)
 # DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
-# MODIFICACIÓN: Ajuste de taxonomía real ('catalogo' y 'nombre_catalogo') con código duro.
+# MODIFICACIÓN: Inclusión de botón de inyección a 'catalogo' en bloques de 50 y formato fiel al CSV.
 # ==============================================================================
 
 import streamlit as st
 import pandas as pd
 import io
+from supabase import create_client, Client
 
 # 1. CONFIGURACIÓN INDEPENDIENTE DE LA VENTANA WEB DE STREAMLIT
 st.set_page_config(
@@ -17,15 +18,28 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# 2. HERENCIA DE CONEXIÓN SEGURA DIRECTA DESDE LOS SECRETS DE LA RAÍZ
+@st.cache_resource
+def init_supabase_local() -> Client:
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
+
+try:
+    supabase = init_supabase_local()
+    st.sidebar.success("⚡ Conexión Dedicada Activa")
+except Exception as e:
+    st.sidebar.error(f"❌ Error de Conexión: {e}")
+
 # Declaramos la ruta de regreso al Launchpad central (app.py)
 pagina_principal = "app.py"
 
-# 2. BOTÓN DE RETORNO DIRECTO SUELTO (Blindado contra fallos de tipo)
-if st.button("⬅️ Volver al Menú Principal", use_container_width=True, key="btn_regresar_launchpad_inv"):
+# 3. BOTÓN DE RETORNO DIRECTO SUELTO (Blindado contra fallos de tipo)
+if st.button("⬅️ Volver al Menú Principal", use_container_width=True, key="btn_regresar_launchpad_inv_v180"):
     st.switch_page(pagina_principal)
 
 st.title("📤 Procesador de Inventarios en Bruto (Nivel 5)")
-st.markdown("Clasificación automatizada local mediante la matriz de reglas fijas del negocio.")
+st.markdown("Clasificación automatizada local mediante la matriz de reglas fijas e inyección masiva en la nube.")
 st.markdown("---")
 
 # El diccionario de reglas base unificado y expandido en código duro (100% Autónomo)
@@ -98,7 +112,7 @@ def clasificar_texto_local(nombre_recibido):
     return None
 
 # Componente visual para la carga de archivos planos
-archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v170")
+archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v180")
 if archivo_subido:
     try:
         df = pd.read_csv(archivo_subido, encoding='utf-8')
@@ -112,15 +126,15 @@ if archivo_subido:
         productos_clasificados = []
         no_clasificados = []
         
-        # Iteración del catálogo masivo utilizando el diccionario duro local
+        # Iteración del catálogo masivo utilizando el diccionario duro de confianza
         for idx, fila in df.iterrows():
             nombre_prod = fila['nombre']
             id_subcat = clasificar_texto_local(nombre_prod)
             
             if id_subcat:
-                # Sincronización mandatoria con la nueva taxonomía real del negocio
+                # SE RESPETA EL FORMATO FIEL AL CSV ORIGINAL (Sin .upper() ni modificaciones)
                 productos_clasificados.append({
-                    "nombre_catalogo": nombre_prod.upper(),
+                    "nombre_catalogo": str(nombre_prod).strip(),
                     "id_subcat": id_subcat
                 })
             else:
@@ -131,7 +145,7 @@ if archivo_subido:
             st.metric("Productos Aceptados (Locales)", len(productos_clasificados))
             if productos_clasificados:
                 # Creamos el DataFrame para la visualización comercial ordenada
-                df_previa = pd.DataFrame(productos_clasificados)
+                df_previa = pd.DataFrame(productos_clasificados)[["nombre_catalogo", "id_subcat"]]
                 st.dataframe(df_previa, use_container_width=True)
         with col2:
             st.metric("Productos sin clasificar (Omitidos)", len(no_clasificados))
@@ -145,5 +159,50 @@ if archivo_subido:
                     data=csv_omitidos,
                     file_name="productos_omitidos.csv",
                     mime="text/csv",
-                    key="btn_descargar_omitidos_local_v170"
+                    key="btn_descargar_omitidos_local_v180"
                 )
+        
+        # SUB-MÓDULO DE PERSISTENCIA: BOTÓN INYECTOR POR LOTES SEGUROS (BATCHING)
+        if productos_clasificados:
+            st.markdown("---")
+            if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos_v180_fijo"):
+                with st.spinner("Inyectando registros en bloques seguros de 50 hacia la tabla 'catalogo'..."):
+                    TAMANO_LOTE = 50
+                    total_guardados = 0
+                    error_registrado = None
+                    
+                    # Dividimos la carga masiva en paquetes pequeños para mantener ligera la cabecera HTTP
+                    for i in range(0, len(productos_clasificados), TAMANO_LOTE):
+                        lote_actual = productos_clasificados[i:i + TAMANO_LOTE]
+                        exito_lote = False
+                        
+                        try:
+                            # Preparamos el payload limpio alineado a tu tabla física real
+                            payload = []
+                            for p in lote_actual:
+                                payload.append({
+                                    "nombre_catalogo": p["nombre_catalogo"],
+                                    "id_subcat": p["id_subcat"]
+                                })
+                            
+                            # Disparamos la inyección hacia la tabla de la base de datos
+                            supabase.table("catalogo").insert(payload).execute()
+                            exito_lote = True
+                        except Exception as e_lote:
+                            error_registrado = e_lote
+                            exito_lote = False
+                            
+                        if exito_lote:
+                            total_guardados += len(lote_actual)
+                        else:
+                            # Si un paquete falla, detenemos el bucle para proteger la integridad de los datos
+                            break
+                            
+                    # Despliegue del estatus de la carga en pantalla
+                    if total_guardados == len(productos_clasificados):
+                        st.balloons()
+                        st.success(f"¡Éxito total! Se guardaron {total_guardados} productos genéricos en tu tabla 'catalogo' con formato fiel al archivo.")
+                    elif total_guardados > 0:
+                        st.warning(f"⚠️ Carga parcial: Se guardaron {total_guardados} productos, pero el proceso se detuvo por: {error_registrado}")
+                    else:
+                        st.error(f"❌ Error definitivo de persistencia en la tabla 'catalogo'. Detalle: {error_registrado}")
