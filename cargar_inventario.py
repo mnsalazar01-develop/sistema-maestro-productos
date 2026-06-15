@@ -1,36 +1,38 @@
-# ==============================================================================
-# PROGRAMA SATÉLITE: cargar_inventario.py (PARTE A DE B)
-# VERSIÓN: 4.0.0 (MÓDULO SUELTO AUTÓNOMO CON LLAVES PROPIAS)
-# DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
-# MODIFICACIÓN: Inclusión de llaves de Supabase independientes y lectura limpia.
-# ==============================================================================
-
 import streamlit as st
 import pandas as pd
 import io
+from datetime import datetime, date
 from supabase import create_client, Client
+
+# ===============================================================================
+# COMMENT INDICADOR: >>> INICIO DE LA PARTE 1 DE 2 v4.1.0 <<<
+# MODULO: INVENTARIO MASIVO RETAIL N5 - MOTOR LEXICO INTEGRADO DIRECTO A DISCO
+# ===============================================================================
+__version__ = "4.1.0"
+__last_update__ = "2026-06-15"
+__author__ = "Control Víveres Pro Team"
 
 # 1. CONFIGURACIÓN INDEPENDIENTE DE LA VENTANA WEB
 st.set_page_config(
-    page_title="Módulo de Carga masiva - Retail",
+    page_title=f"Carga Masiva Retail v{__version__}",
     page_icon="📤",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
 # 2. BOTÓN DE RETORNO DIRECTO AL LAUNCHPAD CENTRAL (app.py)
-col_volver, col_vacia = st.columns()
+col_volver, col_vacia = st.columns([1, 4])
 with col_volver:
     if st.button("⬅️ Menú Principal", use_container_width=True, key="btn_volver_inventario"):
         st.switch_page("app.py")
 
 st.title("📤 Procesador de Inventarios en Bruto (Nivel 5)")
-st.markdown("Clasificación automatizada mediante matriz de control parametrizada en la nube.")
+st.caption(f"Clasificación Automatizada mediante Matriz de Control Parametrizada en la Nube — Build v{__version__}")
+st.markdown("---")
 
 # 3. CONEXIÓN LOCAL PROPIA E INDEPENDIENTE A SUPABASE CLOUD
 @st.cache_resource
 def init_supabase_propio() -> Client:
-    # Extrae las llaves de forma directa desde los Secrets de la aplicación
     url = st.secrets["supabase"]["url"]
     key = st.secrets["supabase"]["key"]
     return create_client(url, key)
@@ -39,9 +41,9 @@ try:
     supabase = init_supabase_propio()
     st.sidebar.success("⚡ Conexión Dedicada Establecida")
 except Exception as e:
-    st.sidebar.error(f"❌ Error de Conexión: {e}")
+    st.sidebar.error(f"❌ Error de Conexión: {e}"); st.stop()
 
-# Función interna de cruce léxico plano contra la matriz descargada
+# REPARADO DEFINITIVO TOKENIZACIÓN: Captura estricta del índice cero del arreglo léxico
 def clasificar_texto_parametrizado(nombre_recibido, mapa_reglas=None):
     texto = str(nombre_recibido).lower().strip()
     if mapa_reglas:
@@ -50,13 +52,13 @@ def clasificar_texto_parametrizado(nombre_recibido, mapa_reglas=None):
                 return id_subcat
         palabras_token = texto.split()
         if palabras_token:
-            primera_palabra = palabras_token
+            primera_palabra = palabras_token[0] # REPARADO: Captura el string, no la lista
             if primera_palabra in mapa_reglas:
                 return mapa_reglas[primera_palabra]
     return None
 
 # Componente visual independiente para aceptar archivos planos CSV
-archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_satelite_v400")
+archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_satelite_v410")
 
 if archivo_subido:
     st.success("¡Archivo plano cargado con éxito en la memoria web!")
@@ -64,7 +66,6 @@ if archivo_subido:
     # Descarga e Indexación de la Tabla Paramétrica desde tu base de datos cloud
     matriz_reglas_vivas = {}
     try:
-        # Consultamos las columnas directamente usando los nombres JSON nativos de tu tabla pública
         res_reglas = supabase.table("matriz_diccionario_reglas").select("palabra_clave, id_enlace_subcat").execute()
         if res_reglas and hasattr(res_reglas, 'data') and res_reglas.data:
             for fila_r in res_reglas.data:
@@ -80,6 +81,33 @@ if archivo_subido:
     except Exception as e:
         st.sidebar.error(f"❌ Error en PostgREST: {e}")
         matriz_reglas_vivas = None
+
+    try:
+        df = pd.read_csv(archivo_subido, encoding='utf-8')
+    except UnicodeDecodeError:
+        df = pd.read_csv(archivo_subido, encoding='latin-1')
+    
+    if 'nombre' not in df.columns:
+        st.error("❌ Error: Tu archivo plano debe contener una columna llamada exactamente 'nombre' (en minúsculas).")
+    else:
+        st.markdown("### 🧠 Pre-visualización de la Clasificación Automática Parametrizada")
+        productos_clasificados = []
+        no_clasificados = []
+        
+        # Iteración del catálogo masivo utilizando la matriz de la base de datos
+        for idx, fila in df.iterrows():
+            nombre_prod = fila['nombre']
+            id_subcat = clasificar_texto_parametrizado(nombre_prod, matriz_reglas_vivas)
+            
+            if id_subcat:
+                productos_clasificados.append({
+                    "nombre": nombre_prod,
+                    "nombre_catalogo": nombre_prod, # Saneado: Ortografía corregida para contingencia
+                    "id_subcat": id_subcat,
+                    "id_enlace_subcat": id_subcat
+                })
+            else:
+                no_clasificados.append({"nombre": nombre_prod})
     try:
         df = pd.read_csv(archivo_subido, encoding='utf-8')
     except UnicodeDecodeError:
