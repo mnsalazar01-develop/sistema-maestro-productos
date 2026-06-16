@@ -148,9 +148,9 @@ archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos
 # ##############################################################################
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 2 DE 2)
-# VERSIÓN: 2.4.0 (ORDENAMIENTO ALFABÉTICO + ESCUDO DE HIGIENE)
-# DESCRIPCIÓN: Bloque de Renderizado Gráfico Simétrico y Motor de Clasificación AZ
-# MODIFICACIÓN: Inclusión de sort_values por pasillo y descripción e índices correlativos.
+# VERSIÓN: 2.5.0 (CIERRE MATUTINO - ORDENAMIENTO POR ID + ALFABÉTICO PRODUCTO)
+# DESCRIPCIÓN: Bloque de Renderizado Gráfico Simétrico y Motor de Clasificación ID-AZ
+# MODIFICACIÓN: sort_values ajustado por id_subcat_interno y nombre_catalogo.
 # ==============================================================================
 
 if archivo_subido:
@@ -180,7 +180,7 @@ if archivo_subido:
             else:
                 no_clasificados.append({"nombre": nombre_prod})
         
-        # 1. RENDERIZADO SIMÉTRICO DE LAS TABLAS DE AUDITORÍA CON ORDENAMIENTO ALFABÉTICO
+        # 1. RENDERIZADO SIMÉTRICO DE LAS TABLAS DE AUDITORÍA CON NUEVO ORDENAMIENTO
         col_tab1, col_tab2 = st.columns(2)
         
         with col_tab1:
@@ -188,9 +188,9 @@ if archivo_subido:
             if productos_clasificados:
                 df_previa = pd.DataFrame(productos_clasificados)
                 
-                # REGLA SOLICITADA: Ordenamiento síncrono alfabético por Pasillo + Nombre del artículo
+                # REGLA SOLICITADA: Ordenamiento primario por ID de Pasillo (1, 2, 3...) + Secundario por Abecedario de Producto
                 df_previa = df_previa.sort_values(
-                    by=["Pasillo / Departamento", "nombre_catalogo"], 
+                    by=["id_subcat_interno", "nombre_catalogo"], 
                     ascending=[True, True]
                 ).reset_index(drop=True)
                 
@@ -219,7 +219,7 @@ if archivo_subido:
         
         with col_btn1:
             if productos_clasificados:
-                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v240"):
+                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v250"):
                     with st.spinner("Inyectando registros en bloques de 50 hacia la tabla 'catalogo'..."):
                         TAMANO_LOTE = 50
                         total_guardados = 0
@@ -264,7 +264,7 @@ if archivo_subido:
                     data=csv_omitidos,
                     file_name="productos_omitidos.csv",
                     mime="text/csv",
-                    key="btn_descargar_omitidos_local_v240"
+                    key="btn_descargar_omitidos_local_v250"
                 )
 # ##############################################################################
 # BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 2 DE 2 <<<
