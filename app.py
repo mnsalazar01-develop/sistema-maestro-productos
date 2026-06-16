@@ -18,7 +18,7 @@ st.set_page_config(
 # 2. DEFINICIÓN DE LA PÁGINA DE PORTADA (CENTRO DE CONTROL)
 def mostrar_centro_control():
     st.title("🏭 Centro de Control")
-    st.markdown("Bienvenido al ecosistema modular de taxonomía y control de productos del negocio.")
+    st.markdown("Bienvenido al ecosistema modular de clasificación y control de productos.")
     st.markdown("---")
 
     # Estructuramos el menú visual utilizando una grilla limpia de 4 columnas de alta densidad
@@ -44,7 +44,7 @@ def mostrar_centro_control():
 
     with col_reglas:
         st.markdown("#### Diccionario de Reglas")
-        st.caption("Panel de control para inyectar y actualizar equivalencias léxicas en caliente.")
+        st.caption("Panel de control para incluir y actualizar prefijos de productos.")
         if st.button("Mantenimiento de Reglas", use_container_width=True, key="btn_p1_reglas_v430"):
             st.switch_page(pagina_reglas)
 
