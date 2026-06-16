@@ -1,8 +1,8 @@
 # ==============================================================================
-# PROGRAMA CENTRAL: app.py (CENTRO DE CONTROL ACTIVO)
-# VERSIÓN: 4.2.0 (REPARACIÓN DE ATRIBUTO Y CAMBIO DE ETIQUETAS)
-# DESCRIPCIÓN: Panel Central Retail con Navegación por Botones y Registro de Rutas
-# MODIFICACIÓN: Uso de función de página para la portada contra AttributeError.
+# PROGRAMA CENTRAL: app.py (CENTRO DE CONTROL PURIFICADO)
+# VERSIÓN: 4.3.0 (CORRECCIÓN DE ETIQUETAS INVENTADAS)
+# DESCRIPCIÓN: Panel Central Retail con Navegación por Botones y Control de Auto-Importación
+# MODIFICACIÓN: Uso estricto de las etiquetas comerciales aprobadas por el negocio.
 # ==============================================================================
 
 import streamlit as st
@@ -25,34 +25,33 @@ def mostrar_centro_control():
     col_inv, col_prod, col_maestro, col_reglas = st.columns(4)
 
     with col_inv:
-        st.markdown("#### Cargar Inicial de Inventario")
-        st.caption("Procesador de archivos planos CSV mediante el diccionario de confianza.")
-        if st.button("📤 Batch - Imput Inventario", use_container_width=True, key="btn_p1_inv_v420"):
+        st.markdown("#### Cargar Inicial de Inventario Masivo")
+        st.caption("Procesador masivo de archivos planos CSV mediante el diccionario duro de confianza.")
+        if st.button("📤 Batch - Imput Inventario", use_container_width=True, key="btn_p1_inv_v430"):
             st.switch_page(pagina_inventario)
 
     with col_prod:
         st.markdown("#### Registrar Producto")
         st.caption("Alta manual reactiva de artículos nuevos y control multimedia.")
-        if st.button("📝 Ingesta de Catálogo", use_container_width=True, key="btn_p1_prod_v420"):
+        if st.button("Registrar Producto", use_container_width=True, key="btn_p1_prod_v430"):
             st.switch_page(pagina_productos)
 
     with col_maestro:
         st.markdown("#### Maestro de Datos")
         st.caption("Visualizador de registros en tiempo real y extractor binario a formato Excel.")
-        if st.button("📊 Auditar Tablas", use_container_width=True, key="btn_p1_mae_v420"):
+        if st.button("Maestro de Datos", use_container_width=True, key="btn_p1_mae_v430"):
             st.switch_page(pagina_maestro)
 
     with col_reglas:
-        st.markdown("#### Diccionario de Reglas")  # Ajuste de título solicitado
+        st.markdown("#### Diccionario de Reglas")
         st.caption("Panel de control para inyectar y actualizar equivalencias léxicas en caliente.")
-        if st.button("⚙️ Mantenimiento de Reglas", use_container_width=True, key="btn_p1_reglas_v420"):
+        if st.button("Mantenimiento de Reglas", use_container_width=True, key="btn_p1_reglas_v430"):
             st.switch_page(pagina_reglas)
 
     st.markdown("---")
     st.info("💡 Consejo técnico: Utiliza la barra lateral de la izquierda para ingresar directo a los programas o para cambiar de estación de trabajo con un clic.")
 
 # 3. DECLARACIÓN FORMAL DE INSTANCIAS DE PÁGINAS SATÉLITES EN LA RAÍZ
-# Registramos la portada como la página inicial del sistema usando la función limpia
 pagina_inicio = st.Page(mostrar_centro_control, title="🏭 Centro de Control", icon="🏠", default=True)
 pagina_inventario = st.Page("cargar_inventario.py", title="Cargar Inventario Masivo", icon="📤")
 pagina_productos = st.Page("cargar_productos.py", title="Registrar Producto Manual", icon="📝")
