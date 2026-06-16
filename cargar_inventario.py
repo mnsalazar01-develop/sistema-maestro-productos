@@ -132,13 +132,14 @@ archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos
 # ##############################################################################
 # BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 1 DE 2 <<<
 # ##############################################################################
-# #################://##########################################################
+# ##############################################################################
 # BANNER SUPERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 2 DE 2 <<<
 # ##############################################################################
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 2 DE 2)
-# VERSIÓN: 2.2.0 (REMOCIÓN DE BOTÓN REDUNDANTE EN CABECERA)
-# DESCRIPCIÓN: Bloque de Renderizado Gráfico Inline y Motor de Persistencia Relacional
+# VERSIÓN: 2.3.0 (SIMETRÍA HORIZONTAL DE BOTONES CORPORATIVOS)
+# DESCRIPCIÓN: Bloque de Renderizado Gráfico en Espejo y Motor de Persistencia
+# MODIFICACIÓN: Unificación de botones en fila inferior simétrica a la misma altura.
 # ==============================================================================
 
 if archivo_subido:
@@ -154,6 +155,7 @@ if archivo_subido:
         productos_clasificados = []
         no_clasificados = []
         
+        # Iteración masiva utilizando la lógica estable de tu v1.9.0
         for idx, fila in df.iterrows():
             nombre_prod = fila['nombre']
             id_subcat = clasificar_texto_local(nombre_prod)
@@ -168,19 +170,34 @@ if archivo_subido:
             else:
                 no_clasificados.append({"nombre": nombre_prod})
         
-        col1, col2 = st.columns(2)
-        with col1:
+        # 1. RENDERIZADO SIMÉTRICO DE LAS TABLAS DE AUDITORÍA
+        col_tab1, col_tab2 = st.columns(2)
+        
+        with col_tab1:
             st.metric("Artículos Aprobados para el Catálogo", len(productos_clasificados))
             if productos_clasificados:
                 df_previa = pd.DataFrame(productos_clasificados)[["nombre_catalogo", "Pasillo / Departamento"]]
                 df_previa.index = df_previa.index + 1
                 df_previa.index.name = "N° de Ítem"
-                
                 st.dataframe(df_previa, use_container_width=True)
                 
-                st.markdown("---")
-                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v220"):
-                    with st.spinner("Inyectando registros en bloques seguros de 50 hacia la tabla 'catalogo'..."):
+        with col_tab2:
+            st.metric("Artículos Rechazados / Sin Clasificar", len(no_clasificados))
+            if no_clasificados:
+                df_omitidos = pd.DataFrame(no_clasificados)
+                df_omitidos.index = df_omitidos.index + 1
+                df_omitidos.index.name = "N° de Ítem"
+                st.dataframe(df_omitidos, use_container_width=True)
+        
+        # 2. LA TUERCA DE SIMETRÍA: FILA EN ESPEJO PARA LOS BOTONES CORPORATIVOS
+        # Al colocarlos en una grilla nueva paralela, se clavan exactamente a la misma altura visual
+        st.markdown("---")
+        col_btn1, col_btn2 = st.columns(2)
+        
+        with col_btn1:
+            if productos_clasificados:
+                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v230"):
+                    with st.spinner("Inyectando registros en bloques de 50 hacia la tabla 'catalogo'..."):
                         TAMANO_LOTE = 50
                         total_guardados = 0
                         error_registrado = None
@@ -210,29 +227,23 @@ if archivo_subido:
                                 
                         if total_guardados == len(productos_clasificados):
                             st.balloons()
-                            st.success(f"¡Éxito total! Se guardaron {total_guardados} productos de forma permanente en tu tabla 'catalogo' con su formato fiel y nomenclatura relacional.")
+                            st.success(f"¡Éxito total! Se guardaron {total_guardados} productos de forma permanente en tu tabla 'catalogo'.")
                         elif total_guardados > 0:
-                            st.warning(f"⚠️ Carga parcial: Se lograron salvar {total_guardados} productos, pero el proceso se detuvo por: {error_registrado}")
+                            st.warning(f"⚠️ Carga parcial: Se lograron salvar {total_guardados} productos, pero se detuvo por: {error_registrado}")
                         else:
                             st.error(f"❌ Error definitivo de persistencia en la tabla 'catalogo'. Detalle: {error_registrado}")
-        
-        with col2:
-            st.metric("Artículos Rechazados / Sin Clasificar", len(no_clasificados))
+                            
+        with col_btn2:
             if no_clasificados:
-                df_omitidos = pd.DataFrame(no_clasificados)
-                df_omitidos.index = df_omitidos.index + 1
-                df_omitidos.index.name = "N° de Ítem"
-                
-                st.dataframe(df_omitidos, use_container_width=True)
-                
                 csv_omitidos = df_omitidos.to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="⚠️ Descargar Rechazados para revisión",
                     data=csv_omitidos,
                     file_name="productos_omitidos.csv",
                     mime="text/csv",
-                    key="btn_descargar_omitidos_local_v220"
+                    key="btn_descargar_omitidos_local_v230"
                 )
+
 # ##############################################################################
 # BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 2 DE 2 <<<
 # ##############################################################################
