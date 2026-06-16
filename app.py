@@ -25,7 +25,7 @@ def mostrar_centro_control():
     col_inv, col_prod, col_maestro, col_reglas = st.columns(4)
 
     with col_inv:
-        st.markdown("#### Cargar Inicial de Inventario Masivo")
+        st.markdown("#### Cargar Inicial de Inventario")
         st.caption("Carga de archivos planos CSV mediante el diccionario de confianza.")
         if st.button("📤 Batch - Imput Inventario", use_container_width=True, key="btn_p1_inv_v430"):
             st.switch_page(pagina_inventario)
