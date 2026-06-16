@@ -1,226 +1,135 @@
 # ==============================================================================
-# PROGRAMA SATÉLITE: cargar_inventario.py (PARTE A DE B)
-# VERSIÓN: 1.9.0 (INTEGREGACIÓN INTELIGENCIA COMERCIAL)
-# DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
-# MODIFICACIÓN: Detector de cortes frescos (atún/sardina) e inclusión de la tabla 'catalogo'.
+# PROGRAMA SATÉLITE: cargar_productos.py (BLOQUE ÚNICO DEFINITIVO)
+# VERSIÓN: 1.3.0 (AISLAMIENTO TOTAL SIN COLUMNAS)
+# DESCRIPCIÓN: Normalizador Léxico Manual de Productos Nivel 5
+# MODIFICACIÓN: Eliminación completa de st.columns() en cabecera contra TypeError.
 # ==============================================================================
 
 import streamlit as st
 import pandas as pd
-import io
-from supabase import create_client, Client
+import re
 
-# 1. CONFIGURACIÓN INDEPENDIENTE DE LA VENTANA WEB DE STREAMLIT
+# 1. CONFIGURACIÓN CORPORATIVA DE LA VENTANA WEB DE PRODUCCIÓN
 st.set_page_config(
-    page_title="Módulo de Carga masiva - Retail",
-    page_icon="📤",
+    page_title="Normalizador de Productos - Retail",
+    page_icon="📝",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# 2. HERENCIA DE CONEXIÓN SEGURA DIRECTA DESDE LOS SECRETS DE LA RAÍZ
-@st.cache_resource
-def init_supabase_local() -> Client:
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
-    return create_client(url, key)
-
-try:
-    supabase = init_supabase_local()
-    st.sidebar.success("⚡ Conexión Dedicada Activa")
-except Exception as e:
-    st.sidebar.error(f"❌ Error de Conexión: {e}")
-
-# Declaramos la ruta de regreso al Launchpad central
+# Declaramos la ruta de regreso al Menú Principal exigida por app.py
 pagina_principal = "app.py"
 
-# 3. BOTÓN DE RETORNO DIRECTO SUELTO
-if st.button("⬅️ Volver al Menú Principal", use_container_width=True, key="btn_regresar_launchpad_inv_v190"):
+# 2. BOTÓN DE RETORNO DIRECTO SUELTO (Blindado al 100% contra TypeError)
+if st.button("⬅️ Volver al Menú Principal", use_container_width=True, key="btn_regresar_launchpad_fijo"):
     st.switch_page(pagina_principal)
 
-st.title("📤 Procesador de Inventarios en Bruto (Nivel 5)")
-st.markdown("Clasificación automatizada mediante matriz de reglas fijas e inyección masiva segmentada.")
+st.title("📝 Normalizador Léxico de Productos (Nivel 5)")
+st.markdown("Herramienta local autónoma para corregir sintaxis y estandarizar nombres comerciales antes del catálogo.")
 st.markdown("---")
 
-# El diccionario de reglas base unificado y corregido con términos naturales del retail
-DICCIONARIO_REGLAS = {
-    # 1. Alimentos Frescos
-    "carne": 1, "res ": 1, "bistec": 1, "molida": 1, "pollo": 1, "pechuga": 1, "cerdo": 1,
-    "charc": 2, "jamon": 2, "jamón": 2, "mortad": 2, "salchic": 2, "tocin": 2,
-    "frut": 3, "manzan": 3, "cambur": 3, "naranj": 3, "fresa": 3,
-    "verdu": 4, "papa ": 4, "ceboll": 4, "tomate": 4, "zanah": 4, "aliño": 4,
+# Función interna local que limpia y formatea la descripción de un producto
+def normalizar_descripcion_retail(nombre_bruto):
+    # Convertimos a string y pasamos a mayúsculas
+    texto = str(nombre_bruto).upper().strip()
     
-    # Pescadería (Prioridad de raíces y cortes del mar)
-    "pesca": 5, "camar": 5, "marisc": 5, "merlu": 5, "fresco": 5,
+    # Expresión regular local para eliminar caracteres especiales molestos
+    texto = re.sub(r'[#\$%@\*\+=\[\]\{\}\/\\]', '', texto)
     
-    "pan ": 6, "baguet": 6, "canill": 6, "acem": 6,
-    "torta": 7, "ponqu": 7, "hojald": 7, "pastel": 7, "cake": 7, # Removido 'pastg' por términos limpios
-
-    # 2. Víveres (Despensa)
-    "gran": 8, "arroz": 8, "frijol": 8, "caraota": 8, "lenteja": 8, "cafe": 8, "café": 8,
-    "harin": 9, "fororo": 9, "maicena": 9, "pasta": 9, "espagu": 9, "fideo": 9,
-    "aceit": 10, "oliva": 10,
-    "mantec": 11, "margar": 11, "manteq": 11,
+    # Eliminamos espacios dobles o triples entre palabras
+    texto = " ".join(texto.split())
     
-    # Enlatados genéricos (Capturados si no cumplen la excepción de corte fresco)
-    "atun": 12, "atún": 12, "sardin": 12, "pepito": 12, "enlat": 12,
-    
-    "mermel": 13, "conserv": 13,
-    "mayon": 14, "salsa": 14, "ketchup": 14, "mostaz": 14,
-    "sal ": 15, "pimient": 15, "condim": 15, "orég": 15,
-    "avena": 16, "cereal": 16, "corn": 16, "azucar": 16, "azúcar": 16,
+    return texto
 
-    # 3. Refrigerados y Congelados
-    "lech": 17, "queso": 17, "crema": 17, "lact": 17,
-    "yog": 18, "yogu": 18,
-    "nugget": 19, "papas cong": 19,
-    "brocol cong": 20,
-    "helad": 21, "palet": 21,
+st.subheader("📋 Consola de Depuración de Nombres")
+st.markdown("Introduce la descripción del artículo en bruto para procesar su estructura:")
 
-    # 4. Bebidas y Bodegón
-    "agua": 22, "mineral": 22,
-    "jugo": 23, "nectar": 23,
-    "refres": 24, "soda": 24, "cola": 24,
-    "energ": 25, "red bull": 25,
-    "ron ": 26, "caciqu": 26,
-    "cerve": 27, "frías": 27,
-    "vino": 28, "tinto": 28,
-    "whis": 29, "bucan": 29,
-
-    # 5. Cuidado Personal e Higiene
-    "jabon": 30, "jabón": 30,
-    "shamp": 31, "champ": 31, "acondic": 31,
-    "desod": 32, "axila": 32,
-    "crema dent": 33, "pasta dent": 33, "colgat": 33,
-    "papel hig": 34, "toilet": 34, "servill": 34,
-    "maquill": 35, "labial": 35,
-
-    # 6. Cuidado del Hogar y Limpieza
-    "deterg": 36, "ace ": 36, "ariel": 36,
-    "suaviz": 37, "downy": 37,
-    "limpia": 38, "cloro": 38,
-    "desinf": 39, "lysol": 39,
-    "lavap": 40, "axion": 40, "crema lava": 40,
-
-    # 7. Categorías Adicionales
-    "mascot": 41, "perrar": 41, "gatar": 41,
-    "pañal": 42, "pamp": 42,
-    "formul": 43, "infant": 43,
-    "ferret": 44, "tornill": 44, "clav": 44
+# Mapa de respaldo local con las familias del supermercado
+familias_respaldo = {
+    1: "Carnicería", 2: "Charcutería", 3: "Frutería", 4: "Verdulería", 5: "Pescadería", 
+    6: "Panadería", 7: "Pastelería", 8: "Granos y Café", 9: "Harinas y Pastas", 
+    10: "Aceites Comestibles", 11: "Grasas", 12: "Enlatados", 13: "Conservas", 
+    14: "Salsas y Aderezos", 15: "Condimentos", 16: "Desayuno y Azúcar", 
+    17: "Lácteos y Leches", 18: "Yogures", 19: "Comidas Preparadas", 
+    22: "Agua", 23: "Jugos", 24: "Refrescos", 25: "Bebidas Energéticas", 
+    26: "Ron", 27: "Cerveza", 28: "Vino", 29: "Whisky", 30: "Jabón", 
+    31: "Champú", 32: "Desodorante", 33: "Crema Dental", 34: "Papel Higiénico", 
+    35: "Maquillaje", 36: "Detergentes", 37: "Suavizantes", 38: "Limpiadores", 
+    39: "Desinfectantes", 40: "Lavaplatos", 41: "Mascotas", 42: "Pañales", 
+    43: "Fórmulas Infantiles", 44: "Ferretería Ligera"
 }
 
-# FUNCIÓN DE CLASIFICACIÓN CON CRITERIO COMERCIAL INTEGRADO
-def clasificar_texto_local(nombre_recibido):
-    texto = str(nombre_recibido).lower().strip()
+# Diseño del contenedor del formulario local interactivo
+with st.form("formulario_normalizador_manual_v130", clear_on_submit=False):
+    col_f1, col_f2 = st.columns(2)
     
-    # REGLA DE EXCLUSIÓN CRÍTICA (FRESCO VS ENLATADO)
-    # Si detecta Atún o Sardina, pero especifica formato físico de corte, viaja al pasillo 5 (Pescadería)
-    if "atun" in texto or "atún" in texto or "sardin" in texto:
-        if "rueda" in texto or "filet" in texto or "lomo" in texto:
-            return 5
-            
-    # Bucle tradicional sobre la matriz rígida hardcodeada
-    for palabra_clave, id_subcat in DICCIONARIO_REGLAS.items():
-        if palabra_clave in texto:
-            return id_subcat
-    return None
+    with col_f1:
+        nombre_ingresado = st.text_input(
+            "Escribe la descripción del Producto en bruto (Sucia o con errores):",
+            placeholder="Ej:   ##bIfe   de_esPaldilla!! de res premium**  ",
+            key="input_texto_sucio"
+        ).strip()
+        
+        codigo_barras = st.text_input(
+            "Código de Barras / GTIN (Numérico local):",
+            placeholder="Ej: 7501055310012",
+            max_chars=14,
+            key="input_gtin_manual"
+        ).strip()
 
-# Componente visual para la carga de archivos planos
-archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v190")
-if archivo_subido:
-    try:
-        df = pd.read_csv(archivo_subido, encoding='utf-8')
-    except UnicodeDecodeError:
-        df = pd.read_csv(archivo_subido, encoding='latin-1')
+    with col_f2:
+        subcat_seleccionada = st.selectbox(
+            "Asociar de forma estricta a la subcategoría de destino:",
+            options=[f"{id_f} - {nombre_f}" for id_f, nombre_f in familias_respaldo.items()],
+            key="select_subcat_manual"
+        )
+        
+        precio_sugerido = st.number_input(
+            "Costo base estimado comercial (USD):",
+            min_value=0.00,
+            value=0.00,
+            step=0.01,
+            format="%.2f",
+            key="input_precio_manual"
+        )
+
+    st.markdown("---")
+    # Botón operativo de ejecución del formulario en RAM
+    boton_procesar_manual = st.form_submit_button("🚀 Procesar, Normalizar y Verificar Producto")
     
-    if 'nombre' not in df.columns:
-        st.error("❌ Error: Tu archivo plano debe contener una columna llamada exactamente 'nombre' (en minúsculas).")
-    else:
-        st.markdown("### 🧠 Pre-visualización de la Clasificación Automática Local")
-        productos_clasificados = []
-        no_clasificados = []
-        
-        # Iteración del catálogo masivo utilizando el diccionario duro de confianza
-        for idx, fila in df.iterrows():
-            nombre_prod = fila['nombre']
-            id_subcat = clasificar_texto_local(nombre_prod)
+    if boton_procesar_manual:
+        if not nombre_ingresado:
+            st.error("❌ Error de Validación: El cuadro de texto se encuentra vacío. Escribe un nombre.")
+        else:
+            nombre_limpio_final = normalizar_descripcion_retail(nombre_ingresado)
+            id_subcat_final = int(subcat_seleccionada.split(" - ")[0])
             
-            if id_subcat:
-                # Se respeta el formato fiel al CSV original sin alteraciones tipográficas
-                productos_clasificados.append({
-                    "nombre_catalogo": str(nombre_prod).strip(),
-                    "id_subcat": id_subcat
-                })
-            else:
-                no_clasificados.append({"nombre": nombre_prod})
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Productos Aceptados (Locales)", len(productos_clasificados))
-            if productos_clasificados:
-                # COSTURA ESTÉTICA: Forzamos a Pandas a generar un DataFrame limpio
-                df_previa = pd.DataFrame(productos_clasificados)[["nombre_catalogo", "id_subcat"]]
-                
-                # Desplazamos el índice sumándole 1 para que la pantalla numere como los humanos (1, 2, 3...)
-                df_previa.index = df_previa.index + 1
-                
-                # Dibujamos la tabla comercial con su numeración real
-                st.dataframe(df_previa, use_container_width=True)
-        with col2:
-            st.metric("Productos sin clasificar (Omitidos)", len(no_clasificados))
-            if no_clasificados:
-                df_omitidos = pd.DataFrame(no_clasificados)
-                
-                # Aplicamos el mismo ajuste de numeración real al contenedor de rechazados
-                df_omitidos.index = df_omitidos.index + 1
-                
-                st.dataframe(df_omitidos, use_container_width=True)
-                
-                csv_omitidos = df_omitidos.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="⚠️ Descargar Omitidos para revisión",
-                    data=csv_omitidos,
-                    file_name="productos_omitidos.csv",
-                    mime="text/csv",
-                    key="btn_descargar_omitidos_local_v190_num"
-                )
-        
-        # SUB-MÓDULO DE PERSISTENCIA: BOTÓN INYECTOR POR LOTES SEGUROS (BATCHING)
-        if productos_clasificados:
+            st.balloons()
+            st.success("🎉 ¡Nombre comercial corregido y estandarizado con éxito en memoria local!")
+            
+            st.markdown("### 📋 Ficha Técnica Estandarizada (Estándar Retail)")
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
+                st.info(f"**📦 Descripción Limpia:** `{nombre_limpio_final}`")
+                st.write(f"**🏷️ Familia Asociada:** {subcat_seleccionada}")
+            with col_t2:
+                st.write(f"**🔢 Código de Control GTIN:** {codigo_barras if codigo_barras else 'N/A'}")
+                st.write(f"**💵 Costo de Operación:** ${precio_sugerido:.2f} USD")
+            
             st.markdown("---")
-            if st.button("🚀 Confirmar y Enviar Datos a Supabase Cloud", key="btn_enviar_productos_v190_fijo"):
-                with st.spinner("Inyectando registros en bloques seguros de 50 hacia la tabla 'catalogo'..."):
-                    TAMANO_LOTE = 50
-                    total_guardados = 0
-                    error_registrado = None
-                    
-                    for i in range(0, len(productos_clasificados), TAMANO_LOTE):
-                        lote_actual = productos_clasificados[i:i + TAMANO_LOTE]
-                        exito_lote = False
-                        
-                        try:
-                            payload = []
-                            for p in lote_actual:
-                                payload.append({
-                                    "nombre_catalogo": p["nombre_catalogo"],
-                                    "id_subcat": p["id_subcat"]
-                                })
-                            
-                            supabase.table("catalogo").insert(payload).execute()
-                            exito_lote = True
-                        except Exception as e_lote:
-                            error_registrado = e_lote
-                            exito_lote = False
-                            
-                        if exito_lote:
-                            total_guardados += len(lote_actual)
-                        else:
-                            break
-                            
-                    if total_guardados == len(productos_clasificados):
-                        st.balloons()
-                        st.success(f"¡Éxito total! Se guardaron {total_guardados} productos genéricos en tu tabla 'catalogo' con formato fiel al archivo.")
-                    elif total_guardados > 0:
-                        st.warning(f"⚠️ Carga parcial: Se guardaron {total_guardados} productos, pero el proceso se detuvo por: {error_registrado}")
-                    else:
-                        st.error(f"❌ Error definitivo de persistencia en la tabla 'catalogo'. Detalle: {error_registrado}")
+            reporte_texto = (
+                f"=== FICHA DE PRODUCTO NORMALIZADA ===\n"
+                f"DESCRIPCION: {nombre_limpio_final}\n"
+                f"SUBCATEGORIA_ID: {id_subcat_final}\n"
+                f"GTIN: {codigo_barras if codigo_barras else 'N/A'}\n"
+                f"COSTO_USD: {precio_sugerido:.2f}\n"
+                f"====================================="
+            )
+            
+            st.download_button(
+                label="📥 Descargar Ficha Técnica (.txt) para tu bitácora",
+                data=reporte_texto,
+                file_name=f"producto_{id_subcat_final}.txt",
+                mime="text/plain",
+                key="btn_descargar_txt_manual_v130"
+            )
