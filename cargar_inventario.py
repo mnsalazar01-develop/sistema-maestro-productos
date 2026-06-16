@@ -1,9 +1,11 @@
-
+# ##############################################################################
+# BANNER SUPERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 1 DE 2 <<<
+# ##############################################################################
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 1 DE 2)
-# VERSIÓN: 2.2.0 (REMOCIÓN DE BOTÓN REDUNDANTE EN CABECERA)
+# VERSIÓN: 2.4.0 (ORDENAMIENTO ALFABÉTICO + ESCUDO DE HIGIENE)
 # DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
-# MODIFICACIÓN: Eliminación del botón st.button de retorno; la barra lateral gobierna.
+# MODIFICACIÓN: Solución a falsos positivos ("res"/"fresco") y ordenamiento A-Z.
 # ==============================================================================
 
 import streamlit as st
@@ -32,7 +34,7 @@ try:
 except Exception as e:
     st.sidebar.error(f"❌ Error de Conexión: {e}")
 
-# 3. TÍTULO PRINCIPAL (Inicio directo del lienzo limpio sin componentes redundantes)
+# 3. TÍTULO PRINCIPAL (Lienzo limpio gobernado por la barra lateral de app.py)
 st.title("📤 Carga por Lotes - Datos de Inventario")
 st.markdown("Clasificación automatizada local mediante la matriz de reglas fijas e inyección masiva en la nube.")
 st.markdown("---")
@@ -83,15 +85,22 @@ MAPA_PASILLOS_VENEZUELA = {
     44: "🛠️ Ferretería Ligera y Eléctricos"
 }
 
-# 5. TU DICCIONARIO DURO v1.9.0 ENRIQUECIDO CON ENTRADAS POS VENEZUELA
+# 5. TU DICCIONARIO DURO v1.9.0 SANEADO CONTRA FALSOS POSITIVOS Y COLISIONES
 DICCIONARIO_REGLAS = {
+    # Escudo Léxico Íntimo Femenino (Confina protectores/toallas en Higiene/Aseo antes de leer la res)
+    "toalla": 34, "sanitari": 34, "protect": 32, "diario": 32,
+    
+    # Alimentos Frescos y Abreviaciones de Balanza Local (Venezuela)
     "carne": 1, "res ": 1, "bistec": 1, "molida": 1, "pollo": 1, "pechuga": 1, "cerdo": 1,
     "solom": 1, "solomito": 1, "pulpa": 1, "chocoz": 1, "muchach": 1, "coch": 1, "cochin": 1,
     "charc": 2, "jamon": 2, "jamón": 2, "mortad": 2, "salchic": 2, "tocin": 2,
     "musa": 2, "amaril": 2, "amarill": 2, "queso": 2,
     "frut": 3, "manzan": 3, "cambur": 3, "naranj": 3, "fresa": 3,
     "verdu": 4, "papa ": 4, "ceboll": 4, "tomate": 4, "zanah": 4, "aliño": 4,
-    "pesca": 5, "camar": 5, "marisc": 5, "merlu": 5, "fresco": 5,
+    
+    # Pescadería (Se remueve la palabra "fresco" suelta para no contaminar lácteos/pastas)
+    "pesca": 5, "camar": 5, "marisc": 5, "merlu": 5, "pargo": 5, "carite": 5,
+    
     "pan ": 6, "baguet": 6, "canill": 6, "acem": 6,
     "torta": 7, "ponqu": 7, "hojald": 7, "pastel": 7, "cake": 7,
     "gran": 8, "arroz": 8, "frijol": 8, "caraota": 8, "lenteja": 8, "cafe": 8, "café": 8,
@@ -115,9 +124,11 @@ DICCIONARIO_REGLAS = {
     "gatar": 41, "pañal": 42, "pamp": 42, "formul": 43, "infant": 43, "ferret": 44, "tornill": 44, "clav": 44
 }
 
-# 6. TU FUNCIÓN DE CLASIFICACIÓN CON INTELIGENCIA DE EXCLUSIÓN v1.9.0 INTACTA
+# 6. FUNCIÓN DE CLASIFICACIÓN CON INTELIGENCIA DE PRESENTACIÓN FISICA DE CORTES
 def clasificar_texto_local(nombre_recibido):
     texto = str(nombre_recibido).lower().strip()
+    
+    # Detector síncrono de cortes (Atún/Sardina) que discrimina latas de pescados frescos
     if "atun" in texto or "atún" in texto or "sardin" in texto:
         if "rueda" in texto or "filet" in texto or "lomo" in texto:
             return 5
@@ -127,8 +138,8 @@ def clasificar_texto_local(nombre_recibido):
             return id_subcat
     return None
 
-# Componente visual para la carga de archivos planos
-archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v220")
+# Componente visual para la carga de archivos planos CSV
+archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v240")
 # ##############################################################################
 # BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 1 DE 2 <<<
 # ##############################################################################
@@ -137,9 +148,9 @@ archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos
 # ##############################################################################
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 2 DE 2)
-# VERSIÓN: 2.3.0 (SIMETRÍA HORIZONTAL DE BOTONES CORPORATIVOS)
-# DESCRIPCIÓN: Bloque de Renderizado Gráfico en Espejo y Motor de Persistencia
-# MODIFICACIÓN: Unificación de botones en fila inferior simétrica a la misma altura.
+# VERSIÓN: 2.4.0 (ORDENAMIENTO ALFABÉTICO + ESCUDO DE HIGIENE)
+# DESCRIPCIÓN: Bloque de Renderizado Gráfico Simétrico y Motor de Clasificación AZ
+# MODIFICACIÓN: Inclusión de sort_values por pasillo y descripción e índices correlativos.
 # ==============================================================================
 
 if archivo_subido:
@@ -155,7 +166,6 @@ if archivo_subido:
         productos_clasificados = []
         no_clasificados = []
         
-        # Iteración masiva utilizando la lógica estable de tu v1.9.0
         for idx, fila in df.iterrows():
             nombre_prod = fila['nombre']
             id_subcat = clasificar_texto_local(nombre_prod)
@@ -170,33 +180,46 @@ if archivo_subido:
             else:
                 no_clasificados.append({"nombre": nombre_prod})
         
-        # 1. RENDERIZADO SIMÉTRICO DE LAS TABLAS DE AUDITORÍA
+        # 1. RENDERIZADO SIMÉTRICO DE LAS TABLAS DE AUDITORÍA CON ORDENAMIENTO ALFABÉTICO
         col_tab1, col_tab2 = st.columns(2)
         
         with col_tab1:
             st.metric("Artículos Aprobados para el Catálogo", len(productos_clasificados))
             if productos_clasificados:
-                df_previa = pd.DataFrame(productos_clasificados)[["nombre_catalogo", "Pasillo / Departamento"]]
+                df_previa = pd.DataFrame(productos_clasificados)
+                
+                # REGLA SOLICITADA: Ordenamiento síncrono alfabético por Pasillo + Nombre del artículo
+                df_previa = df_previa.sort_values(
+                    by=["Pasillo / Departamento", "nombre_catalogo"], 
+                    ascending=[True, True]
+                ).reset_index(drop=True)
+                
+                # COSTURA ESTÉTICA: Ajuste de índice correlativo real iniciando en 1 para humanos
                 df_previa.index = df_previa.index + 1
                 df_previa.index.name = "N° de Ítem"
-                st.dataframe(df_previa, use_container_width=True)
+                
+                # Extraemos solo las columnas comerciales que ve el ojo humano en la pantalla
+                st.dataframe(df_previa[["nombre_catalogo", "Pasillo / Departamento"]], use_container_width=True)
                 
         with col_tab2:
             st.metric("Artículos Rechazados / Sin Clasificar", len(no_clasificados))
             if no_clasificados:
                 df_omitidos = pd.DataFrame(no_clasificados)
+                
+                # Ordenamos alfabéticamente los omitidos para facilitar la auditoría de raíces faltantes
+                df_omitidos = df_omitidos.sort_values(by="nombre", ascending=True).reset_index(drop=True)
                 df_omitidos.index = df_omitidos.index + 1
                 df_omitidos.index.name = "N° de Ítem"
+                
                 st.dataframe(df_omitidos, use_container_width=True)
         
-        # 2. LA TUERCA DE SIMETRÍA: FILA EN ESPEJO PARA LOS BOTONES CORPORATIVOS
-        # Al colocarlos en una grilla nueva paralela, se clavan exactamente a la misma altura visual
+        # 2. FILA EN ESPEJO HORIZONTAL SIMÉTRICA PARA LOS BOTONES
         st.markdown("---")
         col_btn1, col_btn2 = st.columns(2)
         
         with col_btn1:
             if productos_clasificados:
-                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v230"):
+                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v240"):
                     with st.spinner("Inyectando registros en bloques de 50 hacia la tabla 'catalogo'..."):
                         TAMANO_LOTE = 50
                         total_guardados = 0
@@ -241,9 +264,8 @@ if archivo_subido:
                     data=csv_omitidos,
                     file_name="productos_omitidos.csv",
                     mime="text/csv",
-                    key="btn_descargar_omitidos_local_v230"
+                    key="btn_descargar_omitidos_local_v240"
                 )
-
 # ##############################################################################
 # BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 2 DE 2 <<<
 # ##############################################################################
