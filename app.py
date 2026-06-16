@@ -26,14 +26,14 @@ def mostrar_centro_control():
 
     with col_inv:
         st.markdown("#### Cargar Inicial de Inventario Masivo")
-        st.caption("Procesador masivo de archivos planos CSV mediante el diccionario duro de confianza.")
+        st.caption("Carga de archivos planos CSV mediante el diccionario de confianza.")
         if st.button("📤 Batch - Imput Inventario", use_container_width=True, key="btn_p1_inv_v430"):
             st.switch_page(pagina_inventario)
 
     with col_prod:
         st.markdown("#### Registrar Producto")
         st.caption("Alta manual reactiva de artículos nuevos y control multimedia.")
-        if st.button("Registrar Producto", use_container_width=True, key="btn_p1_prod_v430"):
+        if st.button("Registrar Productos", use_container_width=True, key="btn_p1_prod_v430"):
             st.switch_page(pagina_productos)
 
     with col_maestro:
