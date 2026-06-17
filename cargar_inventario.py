@@ -1,8 +1,8 @@
 # ==============================================================================
-# PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 1 DE 2)
-# VERSIÓN: 3.0.0 (CONSOLIDACIÓN DE GLOSARIOS Y BANNERS REGLAMENTARIOS)
+# PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 1 DE 3)
+# VERSIÓN: 3.3.0 (RE-CALIBRACIÓN DE TILDES EN FERIA - BRÓCOLI Y PLÁTANO)
 # DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
-# MODIFICACIÓN: Aplicación estricta de omisión de banner inicial en Parte 1.
+# MODIFICACIÓN: Ajuste ortográfico estricto de raíces esdrújulas en la feria.
 # ==============================================================================
 
 import streamlit as st
@@ -53,95 +53,133 @@ MAPA_PASILLOS_VENEZUELA = {
     41: "🐕 Alimentos para Mascotas", 42: "👶 Pañales Infantiles", 43: "🍼 Fórmulas Infantiles", 44: "🛠️ Ferretería Ligera y Eléctricos"
 }
 
-# 5. MATRIZ INTEGRAL RESTABLECIDA AL 100% CON REGLAS DUERAS MÁS CHORIZO
+# 5. MATRIZ INTEGRAL PURGADA: SÓLO TOKENS CON SU ACENTUACIÓN RAE CORRECTA
 DICCIONARIO_REGLAS = {
     "carne": 1, "res ": 1, "bistec": 1, "molida": 1, "pollo": 1, "pechuga": 1, "cerdo": 1,
     "solom": 1, "solomito": 1, "pulpa": 1, "chocoz": 1, "muchach": 1, "coch": 1, "cochin": 1,
-    "charc": 2, "jamon": 2, "jamón": 2, "mortad": 2, "salchic": 2, "tocin": 2, "queso": 2, "choriz": 2,
-    "canill": 6, "baguet": 6, "acem": 6, "torta": 7, "ponqu": 7, "hojald": 7, "pastel": 7, "cake": 7,
-    "gran": 8, "arroz": 8, "frijol": 8, "caraota": 8, "lenteja": 8, "garbanz": 8, "cafe": 8, "café": 8,
-    "fororo": 9, "maicena": 9, "fideo": 9, "aceit": 10, "oliva": 10, "mantec": 11, "margar": 11, "manteq": 11,
-    "atun": 12, "atún": 12, "sardin": 12, "pepito": 12, "enlat": 12, "mermel": 13, "conserv": 13, "panela": 13, "pande": 13,
-    "mayon": 14, "mostaz": 14, "sal ": 15, "orég": 15, "avena": 16, "cereal": 16, "corn": 16, "azucar": 16, "azúcar": 16,
+    "charc": 2, "jamón": 2, "mortad": 2, "salchic": 2, "tocin": 2, "queso": 2, "choriz": 2,
+    "pan ": 6, "baguet": 6, "canill": 6, "acem": 6, "torta": 7, "ponqu": 7, "hojald": 7, "pastel": 7, "cake": 7,
+    "gran": 8, "arroz": 8, "frijol": 8, "caraota": 8, "lenteja": 8, "garbanz": 8, "café": 8,
+    "harin": 9, "har": 9, "fororo": 9, "maicena": 9, "pasta": 9, "espagu": 9, "fideo": 9,
+    "aceit": 10, "oliva": 10, "mantec": 11, "margar": 11, "manteq": 11, "atún": 12, "sardin": 12, "pepito": 12, "enlat": 12,
+    "mermel": 13, "conserv": 13, "panela": 13, "pande": 13, "mayon": 14, "mostaz": 14, "sal ": 15, "orég": 15,
+    "avena": 16, "cereal": 16, "corn": 16, "azúcar": 16,
     "lech": 17, "crema": 17, "lact": 17, "yog": 18, "yogu": 18, "nugget": 19, "papas cong": 19, "brocol cong": 20, "helad": 21, "palet": 21,
-    "agua": 22, "mineral": 22, "energ": 25, "red bull": 25, "ron ": 26, "caciqu": 26, "frías": 27, "vino": 28, "whis": 29,
-    "jabon": 30, "jabón": 30, "shamp": 31, "champ": 31, "acondic": 31, "crema dent": 33, "pasta dent": 33, "colgat": 33, 
+    "agua": 22, "mineral": 22, "jugo": 23, "nectar": 23, "refres": 24, "soda": 24, "cola": 24,
+    "energ": 25, "red bull": 25, "ron ": 26, "caciqu": 26, "cerve": 27, "frías": 27, "vino": 28, "tinto": 28, "whis": 29, "bucan": 29,
+    "jabón": 30, "champú": 31, "acondic": 31, "crema dent": 33, "pasta dent": 33, "colgat": 33, 
     "papel hig": 34, "toilet": 34, "servill": 34, "maquill": 35, "labial": 35, "deterg": 36, "ace ": 36, "ariel": 36, "suaviz": 37, "downy": 37, 
     "limpia": 38, "cloro": 38, "lysol": 39, "axion": 40, "mascot": 41, "perrar": 41, "gatar": 41, "pamp": 42, "formul": 43, "tornill": 44, "clav": 44
 }
 
-# 6. FUNCIÓN INTELECTUAL JERÁRQUICA EN CASCADA COMPLETA (7 NIVELACIONES DIRECTAS)
+# ##############################################################################
+# BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 1 DE 3 <<<
+# ##############################################################################
+# ##############################################################################
+# BANNER SUPERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 2 DE 3 <<<
+# ##############################################################################
+# ==============================================================================
+# PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 2 DE 3)
+# VERSIÓN: 3.3.0 (RE-CALIBRACIÓN DE TILDES EN FERIA - BRÓCOLI Y PLÁTANO)
+# DESCRIPCIÓN: La Cascada Completa de los 7 Niveles de Exclusión con Filtros RAE
+# ==============================================================================
+
 def clasificar_texto_local(nombre_recibido):
-    texto = str(nombre_recibido).lower().strip()
-    if "pan para perro" in texto or "pan de perro" in texto or "pan caliente" in texto: return 6
-    if "harin" in texto or "har " in texto or "harina" in texto: return 9
-    if "santa teresa" in texto or "cacique" in texto or "pampero" in texto: return 26
-    if "arena s" in texto: return 41
-    if "filtro" in texto: return 44
-    if "paño" in texto: return 38
-    if "perrarin" in texto or "gatarin" in texto or "mascot" in texto or "para perro" in texto or "para gato" in texto: return 41
-    if "crema dent" in texto or "pasta dent" in texto or "colgat" in texto: return 33
-    if "crema corp" in texto or "crema para p" in texto: return 32
-    if "crema cero" in texto or "pañalitis" in texto: return 42
-    if "oxigenad" in texto: return 32
-    if "jabon de b" in texto or "jabón de b" in texto or "desod" in texto or "axila" in texto: return 32
-    if "jabon liquido de avena" in texto or "jabón líquido de avena" in texto: return 32
-    if "toalla" in texto or "sanitari" in texto or "protect" in texto or "diario" in texto: return 34 if ("toalla" in texto or "sanitari" in texto) else 32
-    if "afeit" in texto: return 32
-    if "champ" in texto or "shamp" in texto: return 31
-    if "jabon de pa" in texto or "jabón de pa" in texto or "panela azul" in texto or "panela bla" in texto or "jabon de cuaba" in texto or "jabón de cuaba" in texto: return 36
-    if "desinf" in texto or "cloro" in texto or "lysol" in texto: return 39
-    if "lavap" in texto or "crema lava" in texto or "axion" in texto: return 40
-    if "fiambre" in texto or "choriz" in texto: return 2
-    if "canela" in texto or "pimient" in texto or "cubito" in texto: return 15
-    if "salsa" in texto or "ketchup" in texto or "boloñes" in texto or "pasta de tom" in texto: return 14
-    if "carne" in texto or "res " in texto or "bistec" in texto or "molida" in texto or "pollo" in texto or "pechuga" in texto or "cerdo" in texto or "morcil" in texto: return 1
-    if "champiñon" in texto or "champiñón" in texto: return 12
-    if "atun" in texto or "atún" in texto or "sardin" in texto or "enlat" in texto: return 5 if ("rueda" in texto or "filet" in texto or "lomo" in texto) else 12
-    if "papas frit" in texto or "platanit" in texto or "dorito" in texto or "mani " in texto or "maní" in texto or "chistri" in texto or "cheeto" in texto or "natuchip" in texto: return 16
-    if "crema de arroz" in texto or "cerelac" in texto: return 16
-    if "yog" in texto or "yogu" in texto or "yogurt" in texto: return 18
-    if "galleta" in texto or "galleta de s" in texto or "galletas de s" in texto: return 9
-    if "chocola" in texto or "samba" in texto or "cri-cri" in texto or "cricri" in texto: return 16
-    if "helad" in texto: return 21
-    if "jugo" in texto or "nectar" in texto or "néctar" in texto or "bebida de" in texto or "yukery" in texto or "natulac" in texto or "frica" in texto: return 23
-    if "refres" in texto or "hit" in texto or "chinotto" in texto or "soda" in texto or "cola" in texto: return 24
-    if "cerve" in texto or "frías" in texto or "malt" in texto: return 27
-    if "chicha" in texto: return 16 if "polvo" in texto else 17
-    if any(x in texto for x in ["cambur", "platan", "fresa", "manzan", "naranj", "mandra", "parch", "guanab", "guayab", "patil", "meloc", "melon", "melón", "lecho", "pina", "piña", "mango", "pumar", "nispe", "grap", "toronj", "limon", "limón", "coco ", "uva "]): return 3
-    if any(x in texto for x in ["ceboll", "tomate", "piment", "ajic", "aji ", "ají ", "ajo ", "puerro", "cilan", "pereg", "celeri", "aliño", "ceboti", "ceboul", "papa ", "yuca ", "ocumo", "ñame ", "auyam", "batat", "zanah", "jengib", "lechu", "repol", "brocol", "colif", "espin", "vaina", "beren", "calab", "pepin", "aguac", "jojot"]): return 4
-    if "gel antibac" in texto or "antibacterial" in texto: return 30
-    if "musa" in texto or "amaril" in texto or "amarill" in texto: return 2
-    if "arroz" in texto or "gran" in texto: return 8
-    if "pasta" in texto or "espagu" in texto: return 9
-    if "lech" in texto or "lact" in texto or "crema" in texto: return 17
-    if "agua" in texto: return 22
-    if "aceit" in texto: return 10
-    if "sal " in texto: return 15
+    texto = str(nombre_recibido).strip()
+    texto_lower = texto.lower()
+    
+    # FILTRO ORTOGRÁFICO PUNITIVO: Castiga la falta de tilde mandándola de una vez a Omitidos
+    if "atun" in texto_lower and "atún" not in texto_lower: return None
+    if "cafe" in texto_lower and "café" not in texto_lower: return None
+    if "jabon" in texto_lower and "jabón" not in texto_lower: return None
+    if "champu" in texto_lower and "champú" not in texto_lower: return None
+    if "jamon" in texto_lower and "jamón" not in texto_lower: return None
+    if "azucar" in texto_lower and "azúcar" not in texto_lower: return None
+    if "platano" in texto_lower and "plátano" not in texto_lower: return None
+    if "limon" in texto_lower and "limón" not in texto_lower: return None
+    if "frias" in texto_lower and "frías" not in texto_lower: return None
+    if "champiñon" in texto_lower and "champiñón" not in texto_lower: return None
+    if "brocoli" in texto_lower and "brócoli" not in texto_lower: return None
+
+    # --- NIVEL 1: PRIORIDAD SUPREMA DE PANADERÍA, HARINAS Y MARCAS CRUDAS ---
+    if "pan para perro" in texto_lower or "pan de perro" in texto_lower or "pan caliente" in texto_lower: return 6
+    if "harin" in texto_lower or "har " in texto_lower or "harina" in texto_lower: return 9
+    if "santa teresa" in texto_lower or "cacique" in texto_lower or "pampero" in texto_lower: return 26
+    if "arena s" in texto_lower: return 41
+    if "filtro" in texto_lower: return 44
+    if "paño" in texto_lower: return 38
+
+    # --- NIVEL 2: MASCOTAS E HIGIENE ÍNTIMA/COSMÉTICA ---
+    if "perrarin" in texto_lower or "gatarin" in texto_lower or "mascot" in texto_lower or "para perro" in texto_lower or "para gato" in texto_lower: return 41
+    if "crema dent" in texto_lower or "pasta dent" in texto_lower or "colgat" in texto_lower: return 33
+    if "crema corp" in texto_lower or "crema para p" in texto_lower: return 32
+    if "crema cero" in texto_lower or "pañalitis" in texto_lower: return 42
+    if "oxigenad" in texto_lower: return 32
+    if "jabón de b" in texto_lower or "axila" in texto_lower: return 32
+    if "jabon liquido de avena" in texto_lower or "jabón líquido de avena" in texto_lower: return 32
+    if "toalla" in texto_lower or "sanitari" in texto_lower or "protect" in texto_lower or "diario" in texto_lower: return 34 if ("toalla" in texto_lower or "sanitari" in texto_lower) else 32
+    if "afeit" in texto_lower: return 32
+    if "champú" in texto_lower or "shamp" in texto_lower: return 31
+
+    # --- NIVEL 3: LAVANDERÍA Y DETECTOR DE TEXTOS EMBUTIDOS ---
+    if "jabón de pa" in texto_lower or "panela azul" in texto_lower or "panela bla" in texto_lower or "jabón de cuaba" in texto_lower: return 36
+    if "desinf" in texto_lower or "cloro" in texto_lower or "lysol" in texto_lower: return 39
+    if "lavap" in texto_lower or "crema lava" in texto_lower or "axion" in texto_lower: return 40
+    if "fiambre" in texto_lower or "choriz" in texto_lower: return 2
+
+    # --- NIVEL 4: CONDIMENTOS INTERCEPTORES, VEGETALES INDUSTRIALES Y PROTEÍNAS CRUDAS ---
+    if "canela" in texto_lower or "pimient" in texto_lower or "cubito" in texto_lower: return 15
+    if "salsa" in texto_lower or "ketchup" in texto_lower or "boloñes" in texto_lower or "pasta de tom" in texto_lower: return 14
+    if "carne" in texto_lower or "res " in texto_lower or "bistec" in texto_lower or "molida" in texto_lower or "pollo" in texto_lower or "pechuga" in texto_lower or "cerdo" in texto_lower or "morcil" in texto_lower: return 1
+    if "champiñón" in texto_lower: return 12
+    if "atún" in texto_lower or "sardin" in texto_lower or "enlat" in texto_lower: return 5 if ("rueda" in texto_lower or "filet" in texto_lower or "lomo" in texto_lower) else 12
+
+    # --- NIVEL 5: SNACKS SALADOS, BEBIDAS ENVASETADAS Y ADAPTACIÓN ORTOGRÁFICA 'YOGURT' ---
+    if "papas frit" in texto_lower or "platanit" in texto_lower or "dorito" in texto_lower or "mani " in texto_lower or "maní" in texto_lower or "chistri" in texto_lower or "cheeto" in texto_lower or "natuchip" in texto_lower: return 16
+    if "crema de arroz" in texto_lower or "cerelac" in texto_lower: return 16
+    if "yog" in texto_lower or "yogu" in texto_lower or "yogurt" in texto_lower: return 18
+    if "galleta" in texto_lower or "galleta de s" in texto_lower or "galletas de s" in texto_lower: return 9
+    if "chocola" in texto_lower or "samba" in texto_lower or "cri-cri" in texto_lower or "cricri" in texto_lower: return 16
+    if "helad" in texto_lower: return 21
+    if "jugo" in texto_lower or "nectar" in texto_lower or "néctar" in texto_lower or "bebida de" in texto_lower or "yukery" in texto_lower or "natulac" in texto_lower or "frica" in texto_lower: return 23
+    if "refres" in texto_lower or "hit" in texto_lower or "chinotto" in texto_lower or "soda" in texto_lower or "cola" in texto_lower: return 24
+    if "cerve" in texto_lower or "frías" in texto_lower or "malt" in texto_lower: return 27
+    if "chicha" in texto_lower: return 16 if "polvo" in texto_lower else 17
+
+    # --- NIVEL 6: SUPER-GLOSARIO DE FERIA VENEZOLANA AMPLIADO (Costura v3.3.0: Raíces con su acento RAE estricto) ---
+    if any(x in texto_lower for x in ["cambur", "plátano", "fresa", "manzan", "naranj", "mandra", "parch", "guanab", "guayab", "patil", "meloc", "melon", "melón", "lecho", "pina", "piña", "mango", "pumar", "nispe", "grap", "toronj", "limón", "coco ", "uva "]): return 3
+    if any(x in texto_lower for x in ["ceboll", "tomate", "piment", "ajic", "aji ", "ají ", "ajo ", "puerro", "cilan", "pereg", "celeri", "aliño", "ceboti", "ceboul", "papa ", "yuca ", "ocumo", "ñame ", "auyam", "batat", "zanah", "jengib", "lechu", "repol", "brócoli", "colif", "espin", "vaina", "beren", "calab", "pepin", "aguac", "jojot"]): return 4
+    if "gel antibac" in texto_lower or "antibacterial" in texto_lower: return 30
+
+    # --- NIVEL 7: EXTRACCIÓN PRIMITIVA DE DESPANSA LIMPIA ---
+    if "musa" in texto_lower or "amaril" in texto_lower or "amarill" in texto_lower: return 2
+    if "arroz" in texto_lower or "gran" in texto_lower: return 8
+    if "pasta" in texto_lower or "espagu" in texto_lower: return 9
+    if "lech" in texto_lower or "lact" in texto_lower or "crema" in texto_lower: return 17
+    if "agua" in texto_lower: return 22
+    if "aceit" in texto_lower: return 10
+    if "sal " in texto_lower: return 15
     for k, v in DICCIONARIO_REGLAS.items():
-        if k in texto: return v
+        if k in texto_lower: return v
     return None
 
-# Componente visual para la carga de archivos planos CSV
-archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v300")
+# ##############################################################################
+# BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 2 DE 3 <<<
+# ##############################################################################
+# ##############################################################################
+# BANNER SUPERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 3 DE 3 <<<
+# ##############################################################################
+# ==============================================================================
+# PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 3 DE 3)
+# VERSIÓN: 3.3.0 (RE-CALIBRACIÓN DE TILDES EN FERIA - BRÓCOLI Y PLÁTANO)
+# DESCRIPCIÓN: Interfaz de Auditoría por Columnas, Conteo Correlativo e Inyector Cloud
+# ==============================================================================
 
-# ##############################################################################
-# BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 1 DE 2 <<<
-# ##############################################################################
-# ##############################################################################
-# BANNER SUPERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 2 DE 2 <<<
-# ##############################################################################
-# ==============================================================================
-# PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 2 DE 2)
-# VERSIÓN: 3.0.0 (CONSOLIDACIÓN DE GLOSARIOS Y BANNERS REGLAMENTARIOS)
-# DESCRIPCIÓN: Bloque de Renderizado Gráfico Simétrico y Motor de Clasificación ID-AZ
-# ==============================================================================
+archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v330")
 
 if archivo_subido:
-    try:
-        df = pd.read_csv(archivo_subido, encoding='utf-8')
-    except UnicodeDecodeError:
-        df = pd.read_csv(archivo_subido, encoding='latin-1')
+    try: df = pd.read_csv(archivo_subido, encoding='utf-8')
+    except UnicodeDecodeError: df = pd.read_csv(archivo_subido, encoding='latin-1')
     
     if 'nombre' not in df.columns:
         st.error("❌ Error: Tu archivo plano debe contener una columna llamada exactamente 'nombre' (en minúsculas).")
@@ -160,43 +198,28 @@ if archivo_subido:
                 })
             else: no_clasificados.append({"nombre": nombre_prod})
         
-        # 1. RENDERIZADO SIMÉTRICO DE LAS TABLAS CON NUEVO ORDENAMIENTO DE ALTA DENSIDAD
         col_tab1, col_tab2 = st.columns(2)
-        
         with col_tab1:
             st.metric("Artículos Aprobados para el Catálogo", len(productos_clasificados))
             if productos_clasificados:
-                df_previa = pd.DataFrame(productos_clasificados)
-                
-                # ORDENAMIENTO MANDATORIO: Secuencial por Número de Pasillo + Alfabético de la A a la Z
-                df_previa = df_previa.sort_values(
-                    by=["id_subcat_interno", "nombre_catalogo"], 
-                    ascending=[True, True]
-                ).reset_index(drop=True)
-                
-                # Conteo Humano Correlativo iniciando estrictamente en 1
+                df_previa = pd.DataFrame(productos_clasificados).sort_values(by=["id_subcat_interno", "nombre_catalogo"], ascending=[True, True]).reset_index(drop=True)
                 df_previa.index = df_previa.index + 1
                 df_previa.index.name = "N° de Ítem"
-                
                 st.dataframe(df_previa[["nombre_catalogo", "Pasillo / Departamento"]], use_container_width=True)
                 
         with col_tab2:
             st.metric("Artículos Rechazados / Sin Clasificar", len(no_clasificados))
             if no_clasificados:
-                df_omitidos = pd.DataFrame(no_clasificados)
-                df_omitidos = df_omitidos.sort_values(by="nombre", ascending=True).reset_index(drop=True)
+                df_omitidos = pd.DataFrame(no_clasificados).sort_values(by="nombre", ascending=True).reset_index(drop=True)
                 df_omitidos.index = df_omitidos.index + 1
                 df_omitidos.index.name = "N° de Ítem"
-                
                 st.dataframe(df_omitidos, use_container_width=True)
         
-        # 2. FILA EN ESPEJO HORIZONTAL SIMÉTRICA PARA LOS BOTONES CORPORATIVOS
         st.markdown("---")
         col_btn1, col_btn2 = st.columns(2)
-        
         with col_btn1:
             if productos_clasificados:
-                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v300"):
+                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v330"):
                     with st.spinner("Inyectando registros en bloques de 50 hacia la tabla 'catalogo'..."):
                         TAMANO_LOTE, total_guardados, error_registrado = 50, 0, None
                         for i in range(0, len(productos_clasificados), TAMANO_LOTE):
@@ -222,8 +245,8 @@ if archivo_subido:
                     data=csv_omitidos,
                     file_name="productos_omitidos.csv",
                     mime="text/csv",
-                    key="btn_descargar_omitidos_local_v300"
+                    key="btn_descargar_omitidos_local_v330"
                 )
 # ##############################################################################
-# BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 2 DE 2 <<<
+# BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 3 DE 3 <<<
 # ##############################################################################
