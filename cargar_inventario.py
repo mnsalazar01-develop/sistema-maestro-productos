@@ -1,178 +1,3 @@
-# ==============================================================================
-# PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 1 DE 2)
-# VERSIÓN: 2.8.0 (BLINDAJE TOTAL DE FILTRACIONES DE ALTA RESISTENCIA)
-# DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
-# MODIFICACIÓN: Solución definitiva a trampas ortográficas ('Yogurt') y subcadenas.
-# ==============================================================================
-
-import streamlit as st
-import pandas as pd
-import io
-from supabase import create_client, Client
-
-# 1. CONFIGURACIÓN INDEPENDIENTE DE LA VENTANA WEB DE STREAMLIT
-st.set_page_config(
-    page_title="Carga Masiva - Datos de Inventario",
-    page_icon="📤",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
-
-# 2. HERENCIA DE CONEXIÓN SEGURA INDEPENDIENTE CON LLAVES PROPIAS
-@st.cache_resource
-def init_supabase_local() -> Client:
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
-    return create_client(url, key)
-
-try:
-    supabase = init_supabase_local()
-    st.sidebar.success("⚡ Conexión Dedicada Activa")
-except Exception as e:
-    st.sidebar.error(f"❌ Error de Conexión: {e}")
-
-# 3. TÍTULO PRINCIPAL (Lienzo limpio gobernado por la barra lateral de app.py)
-st.title("📤 Carga por Lotes - Datos de Inventario")
-st.markdown("Clasificación automatizada local mediante la matriz de reglas fijas e inyección masiva en la nube.")
-st.markdown("---")
-
-# 4. MÁSCARA DE TRADUCCIÓN LOCAL: GLOSARIO DE PASILLOS EN TEXTO VENEZOLANO RE-CALIBRADO
-MAPA_PASILLOS_VENEZUELA = {
-    1: "🥩 Carnicería / Frigorífico",
-    2: "🧀 Charcutería y Delicateses",
-    3: "🍎 Frutería",
-    4: "🥦 Verdulería / Legumbres Frescas",
-    5: "🐟 Pescadería Fresca",
-    6: "🥖 Panadería",
-    7: "🍰 Pastelería y Repostería",
-    8: "🌾 Granos, Legumbres y Café",
-    9: "🫓 Harinas, Pastas y Almidones",
-    10: "🛢️ Aceites Comestibles",
-    11: "🧈 Grasas y Margarinas",
-    12: "🥫 Víveres y Enlatados",
-    13: "🍓 Conservas y Dulcería",
-    14: "🍯 Salsas y Aderezos",
-    15: "🧂 Condimentos y Especias",
-    16: "🫖 Desayuno, Golosinas y Snacks",
-    17: "🥛 Lácteos y Leches Líquidas",
-    18: "🍧 Yogures y Derivados",
-    19: "🍕 Comidas Preparadas y Congelados",
-    21: "🍦 Helados y Paletas",
-    22: "💧 Agua Mineral y Sifones",
-    23: "🧃 Bebidas, Jugos y Néctares",
-    24: "🥤 Refrescos y Sodas Carbonatadas",
-    25: "⚡ Bebidas Energéticas",
-    26: "🥃 Ron y Licores Nacionales",
-    27: "🍺 Cervezas y Maltas",
-    28: "🍷 Vinos de Mesa",
-    29: "🍾 Whisky y Destilados",
-    30: "🧼 Jabón de Baño y Tocador",
-    31: "🧴 Champú y Acondicionadores",
-    32: "🪒 Desodorantes y Aseo Personal",
-    33: "🪥 Crema y Pasta Dental",
-    34: "🧻 Papel Higiénico y Servilletas",
-    35: "💄 Maquillaje y Cosméticos",
-    36: "🧺 Detergentes y Jabón de Lavar",
-    37: "🌸 Suavizantes de Ropa",
-    38: "🧹 Limpiadores y Desengrasantes",
-    39: "🧪 Desinfectantes y Cloro",
-    40: "🧽 Lavaplatos Líquidos y en Cream",
-    41: "🐕 Alimentos para Mascotas",
-    42: "👶 Pañales Infantiles",
-    43: "🍼 Fórmulas Infantiles",
-    44: "🛠️ Ferretería Ligera y Eléctricos"
-}
-
-# 5. MATRIZ INTEGRAL DE RAÍCES COMPLEMENTARIA SANEADA CONTRA SOLAPAMIENTOS
-DICCIONARIO_REGLAS = {
-    "solom": 1, "solomito": 1, "pulpa": 1, "chocoz": 1, "muchach": 1, "coch": 1, "cochin": 1,
-    "charc": 2, "jamon": 2, "jamón": 2, "mortad": 2, "salchic": 2, "tocin": 2, "queso": 2,
-    "canill": 6, "baguet": 6, "acem": 6,
-    "torta": 7, "ponqu": 7, "hojald": 7, "pastel": 7, "cake": 7,
-    "caraota": 8, "frijol": 8, "lenteja": 8, "garbanz": 8,
-    "fororo": 9, "maicena": 9, "fideo": 9,
-    "oliva": 10, "margar": 11, "manteq": 11, "pepito": 12, "panela": 13,
-    "mermel": 13, "ketchup": 14, "mostaz": 14, "orég": 15,
-    "avena": 16, "cereal": 16, "corn": 16, "azucar": 16, "azúcar": 16,
-    "mineral": 22, "red bull": 25, "frías": 27, "tinto": 28, "bucan": 29,
-    "axila": 32, "labial": 35, "ace ": 36, "ariel": 36, "downy": 37, "cloro": 38, "lysol": 39,
-    "axion": 40, "pamp": 42, "infant": 43, "tornill": 44, "clav": 44
-}
-
-# 6. FUNCIÓN INTELECTUAL JERÁRQUICA EN CASCADA COMPLETA (INMUNIZACIÓN RETAIL)
-def clasificar_texto_local(nombre_recibido):
-    texto = str(nombre_recibido).lower().strip()
-    
-    # --- NIVEL 1: PRIORIDAD SUPREMA DE PANADERÍA, HARINAS Y MARCAS CRUDAS (Evita trampas de "perro" y "amarillo") ---
-    if "pan para perro" in texto or "pan de perro" in texto or "pan caliente" in texto: return 6
-    if "harin" in texto or "har " in texto or "harina" in texto: return 9
-    if "santa teresa" in texto or "cacique" in texto or "pampero" in texto: return 26
-    if "arena s" in texto: return 41
-    if "filtro" in texto: return 44
-    if "paño" in texto: return 38
-
-    # --- NIVEL 2: ESCUDO EXTENDIDO DE HIGIENE ÍNTIMA, COSMÉTICA Y ASEO (Evita trampas "avena/panela/res") ---
-    if "crema dent" in texto or "pasta dent" in texto or "colgat" in texto: return 33
-    if "crema corp" in texto or "crema para p" in texto: return 32
-    if "crema cero" in texto or "pañalitis" in texto: return 42
-    if "oxigenad" in texto: return 32
-    if "jabon liquido de avena" in texto or "jabón líquido de avena" in texto: return 32
-    if "jabon de b" in texto or "jabón de b" in texto: return 30
-    if "toalla" in texto or "sanitari" in texto or "protect" in texto or "diario" in texto: 
-        return 34 if ("toalla" in texto or "sanitari" in texto) else 32
-    if "afeit" in texto: return 32
-    if "champ" in texto or "shamp" in texto: return 31
-
-    # --- NIVEL 3: LAVANDERÍA Y DETECTOR DE TEXTOS EMBUTIDOS ---
-    if "jabon de pa" in texto or "jabón de pa" in texto or "panela azul" in texto or "panela bla" in texto or "jabon de cuaba" in texto or "jabón de cuaba" in texto: return 36
-    if "lavap" in texto or "crema lava" in texto or "axion" in texto: return 40
-    if "fiambre" in texto: return 2
-    if "morcil" in texto: return 1
-
-    # --- NIVEL 4: CONDIMENTOS, PROTEÍNAS CRUDAS Y VEGETALES INDUSTRIALES (Caza el "champi-") ---
-    if "carne" in texto or "res " in texto or "bistec" in texto or "molida" in texto or "pollo" in texto or "pechuga" in texto or "cerdo" in texto: return 1
-    if "champiñon" in texto or "champiñón" in texto: return 12
-    if "atun" in texto or "atún" in texto or "sardin" in texto or "enlat" in texto:
-        if "rueda" in texto or "filet" in texto or "lomo" in texto: return 5
-        return 12
-    if "canela" in texto or "pimient" in texto or "cubito" in texto: return 15
-    if "salsa" in texto or "ketchup" in texto or "boloñes" in texto or "pasta de tom" in texto: return 14
-
-    # --- NIVEL 5: SNACKS SALADOS, BEBIDAS ENVASETADAS Y ADAPTACIÓN ORTOGRÁFICA 'YOGURT' ---
-    if "papas frit" in texto or "platanit" in texto or "dorito" in texto or "mani " in texto or "maní" in texto or "chistri" in texto or "cheeto" in texto or "natuchip" in texto: return 16
-    if "crema de arroz" in texto or "cerelac" in texto: return 16
-    if "yog" in texto or "yogu" in texto or "yogurt" in texto: return 18
-    if "galleta de s" in texto or "galletas de s" in texto: return 9
-    if "chocola" in texto or "samba" in texto or "cri-cri" in texto or "cricri" in texto: return 16
-    if "helad" in texto: return 21
-    if "jugo" in texto or "nectar" in texto or "néctar" in texto or "bebida de" in texto or "yukery" in texto or "natulac" in texto or "frica" in texto: return 23
-    if "refres" in texto or "hit" in texto or "chinotto" in texto or "soda" in texto or "cola" in texto: return 24
-    if "chicha" in texto: return 16 if "polvo" in texto else 17
-
-    # --- NIVEL 6: FRUTAS Y VERDURAS REALES DEL CAMPO (Parachoques de la "piña de agua" y "gel sin agua") ---
-    if "piña" in texto or "lechosa" in texto or "manzan" in texto or "fresa" in texto or "naranj" in texto: return 3
-    if "lechuga" in texto or "aguacate" in texto or "repol" in texto or "tomate" in texto: return 4
-    if "aceitun" in texto: return 13
-    if "gel antibac" in texto or "antibacterial" in texto: return 30
-
-    # --- NIVEL 7: EXTRACCIÓN PRIMITIVA DE DESPANSA LIMPIA ---
-    if "musa" in texto or "amaril" in texto or "amarill" in texto: return 2
-    if "pasta" in texto or "espagu" in texto: return 9
-    if "lech" in texto or "lact" in texto or "crema" in texto: return 17
-    if "agua" in texto: return 22
-    if "aceit" in texto: return 10
-    if "sal " in texto: return 15
-    
-    for palabra_clave, id_subcat in DICCIONARIO_REGLAS.items():
-        if palabra_clave in texto: return id_subcat
-    return None
-
-# Componente visual para la carga de archivos planos CSV
-archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v280")
-
-# ##############################################################################
-# BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 1 DE 2 <<<
-# ##############################################################################
 # ##############################################################################
 # BANNER SUPERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 2 DE 2 <<<
 # ##############################################################################
@@ -295,3 +120,185 @@ if archivo_subido:
 # ##############################################################################
 # BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 2 DE 2 <<<
 # ##############################################################################
+# ==============================================================================
+# PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 1 DE 2)
+# VERSIÓN: 2.8.1 (RESTABLECIMIENTO TOTAL DE TOKENS PURGADOS)
+# DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
+# MODIFICACIÓN: Recuperación de arroz, cerveza, galletas, desinfectantes y adición de chorizo.
+# ==============================================================================
+
+import streamlit as st
+import pandas as pd
+import io
+from supabase import create_client, Client
+
+# 1. CONFIGURACIÓN INDEPENDIENTE DE LA VENTANA WEB DE STREAMLIT
+st.set_page_config(
+    page_title="Carga Masiva - Datos de Inventario",
+    page_icon="📤",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+# 2. HERENCIA DE CONEXIÓN SEGURA INDEPENDIENTE CON LLAVES PROPIAS
+@st.cache_resource
+def init_supabase_local() -> Client:
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
+
+try:
+    supabase = init_supabase_local()
+    st.sidebar.success("⚡ Conexión Dedicada Activa")
+except Exception as e:
+    st.sidebar.error(f"❌ Error de Conexión: {e}")
+
+# 3. TÍTULO PRINCIPAL (Lienzo limpio gobernado por la barra lateral de app.py)
+st.title("📤 Carga por Lotes - Datos de Inventario")
+st.markdown("Clasificación automatizada local mediante la matriz de reglas fijas e inyección masiva en la nube.")
+st.markdown("---")
+
+# 4. MÁSCARA DE TRADUCCIÓN LOCAL: GLOSARIO DE PASILLOS EN TEXTO VENEZOLANO RE-CALIBRADO
+MAPA_PASILLOS_VENEZUELA = {
+    1: "🥩 Carnicería / Frigorífico",
+    2: "🧀 Charcutería y Delicateses",
+    3: "🍎 Frutería",
+    4: "🥦 Verdulería / Legumbres Frescas",
+    5: "🐟 Pescadería Fresca",
+    6: "🥖 Panadería",
+    7: "🍰 Pastelería y Repostería",
+    8: "🌾 Granos, Legumbres y Café",
+    9: "🫓 Harinas, Pastas y Almidones",
+    10: "🛢️ Aceites Comestibles",
+    11: "🧈 Grasas y Margarinas",
+    12: "🥫 Víveres y Enlatados",
+    13: "🍓 Conservas y Dulcería",
+    14: "🍯 Salsas y Aderezos",
+    15: "🧂 Condimentos y Especias",
+    16: "🫖 Desayuno, Golosinas y Snacks",
+    17: "🥛 Lácteos y Leches Líquidas",
+    18: "🍧 Yogures y Derivados",
+    19: "🍕 Comidas Preparadas y Congelados",
+    21: "🍦 Helados y Paletas",
+    22: "💧 Agua Mineral y Sifones",
+    23: "🧃 Bebidas, Jugos y Néctares",
+    24: "🥤 Refrescos y Sodas Carbonatadas",
+    25: "⚡ Bebidas Energéticas",
+    26: "🥃 Ron y Licores Nacionales",
+    27: "🍺 Cervezas y Maltas",
+    28: "🍷 Vinos de Mesa",
+    29: "🍾 Whisky y Destilados",
+    30: "🧼 Jabón de Baño y Tocador",
+    31: "🧴 Champú y Acondicionadores",
+    32: "🪒 Desodorantes y Aseo Personal",
+    33: "🪥 Crema y Pasta Dental",
+    34: "🧻 Papel Higiénico y Servilletas",
+    35: "💄 Maquillaje y Cosméticos",
+    36: "🧺 Detergentes y Jabón de Lavar",
+    37: "🌸 Suavizantes de Ropa",
+    38: "🧹 Limpiadores y Desengrasantes",
+    39: "🧪 Desinfectantes y Cloro",
+    40: "🧽 Lavaplatos Líquidos y en Crema",
+    41: "🐕 Alimentos para Mascotas",
+    42: "👶 Pañales Infantiles",
+    43: "🍼 Fórmulas Infantiles",
+    44: "🛠️ Ferretería Ligera y Eléctricos"
+}
+
+# 5. MATRIZ INTEGRAL RESTABLECIDA AL 100% CON REGLAS DUERAS MÁS CHORIZO
+DICCIONARIO_REGLAS = {
+    # Alimentos Frescos
+    "carne": 1, "res ": 1, "bistec": 1, "molida": 1, "pollo": 1, "pechuga": 1, "cerdo": 1,
+    "solom": 1, "solomito": 1, "pulpa": 1, "chocoz": 1, "muchach": 1, "coch": 1, "cochin": 1,
+    "charc": 2, "jamon": 2, "jamón": 2, "mortad": 2, "salchic": 2, "tocin": 2, "queso": 2, "choriz": 2,
+    "pan ": 6, "baguet": 6, "canill": 6, "acem": 6,
+    "torta": 7, "ponqu": 7, "hojald": 7, "pastel": 7, "cake": 7,
+    
+    # Despensa y Granos (Recuperado Arroz y Café de v1.9.0)
+    "gran": 8, "arroz": 8, "frijol": 8, "caraota": 8, "lenteja": 8, "garbanz": 8, "cafe": 8, "café": 8,
+    "harin": 9, "har": 9, "fororo": 9, "maicena": 9, "pasta": 9, "espagu": 9, "fideo": 9,
+    "aceit": 10, "oliva": 10, "mantec": 11, "margar": 11, "manteq": 11,
+    "atun": 12, "atún": 12, "sardin": 12, "pepito": 12, "enlat": 12,
+    "mermel": 13, "conserv": 13, "panela": 13, "pande": 13,
+    "mayon": 14, "salsa": 14, "ketchup": 14, "mostaz": 14,
+    "sal ": 15, "pimient": 15, "condim": 15, "orég": 15,
+    "avena": 16, "cereal": 16, "corn": 16, "azucar": 16, "azúcar": 16,
+
+    # Lácteos y Líquidos (Recuperado Galletas, Bebidas, Cervezas, Desodorantes y Desinfectantes)
+    "lech": 17, "crema": 17, "lact": 17, "yog": 18, "yogu": 18,
+    "nugget": 19, "papas cong": 19, "brocol cong": 20, "helad": 21, "palet": 21,
+    "agua": 22, "mineral": 22, "jugo": 23, "nectar": 23, "refres": 24, "soda": 24, "cola": 24,
+    "energ": 25, "red bull": 25, "ron ": 26, "caciqu": 26, "cerve": 27, "frías": 27, "vino": 28, "tinto": 28, "whis": 29, "bucan": 29,
+    
+    # Cuidado Personal y Limpieza Hogar
+    "jabon": 30, "jabón": 30, "shamp": 31, "champ": 31, "acondic": 31, 
+    "desod": 32, "axila": 32, "crema dent": 33, "pasta dent": 33, "colgat": 33, 
+    "papel hig": 34, "toilet": 34, "servill": 34, "maquill": 35, "labial": 35, 
+    "deterg": 36, "ace ": 36, "ariel": 36, "suaviz": 37, "downy": 37, "limpia": 38, "cloro": 38, 
+    "desinf": 39, "lysol": 39, "lavap": 40, "axion": 40, "crema lava": 40, 
+    "mascot": 41, "perrar": 41, "gatar": 41, "pañal": 42, "pamp": 42, "formul": 43, "infant": 43, "ferret": 44, "tornill": 44, "clav": 44
+}
+
+# 6. FUNCIÓN INTELECTUAL JERÁRQUICA ULTRA-RESILIENTE (PROCESAMIENTO COMPACTO)
+def clasificar_texto_local(nombre_recibido):
+    texto = str(nombre_recibido).lower().strip()
+    
+    # --- NIVEL 1: MARCAS DE LICORES, TEXTIL Y PANADERÍA OBLIGATORIA (Evita trampa "perro", "gran" y "amarillo") ---
+    if "pan para perro" in texto or "pan de perro" in texto or "pan caliente" in texto: return 6
+    if "harin" in texto or "har " in texto or "harina" in texto: return 9
+    if "santa teresa" in texto or "cacique" in texto or "pampero" in texto: return 26
+    if "arena s" in texto: return 41
+    if "filtro" in texto: return 44
+    if "paño" in texto: return 38
+
+    # --- NIVEL 2: MASCOTAS E HIGIENE ÍNTIMA/COSMÉTICA (Frena la trampa ceca de "crema" y "res") ---
+    if "perrarin" in texto or "gatarin" in texto or "mascot" in texto or "para perro" in texto or "para gato" in texto: return 41
+    if "crema dent" in texto or "pasta dent" in texto or "colgat" in texto: return 33
+    if "crema corp" in texto or "crema para p" in texto: return 32
+    if "crema cero" in texto or "pañalitis" in texto: return 42
+    if "oxigenad" in texto: return 32
+    if "jabon de b" in texto or "jabón de b" in texto or "desod" in texto or "axila" in texto: return 32
+    if "jabon liquido de avena" in texto or "jabón líquido de avena" in texto: return 32
+    if "toalla" in texto or "sanitari" in texto or "protect" in texto or "diario" in texto:
+        return 34 if ("toalla" in texto or "sanitari" in texto) else 32
+    if "afeit" in texto: return 32
+    if "champ" in texto or "shamp" in texto: return 31
+
+    # --- NIVEL 3: LAVANDERÍA Y DETECTOR DE TEXTOS EMBUTIDOS ---
+    if "jabon de pa" in texto or "jabón de pa" in texto or "panela azul" in texto or "panela bla" in texto or "jabon de cuaba" in texto or "jabón de cuaba" in texto: return 36
+    if "desinf" in texto or "cloro" in texto or "lysol" in texto: return 39
+    if "lavap" in texto or "crema lava" in texto or "axion" in texto: return 40
+    if "fiambre" in texto or "choriz" in texto: return 2
+    if "morcil" in texto: return 1
+
+    # --- NIVEL 4: CONDIMENTOS, PROTEÍNAS CRUDAS Y VEGETALES INDUSTRIALES ---
+    if "carne" in texto or "res " in texto or "bistec" in texto or "molida" in texto or "pollo" in texto or "pechuga" in texto or "cerdo" in texto: return 1
+    if "champiñon" in texto or "champiñón" in texto: return 12
+    if "atun" in texto or "atún" in texto or "sardin" in texto or "enlat" in texto:
+        if "rueda" in texto or "filet" in texto or "lomo" in texto: return 5
+        return 12
+    if "canela" in texto or "pimient" in texto or "cubito" in texto: return 15
+    if "salsa" in texto or "ketchup" in texto or "boloñes" in texto or "pasta de tom" in texto: return 14
+
+    # --- NIVEL 5: SNACKS SALADOS, BEBIDAS ENVASETADAS Y ADAPTACIÓN ORTOGRÁFICA 'YOGURT' ---
+    if "papas frit" in texto or "platanit" in texto or "dorito" in texto or "mani " in texto or "maní" in texto or "chistri" in texto or "cheeto" in texto or "natuchip" in texto: return 16
+    if "crema de arroz" in texto or "cerelac" in texto: return 16
+    if "yog" in texto or "yogu" in texto or "yogurt" in texto: return 18
+    if "galleta" in texto or "galleta de s" in texto or "galletas de s" in texto: return 9
+    if "chocola" in texto or "samba" in texto or "cri-cri" in texto or "cricri" in texto: return 16
+    if "helad" in texto: return 21
+    if "jugo" in texto or "nectar" in texto or "néctar" in texto or "bebida de" in texto or "yukery" in texto or "natulac" in texto or "frica" in texto: return 23
+    if "refres" in texto or "hit" in texto or "chinotto" in texto or "soda" in texto or "cola" in texto: return 24
+    if "cerve" in texto or "frías" in texto or "malt" in texto: return 27
+    if "chicha" in texto: return 16 if "polvo" in texto else 17
+
+    # --- NIVEL 6: FRUTAS Y VERDURAS REALES DEL CAMPO (Parachoques de la "piña de agua" y "gel sin agua") ---
+    if "piña" in texto or "lechosa" in texto or "manzan" in texto or "fresa" in texto or "naranj" in texto: return 3
+    if "lechuga" in texto or "aguacate" in texto or "repol" in texto or "tomate" in texto: return 4
+    if "aceitun" in texto: return 13
+    if "gel antibac" in texto or "antibacterial" in texto: return 30
+
+    # --- NIVEL 7: EXTRACCIÓN PRIMITIVA DE DESPANSA LIMPIA ---
+    if "musa" in texto or "amaril" in texto or "amarill" in texto: return 2
+    if "arroz" in texto or "gran" in texto: return 8
+    if "pasta" in texto or "espagu" in texto: return 9
