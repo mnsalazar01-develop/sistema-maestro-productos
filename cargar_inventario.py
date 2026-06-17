@@ -96,10 +96,10 @@ def clasificar_texto_local(nombre_recibido):
     if "lavap" in texto or "crema lava" in texto or "axion" in texto: return 40
     if "fiambre" in texto or "choriz" in texto: return 2
     if "morcil" in texto: return 1
+    if "canela" in texto or "pimient" in texto or "cubito" in texto: return 15
     if "carne" in texto or "res " in texto or "bistec" in texto or "molida" in texto or "pollo" in texto or "pechuga" in texto or "cerdo" in texto: return 1
     if "champiñon" in texto or "champiñón" in texto: return 12
     if "atun" in texto or "atún" in texto or "sardin" in texto or "enlat" in texto: return 5 if ("rueda" in texto or "filet" in texto or "lomo" in texto) else 12
-    if "canela" in texto or "pimient" in texto or "cubito" in texto: return 15
     if "salsa" in texto or "ketchup" in texto or "boloñes" in texto or "pasta de tom" in texto: return 14
     if "papas frit" in texto or "platanit" in texto or "dorito" in texto or "mani " in texto or "maní" in texto or "chistri" in texto or "cheeto" in texto or "natuchip" in texto: return 16
     if "crema de arroz" in texto or "cerelac" in texto: return 16
