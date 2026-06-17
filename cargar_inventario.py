@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 1 DE 2)
-# VERSIÓN: 2.6.1 (SANEADO - FILTRADO DE BANNERS INLINE)
+# VERSIÓN: 2.7.0 (SANEADO MASIVO - CASCADA DEFINITIVA DE PRIORIDADES)
 # DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
-# MODIFICACIÓN: Remoción del banner superior en Parte 1 según especificación.
+# MODIFICACIÓN: Inclusión de escudos relacionales para champiñones, licores y modismos.
 # ==============================================================================
 
 import streamlit as st
@@ -36,7 +36,7 @@ st.title("📤 Carga por Lotes - Datos de Inventario")
 st.markdown("Clasificación automatizada local mediante la matriz de reglas fijas e inyección masiva en la nube.")
 st.markdown("---")
 
-# 4. MÁSCARA DE TRADUCCIÓN LOCAL: GLOSARIO DE PASILLOS EN TEXTO VENEZOLANO
+# 4. MÁSCARA DE TRADUCCIÓN LOCAL: GLOSARIO DE PASILLOS EN TEXTO VENEZOLANO RE-CALIBRADO
 MAPA_PASILLOS_VENEZUELA = {
     1: "🥩 Carnicería / Frigorífico",
     2: "🧀 Charcutería y Delicateses",
@@ -53,14 +53,14 @@ MAPA_PASILLOS_VENEZUELA = {
     13: "🍓 Conservas y Dulcería",
     14: "🍯 Salsas y Aderezos",
     15: "🧂 Condimentos y Especias",
-    16: "🫖 Desayuno y Azúcar",
+    16: "🫖 Desayuno, Golosinas y Snacks",
     17: "🥛 Lácteos y Leches Líquidas",
     18: "🍧 Yogures y Derivados",
     19: "🍕 Comidas Preparadas y Congelados",
     21: "🍦 Helados y Paletas",
     22: "💧 Agua Mineral y Sifones",
-    23: "🧃 Jugos y Néctares",
-    24: "🥤 Refrescos y Sodas",
+    23: "🧃 Bebidas, Jugos y Néctares",
+    24: "🥤 Refrescos y Sodas Carbonatadas",
     25: "⚡ Bebidas Energéticas",
     26: "🥃 Ron y Licores Nacionales",
     27: "🍺 Cervezas y Maltas",
@@ -76,14 +76,14 @@ MAPA_PASILLOS_VENEZUELA = {
     37: "🌸 Suavizantes de Ropa",
     38: "🧹 Limpiadores y Desengrasantes",
     39: "🧪 Desinfectantes y Cloro",
-    40: "🧽 Lavaplatos Líquidos y en Cream",
+    40: "🧽 Lavaplatos Líquidos y en Crema",
     41: "🐕 Alimentos para Mascotas",
     42: "👶 Pañales Infantiles",
     43: "🍼 Fórmulas Infantiles",
     44: "🛠️ Ferretería Ligera y Eléctricos"
 }
 
-# 5. MATRIZ INTEGRAL DE RAÍCES SIN REGLAS GENÉRICAS MOLESTAS ("fresco", "gran")
+# 5. MATRIZ INTEGRAL DE RAÍCES SIN TOXINAS GENÉRICAS
 DICCIONARIO_REGLAS = {
     "carne": 1, "res ": 1, "bistec": 1, "molida": 1, "pollo": 1, "pechuga": 1, "cerdo": 1,
     "solom": 1, "solomito": 1, "pulpa": 1, "chocoz": 1, "muchach": 1, "coch": 1, "cochin": 1,
@@ -95,63 +95,61 @@ DICCIONARIO_REGLAS = {
     "oliva": 10, "margar": 11, "manteq": 11, "pepito": 12, "panela": 13,
     "mermel": 13, "ketchup": 14, "mostaz": 14, "pimient": 15, "orég": 15,
     "avena": 16, "cereal": 16, "corn": 16, "azucar": 16, "azúcar": 16,
-    "mineral": 22, "nectar": 23, "red bull": 25, "frías": 27, "tinto": 28, "bucan": 29,
+    "mineral": 22, "red bull": 25, "frías": 27, "tinto": 28, "bucan": 29,
     "axila": 32, "labial": 35, "ace ": 36, "ariel": 36, "downy": 37, "cloro": 38, "lysol": 39,
-    "axion": 40, "perrar": 41, "gatar": 41, "pamp": 42, "infant": 43, "tornill": 44, "clav": 44
+    "axion": 40, "pamp": 42, "tornill": 44, "clav": 44
 }
 
-# 6. FUNCIÓN INTELECTUAL JERÁRQUICA ULTRA-RESILIENTE (CASCADA DE 7 NIVELES DE MEMORIA)
+# 6. FUNCIÓN INTELECTUAL JERÁRQUICA ULTRA-RESILIENTE (7 NIVELES SEPARADOS)
 def clasificar_texto_local(nombre_recibido):
     texto = str(nombre_recibido).lower().strip()
     
-    # --- NIVEL 1: MARCAS CRUDAS Y UTENSILIOS EXPUESTOS (Prioridad Suprema) ---
+    # --- NIVEL 1: MARCAS DE LICORES, TEXTIL Y CONSUMIBLES (Evita trampas de "gran", "papel", "queso") ---
     if "santa teresa" in texto or "cacique" in texto or "pampero" in texto: return 26
-    if "arena s" in texto: return 41
     if "filtro" in texto: return 44
     if "paño" in texto: return 38
 
-    # --- NIVEL 2: HIGIENE ÍNTIMA, COSMÉTICA Y ASEO PERSONAL (Evita la trampa "crema" y "res") ---
+    # --- NIVEL 2: MASCOTAS E HIGIENE ÍNTIMA (Prioridad máxima sobre ingredientes cárnicos o pescados) ---
+    if "perrarin" in texto or "gatarin" in texto or "mascot" in texto or "para perro" in texto or "para gato" in texto: return 41
     if "crema dent" in texto or "pasta dent" in texto or "colgat" in texto: return 33
     if "crema corp" in texto or "crema para p" in texto: return 32
     if "crema cero" in texto or "pañalitis" in texto: return 42
     if "jabon de b" in texto or "jabón de b" in texto: return 30
-    if "toalla" in texto or "sanitari" in texto or "protect" in texto or "diario" in texto: 
+    if "toalla" in texto or "sanitari" in texto or "protect" in texto or "diario" in texto:
         return 34 if ("toalla" in texto or "sanitari" in texto) else 32
     if "afeit" in texto: return 32
     if "champ" in texto or "shamp" in texto: return 31
 
-    # --- NIVEL 3: LAVANDERÍA Y ASEO DEL HOGAR (Evita la trampa de la "panela" de dulce) ---
+    # --- NIVEL 3: LAVANDERÍA Y DETECTOR DE TEXTOS EMBUTIDOS ---
     if "jabon de pa" in texto or "jabón de pa" in texto or "panela azul" in texto or "panela bla" in texto: return 36
     if "lavap" in texto or "crema lava" in texto or "axion" in texto: return 40
+    if "fiambre" in texto: return 2
+    if "morcil" in texto: return 1
 
-    # --- NIVEL 4: PESCADERÍA FRESCA Y ENLATADOS (Evita la trampa de "aceite" y "tomate") ---
+    # --- NIVEL 4: CONDIMENTOS, VEGETALES Y VEGETALES INDUSTRIALES ENLATADOS (Caza el "champi-") ---
+    if "champiñon" in texto or "champiñón" in texto: return 12
     if "atun" in texto or "atún" in texto or "sardin" in texto or "enlat" in texto:
         if "rueda" in texto or "filet" in texto or "lomo" in texto: return 5
         return 12
-    if "cubito" in texto: return 15
-    if "morcil" in texto: return 1
+    if "canela" in texto or "pimient" in texto or "cubito" in texto: return 15
+    if "salsa" in texto or "ketchup" in texto or "boloñes" in texto or "pasta de tom" in texto: return 14
 
-    # --- NIVEL 5: ULTRAPROCESADOS, GOLOSINAS Y COMPLEMENTOS (Evita la trampa de "soda/cola") ---
+    # --- NIVEL 5: SNACKS SALADOS, BEBIDAS ENVASETADAS Y DULCERÍA INDUSTRIAL (Evita trampa "soda/cola/aceite") ---
+    if "papas frit" in texto or "platanit" in texto or "dorito" in texto or "mani " in texto or "maní" in texto: return 16
     if "galleta de s" in texto or "galletas de s" in texto: return 9
-    if "chocola" in texto or "samba" in texto or "cri-cri" in texto or "cricri" in texto: return 16
-    if "salsa" in texto or "ketchup" in texto or "boloñes" in texto: return 14
+    if "chocola" in texto or "samba" in texto or "cri-cri" in texto or "cricri" in texto or "cerelac" in texto: return 16
     if "helad" in texto: return 21
-    if "refres" in texto or "hit" in texto or "soda" in texto or "cola" in texto: return 24
-    if "cerelac" in texto: return 16
-    if "chicha" in texto: return 16 if "polvo" in texto or "cerelac" in texto else 17
+    if "jugo" in texto or "nectar" in texto or "néctar" in texto or "bebida de" in texto or "yukery" in texto or "natulac" in texto or "frica" in texto: return 23
+    if "refres" in texto or "hit" in texto or "chinotto" in texto or "soda" in texto or "cola" in texto: return 24
+    if "chicha" in texto: return 16 if "polvo" in texto else 17
 
-    # --- NIVEL 6: VEGETALES Y FRUTAS EXACTAS (Evita la trampa de "lech" y "agua") ---
-    if "lechuga" in texto: return 4
-    if "lechosa" in texto: return 3
-    if "aguacate" in texto: return 4
-    if "repol" in texto: return 4
-    if "tomate" in texto: return 4
-    if "manzan" in texto: return 3
-    if "fresa" in texto: return 3
-    if "naranj" in texto: return 3
+    # --- NIVEL 6: FRUTAS Y VERDURAS REALES DEL CAMPO (Evita trampas "sin agua" o "lech-") ---
+    if "piña" in texto or "lechosa" in texto or "manzan" in texto or "fresa" in texto or "naranj" in texto: return 3
+    if "lechuga" in texto or "aguacate" in texto or "repol" in texto or "tomate" in texto: return 4
     if "aceitun" in texto: return 13
+    if "gel antibac" in texto or "antibacterial" in texto: return 30
 
-    # --- NIVEL 7: DICCIONARIO RESIDUAL COMERCIAL (Cruce plano clásico de raíces limpias) ---
+    # --- NIVEL 7: EXTRACCIÓN PRIMITIVA DE DESPANSA LIMPIA ---
     if "musa" in texto or "amaril" in texto or "amarill" in texto: return 2
     if "harin" in texto or "har" in texto or "pasta" in texto or "espagu" in texto: return 9
     if "lech" in texto or "lact" in texto or "crema" in texto: return 17
@@ -165,7 +163,7 @@ def clasificar_texto_local(nombre_recibido):
     return None
 
 # Componente visual para la carga de archivos planos CSV
-archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v261")
+archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v270")
 
 # ##############################################################################
 # BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 1 DE 2 <<<
@@ -175,7 +173,7 @@ archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos
 # ##############################################################################
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 2 DE 2)
-# VERSIÓN: 2.6.1 (SANEADO - FILTRADO DE BANNERS INLINE)
+# VERSIÓN: 2.7.0 (SANEADO MASIVO - CASCADA DEFINITIVA DE PRIORIDADES)
 # DESCRIPCIÓN: Bloque de Renderizado Gráfico Simétrico y Motor de Clasificación ID-AZ
 # =================================================################=============
 
@@ -242,7 +240,7 @@ if archivo_subido:
         
         with col_btn1:
             if productos_clasificados:
-                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v261"):
+                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v270"):
                     with st.spinner("Inyectando registros en bloques de 50 hacia la tabla 'catalogo'..."):
                         TAMANO_LOTE = 50
                         total_guardados = 0
@@ -287,7 +285,7 @@ if archivo_subido:
                     data=csv_omitidos,
                     file_name="productos_omitidos.csv",
                     mime="text/csv",
-                    key="btn_descargar_omitidos_local_v261"
+                    key="btn_descargar_omitidos_local_v270"
                 )
 # ##############################################################################
 # BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 2 DE 2 <<<
