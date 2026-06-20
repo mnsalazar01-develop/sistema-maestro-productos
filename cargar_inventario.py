@@ -147,7 +147,7 @@ def clasificar_texto_local(nombre_recibido):
 
     # --- NIVEL 6: SUPER-GLOSARIO DE FERIA VENEZOLANA AMPLIADO ---
     if any(x in texto_lower for x in ["cambur", "plátano", "fresa", "manzan", "naranj", "mandra", "parch", "guanab", "guayab", "patil", "meloc", "melon", "melón", "lecho", "pina", "piña", "mango", "pumar", "nispe", "grap", "toronj", "limón", "coco ", "uva ", "pana"]): return 3
-    if any(x in texto_lower for x in ["ceboll", "tomate", "piment", "ajic", "aji ", "ají ", "ajo ", "puerro", "cilan", "pereg", "celeri", "aliño", "ceboti", "ceboul", "papa ", "yuca ", "ocumo", "ñame ", "auyam", "batat", "zanah", "jengib", "lechu", "repol", "brócoli", "colif", "espin", "vaina", "beren", "calab", "pepin", "aguac", "jojot", "acelg", "albahac", "menta", "yautia", "malanga", "colombian", "remolach", "vainit"]): return 4
+    if any(x in texto_lower for x in ["ceboll", "tomate", "piment", "ajic", "aji ", "ají ", "ajo ", "puerro", "cilan", "pereg", "celeri", "aliño", "ceboti", "ceboul", "papa ", "yuca ", "ocum", "ñame ", "auyam", "batat", "zanah", "jengib", "lechu", "repol", "brócoli", "colif", "espin", "vaina", "beren", "calab", "pepin", "aguac", "jojot", "acelg", "chayot", "albahac", "menta", "yautia", "malanga", "colombian", "remolach", "vainit"]): return 4
     if "pasa" in texto_lower: return 13
     if "gel antibac" in texto_lower or "antibacterial" in texto_lower: return 30
 
