@@ -118,6 +118,7 @@ def clasificar_texto_local(nombre_recibido):
     if "jabon liquido de avena" in texto_lower or "jabón líquido de avena" in texto_lower: return 32
     if "toalla" in texto_lower or "sanitari" in texto_lower or "protect" in texto_lower or "diario" in texto_lower: return 34 if ("toalla" in texto_lower or "sanitari" in texto_lower) else 32
     if "afeit" in texto_lower: return 32
+    if "desodor" in texto_lower: return 32    
     if "champú" in texto_lower or "shamp" in texto_lower: return 31
 
     # --- NIVEL 3: LAVANDERÍA Y DETECTOR DE TEXTOS EMBUTIDOS ---
