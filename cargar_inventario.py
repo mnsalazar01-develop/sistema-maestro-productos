@@ -135,8 +135,8 @@ def clasificar_texto_local(nombre_recibido):
     if "canela" in texto_lower or "pimient" in texto_lower or "cubito" in texto_lower or "comin" in texto_lower or "onoto" in texto_lower or "alcapar" in texto_lower or "bicarbonat" in texto_lower: return 15
     if "salsa" in texto_lower or "ketchup" in texto_lower or "boloñes" in texto_lower or "pasta de tom" in texto_lower or "vinagr" in texto_lower: return 14
     if "carne" in texto_lower or "res " in texto_lower or "bistec" in texto_lower or "molida" in texto_lower or "pollo" in texto_lower or "pechuga" in texto_lower or "cerdo" in texto_lower or "morcil" in texto_lower or "huevo" in texto_lower or "lagart" in texto_lower: return 1
-    if "champiñon" in texto_lower or "champiñón" in texto_lower: return 12
-    if "atún" in texto_lower or "sardin" in texto_lower or "enlat" in texto_lower or "jamón endiab" in texto_lower: return 5 if ("rueda" in texto_lower or "filet" in texto_lower or "lomo" in texto_lower) else 12
+    if "endiablado" in texto_lower or "champiñon" in texto_lower or "champiñón" in texto_lower: return 12
+    if "atún" in texto_lower or "sardin" in texto_lower or "enlat" in texto_lower: return 5 if ("rueda" in texto_lower or "filet" in texto_lower or "lomo" in texto_lower) else 12
 
     # --- NIVEL 5: SNACKS SALADOS, BEBIDAS ENVASETADAS Y MOLIENDAS TRADICIONALES DE MAÍZ ---
     if "papas frit" in texto_lower or "platanit" in texto_lower or "dorito" in texto_lower or "mani " in texto_lower or "maní" in texto_lower or "chistri" in texto_lower or "cheeto" in texto_lower or "natuchip" in texto_lower or "tortilla" in texto_lower: return 16
