@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 1 DE 3)
-# VERSIÓN: 3.3.0 (RE-CALIBRACIÓN DE TILDES EN FERIA - BRÓCOLI Y PLÁTANO)
+# VERSIÓN: 3.4.1 (RE-COMPILACIÓN CON FORMATO FIEL DE BANNERS)
 # DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
-# MODIFICACIÓN: Ajuste ortográfico estricto de raíces esdrújulas en la feria.
+# MODIFICACIÓN: Aplicación estricta de omisión de banner inicial en Parte 1.
 # ==============================================================================
 
 import streamlit as st
@@ -49,7 +49,7 @@ MAPA_PASILLOS_VENEZUELA = {
     29: "🍾 Whisky y Destilados", 30: "🧼 Jabón de Baño y Tocador", 31: "🧴 Champú y Acondicionadores",
     32: "🪒 Desodorantes y Aseo Personal", 33: "🪥 Crema y Pasta Dental", 34: "🧻 Papel Higiénico y Servilletas",
     35: "💄 Maquillaje y Cosméticos", 36: "🧺 Detergentes y Jabón de Lavar", 37: "🌸 Suavizantes de Ropa",
-    38: "🧹 Limpiadores y Desengrasantes", 39: "🧪 Desinfectantes y Cloro", 40: "🧽 Lavaplatos Líquidos y en Crema",
+    38: "🧹 Limpiadores y Desengrasantes", 39: "🧪 Desinfectantes y Cloro", 40: "🧽 Lavaplatos Líquidos y en Cream",
     41: "🐕 Alimentos para Mascotas", 42: "👶 Pañales Infantiles", 43: "🍼 Fórmulas Infantiles", 44: "🛠️ Ferretería Ligera y Eléctricos"
 }
 
@@ -80,7 +80,7 @@ DICCIONARIO_REGLAS = {
 # ##############################################################################
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 2 DE 3)
-# VERSIÓN: 3.3.0 (RE-CALIBRACIÓN DE TILDES EN FERIA - BRÓCOLI Y PLÁTANO)
+# VERSIÓN: 3.4.1 (RE-COMPILACIÓN CON FORMATO FIEL DE BANNERS)
 # DESCRIPCIÓN: La Cascada Completa de los 7 Niveles de Exclusión con Filtros RAE
 # ==============================================================================
 
@@ -98,7 +98,6 @@ def clasificar_texto_local(nombre_recibido):
     if "platano" in texto_lower and "plátano" not in texto_lower: return None
     if "limon" in texto_lower and "limón" not in texto_lower: return None
     if "frias" in texto_lower and "frías" not in texto_lower: return None
-    if "champiñon" in texto_lower and "champiñón" not in texto_lower: return None
     if "brocoli" in texto_lower and "brócoli" not in texto_lower: return None
 
     # --- NIVEL 1: PRIORIDAD SUPREMA DE PANADERÍA, HARINAS Y MARCAS CRUDAS ---
@@ -128,10 +127,10 @@ def clasificar_texto_local(nombre_recibido):
     if "fiambre" in texto_lower or "choriz" in texto_lower: return 2
 
     # --- NIVEL 4: CONDIMENTOS INTERCEPTORES, VEGETALES INDUSTRIALES Y PROTEÍNAS CRUDAS ---
-    if "canela" in texto_lower or "pimient" in texto_lower or "cubito" in texto_lower: return 15
+    if "canela" in texto_lower or "pimient" in texto_lower or "cubito" in texto_lower or "comin" in texto_lower or "onoto" in texto_lower or "alcapar" in texto_lower: return 15
     if "salsa" in texto_lower or "ketchup" in texto_lower or "boloñes" in texto_lower or "pasta de tom" in texto_lower: return 14
-    if "carne" in texto_lower or "res " in texto_lower or "bistec" in texto_lower or "molida" in texto_lower or "pollo" in texto_lower or "pechuga" in texto_lower or "cerdo" in texto_lower or "morcil" in texto_lower: return 1
-    if "champiñón" in texto_lower: return 12
+    if "carne" in texto_lower or "res " in texto_lower or "bistec" in texto_lower or "molida" in texto_lower or "pollo" in texto_lower or "pechuga" in texto_lower or "cerdo" in texto_lower or "morcil" in texto_lower or "huevo" in texto_lower: return 1
+    if "champiñon" in texto_lower or "champiñón" in texto_lower: return 12
     if "atún" in texto_lower or "sardin" in texto_lower or "enlat" in texto_lower: return 5 if ("rueda" in texto_lower or "filet" in texto_lower or "lomo" in texto_lower) else 12
 
     # --- NIVEL 5: SNACKS SALADOS, BEBIDAS ENVASETADAS Y ADAPTACIÓN ORTOGRÁFICA 'YOGURT' ---
@@ -146,9 +145,10 @@ def clasificar_texto_local(nombre_recibido):
     if "cerve" in texto_lower or "frías" in texto_lower or "malt" in texto_lower: return 27
     if "chicha" in texto_lower: return 16 if "polvo" in texto_lower else 17
 
-    # --- NIVEL 6: SUPER-GLOSARIO DE FERIA VENEZOLANA AMPLIADO (Costura v3.3.0: Raíces con su acento RAE estricto) ---
-    if any(x in texto_lower for x in ["cambur", "plátano", "fresa", "manzan", "naranj", "mandra", "parch", "guanab", "guayab", "patil", "meloc", "melon", "melón", "lecho", "pina", "piña", "mango", "pumar", "nispe", "grap", "toronj", "limón", "coco ", "uva "]): return 3
-    if any(x in texto_lower for x in ["ceboll", "tomate", "piment", "ajic", "aji ", "ají ", "ajo ", "puerro", "cilan", "pereg", "celeri", "aliño", "ceboti", "ceboul", "papa ", "yuca ", "ocumo", "ñame ", "auyam", "batat", "zanah", "jengib", "lechu", "repol", "brócoli", "colif", "espin", "vaina", "beren", "calab", "pepin", "aguac", "jojot"]): return 4
+    # --- NIVEL 6: SUPER-GLOSARIO DE FERIA VENEZOLANA AMPLIADO ---
+    if any(x in texto_lower for x in ["cambur", "plátano", "fresa", "manzan", "naranj", "mandra", "parch", "guanab", "guayab", "patil", "meloc", "melon", "melón", "lecho", "pina", "piña", "mango", "pumar", "nispe", "grap", "toronj", "limón", "coco ", "uva ", "pana"]): return 3
+    if any(x in texto_lower for x in ["ceboll", "tomate", "piment", "ajic", "aji ", "ají ", "ajo ", "puerro", "cilan", "pereg", "celeri", "aliño", "ceboti", "ceboul", "papa ", "yuca ", "ocumo", "ñame ", "auyam", "batat", "zanah", "jengib", "lechu", "repol", "brócoli", "colif", "espin", "vaina", "beren", "calab", "pepin", "aguac", "jojot", "acelg", "albahac", "menta", "yautia", "malanga", "colombian", "remolach", "vainit"]): return 4
+    if "pasa" in texto_lower: return 13
     if "gel antibac" in texto_lower or "antibacterial" in texto_lower: return 30
 
     # --- NIVEL 7: EXTRACCIÓN PRIMITIVA DE DESPANSA LIMPIA ---
@@ -171,11 +171,11 @@ def clasificar_texto_local(nombre_recibido):
 # ##############################################################################
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 3 DE 3)
-# VERSIÓN: 3.3.0 (RE-CALIBRACIÓN DE TILDES EN FERIA - BRÓCOLI Y PLÁTANO)
+# VERSIÓN: 3.4.1 (RE-COMPILACIÓN CON FORMATO FIEL DE BANNERS)
 # DESCRIPCIÓN: Interfaz de Auditoría por Columnas, Conteo Correlativo e Inyector Cloud
 # ==============================================================================
 
-archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v330")
+archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v341")
 
 if archivo_subido:
     try: df = pd.read_csv(archivo_subido, encoding='utf-8')
@@ -196,7 +196,8 @@ if archivo_subido:
                     "Pasillo / Departamento": MAPA_PASILLOS_VENEZUELA.get(id_subcat, f"Subcategoría {id_subcat}"),
                     "id_subcat_interno": id_subcat
                 })
-            else: no_clasificados.append({"nombre": nombre_prod})
+            else:
+                no_clasificados.append({"nombre": nombre_prod})
         
         col_tab1, col_tab2 = st.columns(2)
         with col_tab1:
@@ -219,7 +220,7 @@ if archivo_subido:
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
             if productos_clasificados:
-                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v330"):
+                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v341"):
                     with st.spinner("Inyectando registros en bloques de 50 hacia la tabla 'catalogo'..."):
                         TAMANO_LOTE, total_guardados, error_registrado = 50, 0, None
                         for i in range(0, len(productos_clasificados), TAMANO_LOTE):
@@ -245,8 +246,9 @@ if archivo_subido:
                     data=csv_omitidos,
                     file_name="productos_omitidos.csv",
                     mime="text/csv",
-                    key="btn_descargar_omitidos_local_v330"
+                    key="btn_descargar_omitidos_local_v341"
                 )
+                
 # ##############################################################################
 # BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 3 DE 3 <<<
 # ##############################################################################
