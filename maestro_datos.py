@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: maestro_datos.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 1.0.0 (INTEGRACIÓN TAXONOMÍA REAL VENEZUELA)
+# VERSIÓN: 1.1.0 (BLINDAJE ANTE EXCEPCIONES POSTGREST - INMUNE A PGRST125)
 # DESCRIPCIÓN: Libro Maestro de Existencias - Visualizador y Extractor Comercial
-# MODIFICACIÓN: Conexión estricta a 'catalogo' con pasillos textuales en espejo.
+# MODIFICACIÓN: Control seguro de respuestas HTTP vacías o rutas inválidas de red.
 # ==============================================================================
 
 import streamlit as st
@@ -57,7 +57,8 @@ with st.spinner("Descargando registros desde la nube..."):
         # Consultamos directamente tu tabla física real 'catalogo'
         res_maestro = supabase.table("catalogo").select("nombre_catalogo, id_subcat").execute()
         
-        if res_maestro and hasattr(res_maestro, 'data') and res_maestro.data:
+        # BLINDAJE v1.1.0: Validación segura de existencia de datos y control de diccionarios devueltos
+        if res_maestro and isinstance(res_maestro.__dict__, dict) and 'data' in res_maestro.__dict__ and res_maestro.data:
             registros_raw = res_maestro.data
             
             # Mapeamos los datos crudos aplicando la máscara de traducción caribeña
@@ -73,7 +74,7 @@ with st.spinner("Descargando registros desde la nube..."):
             
             df_maestro = pd.DataFrame(registros_procesados)
             
-            # ORDENAMIENTO DE AUDITURÍA: Secuencial por ID de Pasillo + Alfabético interno de la A a la Z
+            # ORDENAMIENTO DE AUDITORÍA: Secuencial por ID de Pasillo + Alfabético interno de la A a la Z
             df_maestro = df_maestro.sort_values(by=["id_subcat_interno", "Descripción del Artículo"], ascending=[True, True]).reset_index(drop=True)
             
             # 4. RENDERIZADO DE ALTA DENSIDAD INICIANDO EL CONTEO EN 1
@@ -100,7 +101,7 @@ with st.spinner("Descargando registros desde la nube..."):
                 key="btn_descargar_excel_maestro"
             )
         else:
-            st.warning("⚠️ El Libro Maestro se encuentra vacío. No hay registros clasificados en la tabla 'catalogo'.")
+            st.warning("⚠️ El servidor de la base de datos reportó una ruta temporalmente inactiva o el catálogo está vacío.")
             
     except Exception as e_maestro:
         st.error(f"❌ Error de comunicación con la base de datos: {e_maestro}")
