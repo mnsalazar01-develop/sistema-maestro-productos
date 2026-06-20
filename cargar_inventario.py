@@ -97,8 +97,7 @@ def clasificar_texto_local(nombre_recibido):
     if "limon" in texto_lower and "limón" not in texto_lower: return None
     if "frias" in texto_lower and "frías" not in texto_lower: return None
     if "brocoli" in texto_lower and "brócoli" not in texto_lower: return None
-    if "champiñon" in texto_lower and "champiñón" not in texto_lower: return None
-    
+        
     # Parachoques de adjetivos: Exige tilde estricta en el sustantivo pero no penaliza derivados relacionales
     if "jabon" in texto_lower and "jabón" not in texto_lower and "jabonoso" not in texto_lower: return None
     if "azucar" in texto_lower and "azúcar" not in texto_lower and "azucarada" not in texto_lower: return None
@@ -130,7 +129,7 @@ def clasificar_texto_local(nombre_recibido):
     if "jabón de pa" in texto_lower or "panela azul" in texto_lower or "panela bla" in texto_lower or "jabón de cuaba" in texto_lower: return 36
     if "desinf" in texto_lower or "cloro" in texto_lower or "lysol" in texto_lower: return 39
     if "lavap" in texto_lower or "crema lava" in texto_lower or "axion" in texto_lower or "esponja" in texto_lower: return 40
-    if "fiambre" in texto_lower or "choriz" in texto_lower or "pastrami" in texto_lower: return 2
+    if "fiambre" in texto_lower or "choriz" in texto_lower or "pastrami" in texto_lower or "chistorra" in texto_lower: return 2
 
     # --- NIVEL 4: CONDIMENTOS INTERCEPTORES, VEGETALES INDUSTRIALES Y PROTEÍNAS ---
     if "canela" in texto_lower or "pimient" in texto_lower or "cubito" in texto_lower or "comin" in texto_lower or "onoto" in texto_lower or "alcapar" in texto_lower or "bicarbonat" in texto_lower: return 15
