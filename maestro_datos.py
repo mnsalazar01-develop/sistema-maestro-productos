@@ -1,107 +1,61 @@
 # ==============================================================================
-# PROGRAMA SATÉLITE: maestro_datos.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 1.1.0 (BLINDAJE ANTE EXCEPCIONES POSTGREST - INMUNE A PGRST125)
-# DESCRIPCIÓN: Libro Maestro de Existencias - Visualizador y Extractor Comercial
-# MODIFICACIÓN: Control seguro de respuestas HTTP vacías o rutas inválidas de red.
+# SCRIPT DE DIAGNÓSTICO EN TIEMPO REAL: maestro_datos.py (VERSIÓN 1.5.0 EMERGENCIAS)
+# DESCRIPCIÓN: Escáner temporal de metadatos para revelar nombres de tablas reales.
+# MODIFICACIÓN: Bypass directo para forzar la lectura del information_schema.
 # ==============================================================================
 
 import streamlit as st
-import pandas as pd
-import io
-from supabase import create_client, Client
+from supabase import create_client
 
-# 1. CONFIGURACIÓN CORPORATIVA DE LA VENTANA WEB DE PRODUCCIÓN
-st.set_page_config(
-    page_title="Libro Maestro de Existencias",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
+st.set_page_config(page_title="Auditor Supabase", page_icon="🕵️‍♂️", layout="wide")
 
-# 2. HERENCIA DE CONEXIÓN SEGURA INDEPENDIENTE CON LLAVES PROPIAS
-@st.cache_resource
-def init_supabase_local() -> Client:
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
-    return create_client(url, key)
-
-try:
-    supabase = init_supabase_local()
-except Exception as e:
-    st.sidebar.error(f"❌ Error de Conexión: {e}")
-
-st.title("📊 Libro Maestro de Existencias")
-st.markdown("Auditoría visual en tiempo real de los artículos almacenados en el catálogo central.")
+st.title("🕵️‍♂️ Radiografía de Tablas Cloud en Vivo")
+st.markdown("Consultando las entrañas de tu PostgreSQL en internet para verificar por qué la API arroja el error PGRST125.")
 st.markdown("---")
 
-# 3. MÁSCARA DE TRADUCCIÓN LOCAL: GLOSARIO DE PASILLOS EN ESPEJO EXACTO CON EL CARGADOR
-MAPA_PASILLOS_VENEZUELA = {
-    1: "🥩 Carnicería / Frigorífico", 2: "🧀 Charcutería y Delicateses", 3: "🍎 Frutería",
-    4: "🥦 Verdulería / Legumbres Frescas", 5: "🐟 Pescadería Fresca", 6: "🥖 Panadería",
-    7: "🍰 Pastelería y Repostería", 8: "🌾 Granos, Legumbres y Café", 9: "🫓 Harinas, Pastas y Almidones",
-    10: "🛢️ Aceites Comestibles", 11: "🧈 Grasas y Margarinas", 12: "🥫 Víveres y Enlatados",
-    13: "🍓 Conservas y Dulcería", 14: "🍯 Salsas y Aderezos", 15: "🧂 Condimentos y Especias",
-    16: "🫖 Desayuno, Golosinas y Snacks", 17: "🥛 Lácteos y Leches Líquidas", 18: "🍧 Yogures y Derivados",
-    19: "🍕 Comidas Preparadas y Congelados", 21: "🍦 Helados y Paletas", 22: "💧 Agua Mineral y Sifones",
-    23: "🧃 Bebidas, Jugos y Néctares", 24: "🥤 Refrescos y Sodas Carbonatadas", 25: "⚡ Bebidas Energéticas",
-    26: "🥃 Ron y Licores Nacionales", 27: "🍺 Cervezas y Maltas", 28: "🍷 Vinos de Mesa",
-    29: "🍾 Whisky y Destilados", 30: "🧼 Jabón de Baño y Tocador", 31: "🧴 Champú y Acondicionadores",
-    32: "🪒 Desodorantes y Aseo Personal", 33: "🪥 Crema y Pasta Dental", 34: "🧻 Papel Higiénico y Servilletas",
-    35: "💄 Maquillaje y Cosméticos", 36: "🧺 Detergentes y Jabón de Lavar", 37: "🌸 Suavizantes de Ropa",
-    38: "🧹 Limpiadores y Desengrasantes", 39: "🧪 Desinfectantes y Cloro", 40: "🧽 Lavaplatos Líquidos y en Crema",
-    41: "🐕 Alimentos para Mascotas", 42: "👶 Pañales Infantiles", 43: "🍼 Fórmulas Infantiles", 44: "🛠️ Ferretería Ligera y Eléctricos"
-}
+try:
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    supabase = create_client(url, key)
+    st.success("⚡ Conexión con el cliente de Supabase establecida.")
+except Exception as e_conn:
+    st.error(f"❌ Error al leer secrets: {e_conn}")
+    st.stop()
 
-with st.spinner("Descargando registros desde la nube..."):
+with st.spinner("Escaneando el diccionario de datos de Supabase..."):
     try:
-        # Consultamos directamente tu tabla física real 'catalogo'
-        res_maestro = supabase.table("catalogo").select("nombre_catalogo, id_subcat").execute()
+        # Consultamos el information_schema de PostgreSQL a través del cliente de Supabase
+        res_esquema = supabase.table("information_schema.columns").select("table_name, column_name").eq("table_schema", "public").execute()
         
-        # BLINDAJE v1.1.0: Validación segura de existencia de datos y control de diccionarios devueltos
-        if res_maestro and isinstance(res_maestro.__dict__, dict) and 'data' in res_maestro.__dict__ and res_maestro.data:
-            registros_raw = res_maestro.data
+        if res_esquema and hasattr(res_esquema, 'data') and res_esquema.data:
+            datos_raw = res_esquema.data
             
-            # Mapeamos los datos crudos aplicando la máscara de traducción caribeña
-            registros_procesados = []
-            for r in registros_raw:
-                id_num = r.get("id_subcat", 0)
-                nombre_pasillo = MAPA_PASILLOS_VENEZUELA.get(id_num, f"Familia {id_num}")
-                registros_procesados.append({
-                    "Descripción del Artículo": r.get("nombre_catalogo", "SIN NOMBRE"),
-                    "Pasillo / Departamento": nombre_pasillo,
-                    "id_subcat_interno": id_num
-                })
+            # Agrupamos los campos de forma limpia por cada nombre de tabla real
+            esquema_maestro = {}
+            for fila in datos_raw:
+                t_name = fila["table_name"]
+                c_name = fila["column_name"]
+                if t_name not in esquema_maestro:
+                    esquema_maestro[t_name] = []
+                esquema_maestro[t_name].append(c_name)
             
-            df_maestro = pd.DataFrame(registros_procesados)
-            
-            # ORDENAMIENTO DE AUDITORÍA: Secuencial por ID de Pasillo + Alfabético interno de la A a la Z
-            df_maestro = df_maestro.sort_values(by=["id_subcat_interno", "Descripción del Artículo"], ascending=[True, True]).reset_index(drop=True)
-            
-            # 4. RENDERIZADO DE ALTA DENSIDAD INICIANDO EL CONTEO EN 1
-            df_maestro.index = df_maestro.index + 1
-            df_maestro.index.name = "N° de Ítem"
-            
-            st.metric("Total de Artículos Consolidados en Nube", len(df_maestro))
-            
-            # Mostramos en pantalla únicamente las columnas comerciales limpias para el ojo humano
-            st.dataframe(df_maestro[["Descripción del Artículo", "Pasillo / Departamento"]], use_container_width=True)
-            
-            # 5. EXTRACTOR BINARIO COMERCIAL (DESCARGA DIRECTA A EXCEL CLEAN)
-            st.markdown("---")
-            buffer_excel = io.BytesIO()
-            with pd.ExcelWriter(buffer_excel, engine='openpyxl') as writer:
-                # El archivo de Excel se genera con la ordenación relacional y el conteo humano
-                df_maestro[["Descripción del Artículo", "Pasillo / Departamento"]].to_excel(writer, sheet_name="Existencias_Nivel_5", index=True)
-            
-            st.download_button(
-                label="📥 Exportar Libro Maestro a Formato Excel (.xlsx)",
-                data=buffer_excel.getvalue(),
-                file_name="libro_maestro_existencias.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key="btn_descargar_excel_maestro"
-            )
+            # Pintamos la radiografía real en la pantalla
+            st.warning("⚠️ ESTAS SON LAS ÚNICAS TABLAS QUE EXISTEN DE VERDAD EN TU NUBE:")
+            for tabla, columnas in esquema_maestro.items():
+                st.code(f"📁 Nombre exacto de Tabla: {tabla}", language="markdown")
+                st.write(f"   🔹 Campos detectados: {', '.join(columnas)}")
+                st.markdown("---")
+            st.balloons()
         else:
-            st.warning("⚠️ El servidor de la base de datos reportó una ruta temporalmente inactiva o el catálogo está vacío.")
+            st.error("❌ El esquema 'public' de tu proyecto Supabase está completamente VACÍO. No has creado ninguna tabla física todavía.")
+            st.markdown("💡 Ingresa a **supabase.com**, ve a **Table Editor** y crea una tabla llamada exactamente `catalogo` con los campos `nombre_catalogo` (text) e `id_subcat` (int8).")
             
-    except Exception as e_maestro:
-        st.error(f"❌ Error de comunicación con la base de datos: {e_maestro}")
+    except Exception as e_auditoria:
+        st.error(f"❌ La consulta de metadatos falló: {e_auditoria}")
+        st.markdown("""
+        ### 🛠️ Solución Definitiva Manual:
+        Si la API te arroja este bloqueo, la forma más rápida y que no falla nunca es:
+        1. Entra a tu cuenta web en **supabase.com** [https://supabase.com].
+        2. Abre tu proyecto y haz clic en el icono de la tabla izquierda (**Table Editor**) [https://supabase.com].
+        3. Mira cómo se llama la tabla que tienes allí escrita en la lista de la izquierda [https://supabase.com].
+        """)
