@@ -136,7 +136,7 @@ def clasificar_texto_local(nombre_recibido):
     if "salsa" in texto_lower or "ketchup" in texto_lower or "boloñes" in texto_lower or "pasta de tom" in texto_lower or "vinagr" in texto_lower: return 14
     if "carne" in texto_lower or "res " in texto_lower or "bistec" in texto_lower or "molida" in texto_lower or "pollo" in texto_lower or "pechuga" in texto_lower or "cerdo" in texto_lower or "morcil" in texto_lower or "huevo" in texto_lower or "lagart" in texto_lower: return 1
     if "champiñon" in texto_lower or "champiñón" in texto_lower: return 12
-    if "atún" in texto_lower or "sardin" in texto_lower or "enlat" in texto_lower: return 5 if ("rueda" in texto_lower or "filet" in texto_lower or "lomo" in texto_lower) else 12
+    if "atún" in texto_lower or "sardin" in texto_lower or "enlat" in texto_lower or "jamón endiab" in texto_lower: return 5 if ("rueda" in texto_lower or "filet" in texto_lower or "lomo" in texto_lower) else 12
 
     # --- NIVEL 5: SNACKS SALADOS, BEBIDAS ENVASETADAS Y MOLIENDAS TRADICIONALES DE MAÍZ ---
     if "papas frit" in texto_lower or "platanit" in texto_lower or "dorito" in texto_lower or "mani " in texto_lower or "maní" in texto_lower or "chistri" in texto_lower or "cheeto" in texto_lower or "natuchip" in texto_lower or "tortilla" in texto_lower: return 16
@@ -157,7 +157,7 @@ def clasificar_texto_local(nombre_recibido):
     if "pasa" in texto_lower: return 13
     if "gel antibac" in texto_lower or "antibacterial" in texto_lower: return 30
 
-    # --- NIVEL 7: EXTRACCIÓN PRIMITIVA DE DESPANSA LIMPIA ---
+    # --- NIVEL 7: EXTRACCIÓN PRIMITIVA DE DESPENSA LIMPIA ---
     if "musa" in texto_lower or "amaril" in texto_lower or "amarill" in texto_lower: return 2
     if "arroz" in texto_lower or "gran" in texto_lower: return 8
     if "pasta" in texto_lower or "espagu" in texto_lower: return 9
