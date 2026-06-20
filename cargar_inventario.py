@@ -195,8 +195,8 @@ if archivo_subido:
                 })
             else:
                 no_clasificados.append({"nombre": nombre_prod})
-        
-        # 1. RENDERIZADO SIMÉTRICO CON NUEVO ORDENAMIENTO DE ALTA DENSIDAD
+                
+        # 1. RENDERIZADO SIMÉTRICO CON ORDENAMIENTO DE ALTA DENSIDAD REPARADO PARTE NUEVA
         col_tab1, col_tab2 = st.columns(2)
         
         with col_tab1:
@@ -217,7 +217,8 @@ if archivo_subido:
                 st.dataframe(df_previa[["nombre_catalogo", "Pasillo / Departamento"]], use_container_width=True)
                 
         with col_tab2:
-            st.metric("Artículos">"Artículos Rechazados / Sin Clasificar", len(no_clasificados))
+            # CORREGIDO: Se elimina el operador ">" que provocaba el TypeError de Streamlit
+            st.metric("Artículos Rechazados / Sin Clasificar", len(no_clasificados))
             if no_clasificados:
                 df_omitidos = pd.DataFrame(no_clasificados)
                 df_omitidos = df_omitidos.sort_values(by="nombre", ascending=True).reset_index(drop=True)
@@ -225,6 +226,7 @@ if archivo_subido:
                 df_omitidos.index.name = "N° de Ítem"
                 
                 st.dataframe(df_omitidos, use_container_width=True)
+
 
         # 2. FILA EN ESPEJO HORIZONTAL SIMÉTRICA PARA LOS BOTONES CORPORATIVOS PARTE NUEVA
         st.markdown("---")
