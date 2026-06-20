@@ -75,34 +75,26 @@ DICCIONARIO_REGLAS = {
 # ##############################################################################
 # BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 1 DE 3 <<<
 # ##############################################################################
-# ##############################################################################
-# BANNER SUPERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 2 DE 3 <<<
-# ##############################################################################
-# ==============================================================================
-# PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 2 DE 3)
-# VERSIÓN: 3.6.0 (BLINDAJE TERMINAL CONTRA ANOMALÍAS RESIDUALES)
-# DESCRIPCIÓN: La Cascada Completa de los 7 Niveles de Exclusión con Filtros RAE
-# ==============================================================================
+# ===============================================================================
+# COMMENT INDICADOR: >>> INICIO DE LA PARTE 2 DE 3 v3.6.1 <<<
+# MODULO: CASCADA DE LOS 7 NIVELES DE EXCLUSIÓN CON REEMPLAZO ORTOGRÁFICO EN RAM
+# ===============================================================================
 
 def clasificar_texto_local(nombre_recibido):
     texto = str(nombre_recibido).strip()
     texto_lower = texto.lower()
     
-    # FILTRO ORTOGRÁFICO PUNITIVO SELECTIVO: Castiga la falta de tilde en sustantivos puros
-    if "atun" in texto_lower and "atún" not in texto_lower: return None
-    if "cafe" in texto_lower and "café" not in texto_lower: return None
-    if "champu" in texto_lower and "champú" not in texto_lower: return None
-    if "jamon" in texto_lower and "jamón" not in texto_lower: return None
-    if "platano" in texto_lower and "plátano" not in texto_lower: return None
-    if "limon" in texto_lower and "limón" not in texto_lower: return None
-    if "frias" in texto_lower and "frías" not in texto_lower: return None
-    if "brocoli" in texto_lower and "brócoli" not in texto_lower: return None
-        
-    # Parachoques de adjetivos: Exige tilde estricta en el sustantivo pero no penaliza derivados relacionales
-    if "jabon" in texto_lower and "jabón" not in texto_lower and "jabonoso" not in texto_lower: return None
-    if "azucar" in texto_lower and "azúcar" not in texto_lower and "azucarada" not in texto_lower: return None
+    # SANEAMIENTO RELACIONAL: En lugar de arrojar None, el algoritmo corrige la tilde en la RAM
+    remplazos_ortograficos = {
+        "atun": "atun", "cafe": "café", "champu": "champú", "jamon": "jamón",
+        "platano": "plátano", "limon": "limón", "frias": "frías", "brocoli": "brócoli",
+        "jabon": "jabón", "azucar": "azúcar"
+    }
+    for palabra_sin, palabra_con in remplazos_ortograficos.items():
+        if palabra_sin in texto_lower and palabra_con not in texto_lower:
+            texto_lower = texto_lower.replace(palabra_sin, palabra_con)
 
-    # --- NIVEL 1: PRIORIDAD SUPREMA DE PANADERÍA, HARINAS Y FERRETERÍA DE CONSUMO (Evita trampas de "perro" y "amarillo") ---
+    # --- NIVEL 1: PRIORIDAD SUPREMA DE PANADERÍA, HARINAS Y FERRETERÍA DE CONSUMO ---
     if "pan para perro" in texto_lower or "pan de perro" in texto_lower or "pan caliente" in texto_lower: return 6
     if "harin" in texto_lower or "har " in texto_lower or "harina" in texto_lower: return 9
     if "santa teresa" in texto_lower or "cacique" in texto_lower or "pampero" in texto_lower: return 26
@@ -111,7 +103,7 @@ def clasificar_texto_local(nombre_recibido):
     if "aluminio" in texto_lower: return 44
     if "paño" in texto_lower: return 38
 
-    # --- NIVEL 2: MÓDULO INFANTIL, HIGIENE ÍNTIMA Y TRATAMIENTO BUCAL DENTAL (Frena trampas de "crema", "agua" y "res") ---
+    # --- NIVEL 2: MÓDULO INFANTIL, HIGIENE ÍNTIMA Y TRATAMIENTO BUCAL DENTAL ---
     if "perrarin" in texto_lower or "gatarin" in texto_lower or "mascot" in texto_lower or "para perro" in texto_lower or "para gato" in texto_lower: return 41
     if "crema dent" in texto_lower or "pasta dent" in texto_lower or "colgat" in texto_lower or "enjuague" in texto_lower or "plax" in texto_lower or "hilo dent" in texto_lower: return 33
     if "crema corp" in texto_lower or "crema para p" in texto_lower or "talco" in texto_lower or "desod" in texto_lower or "axila" in texto_lower: return 32
@@ -148,7 +140,8 @@ def clasificar_texto_local(nombre_recibido):
     if "helad" in texto_lower: return 21
     if "jugo" in texto_lower or "nectar" in texto_lower or "néctar" in texto_lower or "bebida de" in texto_lower or "yukery" in texto_lower or "natulac" in texto_lower or "frica" in texto_lower or "té " in texto_lower or "té" in texto_lower: return 23
     if "refres" in texto_lower or "hit" in texto_lower or "chinotto" in texto_lower or "soda" in texto_lower or "cola" in texto_lower: return 24
-    if "cerve" in texto_lower or "frías" in texto_lower or "malt" in texto_lower or "ron" in texto_lower: return 27 if "cerve" in texto_lower or "frías" in texto_lower or "malt" in texto_lower else 26
+    if "energ" in texto_lower or "red bull" in texto_lower or "ron ": return 25
+    if "cerve" in texto_lower or "frías" in texto_lower or "malt" in texto_lower: return 27
     if "chicha" in texto_lower: return 16 if "polvo" in texto_lower else 17
 
     # --- NIVEL 6: SUPER-GLOSARIO DE FERIA VENEZOLANA AMPLIADO ---
@@ -157,7 +150,15 @@ def clasificar_texto_local(nombre_recibido):
     if "pasa" in texto_lower: return 13
     if "gel antibac" in texto_lower or "antibacterial" in texto_lower: return 30
 
-    # --- NIVEL 7: EXTRACCIÓN PRIMITIVA DE DESPENSA LIMPIA ---
+# ##############################################################################
+# BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 2 DE 3 <<<
+# ##############################################################################
+# ===============================================================================
+# COMMENT INDICADOR: >>> INICIO DE LA PARTE 3 DE 3 v3.6.1 <<<
+# MODULO: ADMISIÓN PLANO CSV, ORDENAMIENTO DE RENDIMIENTO Y MOTOR UPSERT CLOUD
+# ===============================================================================
+
+# --- NIVEL 7: EXTRACCIÓN PRIMITIVA DE DESPENSA LIMPIA ---
     if "musa" in texto_lower or "amaril" in texto_lower or "amarill" in texto_lower: return 2
     if "arroz" in texto_lower or "gran" in texto_lower: return 8
     if "pasta" in texto_lower or "espagu" in texto_lower: return 9
@@ -169,23 +170,13 @@ def clasificar_texto_local(nombre_recibido):
         if k in texto_lower: return v
     return None
 
-# ##############################################################################
-# BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 2 DE 3 <<<
-# ##############################################################################
-# ##############################################################################
-# BANNER SUPERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 3 DE 3 <<<
-# ##############################################################################
-# ==============================================================================
-# PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 3 DE 3)
-# VERSIÓN: 3.6.0 (BLINDAJE TERMINAL CONTRA ANOMALÍAS RESIDUALES)
-# DESCRIPCIÓN: Interfaz de Auditoría por Columnas, Conteo Correlativo e Inyector Cloud
-# ==============================================================================
-
-archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v360")
+archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v361")
 
 if archivo_subido:
-    try: df = pd.read_csv(archivo_subido, encoding='utf-8')
-    except UnicodeDecodeError: df = pd.read_csv(archivo_subido, encoding='latin-1')
+    try: 
+        df = pd.read_csv(archivo_subido, encoding='utf-8')
+    except UnicodeDecodeError: 
+        df = pd.read_csv(archivo_subido, encoding='latin-1')
     
     if 'nombre' not in df.columns:
         st.error("❌ Error: Tu archivo plano debe contener una columna llamada exactamente 'nombre' (en minúsculas).")
@@ -205,7 +196,7 @@ if archivo_subido:
             else:
                 no_clasificados.append({"nombre": nombre_prod})
         
-        # 1. RENDERIZADO SIMÉTRICO DE LAS TABLAS CON NUEVO ORDENAMIENTO DE ALTA DENSIDAD
+        # 1. RENDERIZADO SIMÉTRICO CON NUEVO ORDENAMIENTO DE ALTA DENSIDAD
         col_tab1, col_tab2 = st.columns(2)
         
         with col_tab1:
@@ -213,7 +204,7 @@ if archivo_subido:
             if productos_clasificados:
                 df_previa = pd.DataFrame(productos_clasificados)
                 
-                # ORDENAMIENTO MANDATORIO: Secuencial por Número de Pasillo + Alfabético de la A a la Z
+                # ORDENAMIENTO MANDATORIO: Secuencial por Número de Pasillo + Alfabético
                 df_previa = df_previa.sort_values(
                     by=["id_subcat_interno", "nombre_catalogo"], 
                     ascending=[True, True]
@@ -226,7 +217,7 @@ if archivo_subido:
                 st.dataframe(df_previa[["nombre_catalogo", "Pasillo / Departamento"]], use_container_width=True)
                 
         with col_tab2:
-            st.metric("Artículos Rechazados / Sin Clasificar", len(no_clasificados))
+            st.metric("Artículos">"Artículos Rechazados / Sin Clasificar", len(no_clasificados))
             if no_clasificados:
                 df_omitidos = pd.DataFrame(no_clasificados)
                 df_omitidos = df_omitidos.sort_values(by="nombre", ascending=True).reset_index(drop=True)
@@ -234,31 +225,39 @@ if archivo_subido:
                 df_omitidos.index.name = "N° de Ítem"
                 
                 st.dataframe(df_omitidos, use_container_width=True)
-        
-        # 2. FILA EN ESPEJO HORIZONTAL SIMÉTRICA PARA LOS BOTONES CORPORATIVOS
+
+        # 2. FILA EN ESPEJO HORIZONTAL SIMÉTRICA PARA LOS BOTONES CORPORATIVOS PARTE NUEVA
         st.markdown("---")
         col_btn1, col_btn2 = st.columns(2)
         
         with col_btn1:
             if productos_clasificados:
-                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v360"):
-                    with st.spinner("Inyectando registros en bloques de 50 hacia la tabla 'catalogo'..."):
+                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v362"):
+                    with st.spinner("Inyectando registros en bloques de 50 hacia la tabla 'catalogo' con blindaje relacional..."):
                         TAMANO_LOTE, total_guardados, error_registrado = 50, 0, None
                         for i in range(0, len(productos_clasificados), TAMANO_LOTE):
                             lote_actual = productos_clasificados[i:i + TAMANO_LOTE]
                             try:
-                                payload = [{"nombre_catalogo": p["nombre_catalogo"], "id_subcat": p["id_subcat_interno"]} for p in lote_actual]
-                                supabase.table("catalogo").insert(payload).execute()
+                                payload = [{"nombre_catalogo": p["nombre_catalogo"], "id_enlace_subcat": p["id_subcat_interno"]} for p in lote_actual]
+                                
+                                # REPARADO SINTAXIS SUPABASE V2: El parámetro de conflicto se pasa de forma limpia
+                                # Esto evita la deformación de la URL que causaba el error PGRST125 de PostgREST
+                                supabase.table("catalogo").upsert(payload, on_conflict="nombre_catalogo").execute()
                                 total_guardados += len(lote_actual)
+                                
                             except Exception as e_lote:
                                 error_registrado = e_lote
                                 break
+                                
                         if total_guardados == len(productos_clasificados):
                             st.balloons()
-                            st.success(f"¡Éxito total! Se guardaron {total_guardados} productos de forma permanente en tu tabla 'catalogo'.")
-                        elif total_guardados > 0: st.warning(f"⚠️ Carga parcial: Se salvaron {total_guardados} ítems, error: {error_registrado}")
-                        else: st.error(f"❌ Error definitivo de persistencia: {error_registrado}")
-                            
+                            st.success(f"🎉 ¡Éxito total! Se guardaron/actualizaron {total_guardados} productos de forma permanente en tu tabla 'catalogo'.")
+                        elif total_guardados > 0: 
+                            st.warning(f"⚠️ Carga parcial: Se salvaron {total_guardados} ítems, error relacional: {str(error_registrado)}")
+                        else: 
+                            st.error(f"❌ Error definitivo de persistencia: {str(error_registrado)}")
+
+               
         with col_btn2:
             if no_clasificados:
                 csv_omitidos = df_omitidos.to_csv(index=False).encode('utf-8')
@@ -267,9 +266,9 @@ if archivo_subido:
                     data=csv_omitidos,
                     file_name="productos_omitidos.csv",
                     mime="text/csv",
-                    key="btn_descargar_omitidos_local_v360"
+                    key="btn_descargar_omitidos_local_v361"
                 )
-                
+
 # ##############################################################################
 # BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 3 DE 3 <<<
 # ##############################################################################
