@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 1 DE 3)
-# VERSIÓN: 4.0.0 (ACOPLAMIENTO RELACIONAL DINÁMICO - INMUNE A PGRST125)
+# VERSIÓN: 4.1.0 (BYPASS DE CACHÉ - CONSULTA SÍNCRONA CRUDA GLOBAL)
 # DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
-# MODIFICACIÓN: Descarga dinámica y automática del glosario desde la tabla 'subcategorias'.
+# MODIFICACIÓN: Aplicación estricta de omisión de banner inicial en Parte 1.
 # ==============================================================================
 
 import streamlit as st
@@ -35,15 +35,14 @@ st.title("📤 Carga por Lotes - Datos de Inventario")
 st.markdown("Clasificación automatizada local enlazada dinámicamente a las llaves relacionales de tu base de datos cloud.")
 st.markdown("---")
 
-# 4. DESCARGA SÍNCRONA DE LA MÁSCARA RELACIONAL DESDE LA TABLA 'SUBCATEGORIAS'
-@st.cache_data(ttl=60) # Refresca el mapa automáticamente cada minuto si cambias algo en la web
+# 4. DESCARGA EN VIVO Y DIRECTA DE LA MÁSCARA RELACIONAL (SIN BLOQUEOS DE CACHÉ)
 def descargar_mapa_subcategorias_cloud():
     try:
-        # Traemos el id (Primary Key) y el nombre real que sembraste en tu panel de Supabase
+        # La consulta viaja directo a internet a buscar el id (int8) y el nombre de la subcategoría
         res_sub = supabase.table("subcategorias").select("id, nombre").execute()
         if res_sub and hasattr(res_sub, 'data') and res_sub.data:
-            # Construimos el diccionario dinámico en la memoria RAM del script
-            return {item["id"]: item["nombre"] for item in res_sub.data}
+            # Forzamos la indexación foránea mapeando enteros limpios de forma síncrona
+            return {int(item["id"]): item["nombre"] for item in res_sub.data}
     except Exception as e_mapa:
         st.sidebar.error(f"⚠️ Error al sincronizar subcategorías cloud: {e_mapa}")
     return {}
@@ -81,7 +80,7 @@ DICCIONARIO_REGLAS = {
 # ##############################################################################
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 2 DE 3)
-# VERSIÓN: 4.0.0 (ACOPLAMIENTO RELACIONAL DINÁMICO - INMUNE A PGRST125)
+# VERSIÓN: 4.1.0 (BYPASS DE CACHÉ - CONSULTA SÍNCRONA CRUDA GLOBAL)
 # DESCRIPCIÓN: La Cascada Completa de los 7 Niveles de Exclusión con Filtros RAE
 # ==============================================================================
 
@@ -179,11 +178,11 @@ def clasificar_texto_local(nombre_recibido):
 # ##############################################################################
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 3 DE 3)
-# VERSIÓN: 4.0.0 (ACOPLAMIENTO RELACIONAL DINÁMICO - INMUNE A PGRST125)
+# VERSIÓN: 4.1.0 (BYPASS DE CACHÉ - CONSULTA SÍNCRONA CRUDA GLOBAL)
 # DESCRIPCIÓN: Interfaz de Auditoría por Columnas, Conteo Correlativo e Inyector Cloud
 # ==============================================================================
 
-archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v400")
+archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v410")
 
 if archivo_subido:
     try: df = pd.read_csv(archivo_subido, encoding='utf-8')
@@ -199,7 +198,7 @@ if archivo_subido:
             nombre_prod = fila['nombre']
             id_subcat = clasificar_texto_local(nombre_prod)
             
-            # Buscamos de forma dinámica el nombre del pasillo en el mapa descargado desde internet
+            # Buscamos en caliente la Llave Foránea exacta dentro del mapa fresco de internet
             if id_subcat and id_subcat in MAPA_PASILLOS_VENEZUELA:
                 productos_clasificados.append({
                     "nombre_catalogo": str(nombre_prod).strip(),
@@ -232,7 +231,7 @@ if archivo_subido:
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
             if productos_clasificados:
-                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v400"):
+                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v410"):
                     with st.spinner("Inyectando registros en bloques de 50 hacia la tabla 'catalogo'..."):
                         TAMANO_LOTE, total_guardados, error_registrado = 50, 0, None
                         for i in range(0, len(productos_clasificados), TAMANO_LOTE):
@@ -259,7 +258,7 @@ if archivo_subido:
                     data=csv_omitidos,
                     file_name="productos_omitidos.csv",
                     mime="text/csv",
-                    key="btn_descargar_omitidos_local_v400"
+                    key="btn_descargar_omitidos_local_v410"
                 )
                 
 # ##############################################################################
