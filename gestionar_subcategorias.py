@@ -86,7 +86,7 @@ DICCIONARIO_REGLAS = {
 # ##############################################################################
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 2 DE 3)
-# VERSIÓN: 4.5.0 (SINCRONIZACIÓN DE PAYLOAD - INMUNE A PGRST204)
+# VERSIÓN: 4.5.1 (SANEAMIENTO LÉXICO - CHISTORRA Y MANDARINA INTEGRADOS)
 # DESCRIPCIÓN: La Cascada Completa de los 7 Niveles de Exclusión con Filtros RAE
 # ==============================================================================
 
@@ -136,7 +136,8 @@ def clasificar_texto_local(nombre_recibido):
     if "jabón de pa" in texto_lower or "panela azul" in texto_lower or "panela bla" in texto_lower or "jabón de cuaba" in texto_lower: return 36
     if "desinf" in texto_lower or "cloro" in texto_lower or "lysol" in texto_lower: return 39
     if "lavap" in texto_lower or "crema lava" in texto_lower or "axion" in texto_lower or "esponja" in texto_lower: return 40
-    if "fiambre" in texto_lower or "choriz" in texto_lower or "pastrami" in texto_lower: return 2
+    # Costura v4.5.1: Se inyecta 'chistor' para atrapar Chistorra en Charcutería (ID 2)
+    if "fiambre" in texto_lower or "choriz" in texto_lower or "pastrami" in texto_lower or "chistor" in texto_lower: return 2
 
     # --- NIVEL 4: CONDIMENTOS INTERCEPTORES, VEGETALES INDUSTRIALES Y PROTEÍNAS ---
     if "canela" in texto_lower or "pimient" in texto_lower or "cubito" in texto_lower or "comin" in texto_lower or "onoto" in texto_lower or "alcapar" in texto_lower or "bicarbonat" in texto_lower: return 15
@@ -159,7 +160,8 @@ def clasificar_texto_local(nombre_recibido):
     if "chicha" in texto_lower: return 16 if "polvo" in texto_lower else 17
 
     # --- NIVEL 6: SUPER-GLOSARIO DE FERIA VENEZOLANA AMPLIADO ---
-    if any(x in texto_lower for x in ["cambur", "plátano", "fresa", "manzan", "naranj", "mandra", "parch", "guanab", "guayab", "patil", "meloc", "melon", "melón", "lecho", "pina", "piña", "mango", "pumar", "nispe", "grap", "toronj", "limón", "coco ", "uva ", "pana"]): return 3
+    # Costura v4.5.1: Se reemplaza "mandra" por "mandar" para atrapar Mandarina en Frutería (ID 3)
+    if any(x in texto_lower for x in ["cambur", "plátano", "fresa", "manzan", "naranj", "mandar", "parch", "guanab", "guayab", "patil", "meloc", "melon", "melón", "lecho", "pina", "piña", "mango", "pumar", "nispe", "grap", "toronj", "limón", "coco ", "uva ", "pana"]): return 3
     if any(x in texto_lower for x in ["ceboll", "tomate", "piment", "ajic", "aji ", "ají ", "ajo ", "puerro", "cilan", "perej", "celeri", "aliño", "ceboti", "ceboul", "papa ", "yuca ", "ocum", "ñame ", "auyam", "batat", "zanah", "jengib", "lechu", "repol", "brócoli", "colif", "espin", "vaina", "beren", "calab", "pepin", "aguac", "jojot", "acelg", "chayot", "albahac", "menta", "yautia", "malanga", "colombian", "remolach", "vainit"]): return 4
     if "pasa" in texto_lower: return 13
     if "gel antibac" in texto_lower or "antibacterial" in texto_lower: return 30
@@ -179,6 +181,7 @@ def clasificar_texto_local(nombre_recibido):
 # ##############################################################################
 # BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 2 DE 3 <<<
 # ##############################################################################
+
 # ##############################################################################
 # BANNER SUPERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 3 DE 3 <<<
 # ##############################################################################
