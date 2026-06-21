@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: gestionar_subcategorias.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 1.0.0 (CONSOLA DE GOBIERNO RELACIONAL PARA PASILLOS)
+# VERSIÓN: 1.1.0 (REPARACIÓN DE RUTA DE API - INMUNE A PGRST205)
 # DESCRIPCIÓN: Mantenedor CRUD para el Árbol de Subcategorías de la Compañía
-# MODIFICACIÓN: Enlace explícito a 'public.subcategorias' con validación FK.
+# MODIFICACIÓN: Remoción del prefijo 'public.' para corregir duplicación de PostgREST.
 # ==============================================================================
 
 import streamlit as st
@@ -38,12 +38,12 @@ st.markdown("---")
 @st.cache_data(ttl=10)
 def descargar_categorias_madre():
     try:
-        res = supabase.table("public.categorias").select("*").execute()
+        # Se limpia el prefijo public. para que la librería no duplique la URL
+        res = supabase.table("categorias").select("*").execute()
         if res and hasattr(res, 'data') and res.data:
-            # Buscamos las columnas de la tabla madre dinámicamente
             df_cat = pd.DataFrame(res.data)
-            col_id = [c for c in df_cat.columns if "id" in c.lower()][0]
-            col_nom = [c for c in df_cat.columns if "nombre" in c.lower() or "desc" in c.lower()][0]
+            col_id = [c for c in df_cat.columns if "id" in c.lower() or c.lower() == "id_cat"][0]
+            col_nom = [c for c in df_cat.columns if "nombre" in c.lower() or "desc" in c.lower() or c.lower() == "nombre_cat"][0]
             return {str(fila[col_nom]): int(fila[col_id]) for _, fila in df_cat.iterrows()}
     except Exception as e:
         st.sidebar.error(f"⚠️ Alerta Categorías: {e}")
@@ -54,7 +54,8 @@ MAPA_CATEGORIAS_MADRE = descargar_categorias_madre()
 # 4. AUDITORÍA VISUAL CENTRAL (SELECT EN VIVO DESDE INTERNET)
 st.markdown("### 📊 Pasillos Registrados actualmente en la Nube")
 try:
-    res_sub = supabase.table("public.subcategorias").select("id_subcat, id_enlace_cat, nombre_subcat").execute()
+    # BLINDAJE v1.1.0: Consulta limpia apuntando directamente a la tabla física real
+    res_sub = supabase.table("subcategorias").select("id_subcat, id_enlace_cat, nombre_subcat").execute()
     if res_sub and hasattr(res_sub, 'data') and res_sub.data:
         df_sub = pd.DataFrame(res_sub.data)
         
@@ -105,7 +106,7 @@ with col_crear:
                     "nombre_subcat": nuevo_nombre.strip()
                 }
                 try:
-                    supabase.table("public.subcategorias").insert(payload).execute()
+                    supabase.table("subcategorias").insert(payload).execute()
                     st.success(f"✅ ¡Éxito! Pasillo '{nuevo_nombre}' creado con ID {nuevo_id}.")
                     st.rerun()
                 except Exception as e_ins:
@@ -130,7 +131,7 @@ with col_editar:
                 
             if btn_update:
                 try:
-                    supabase.table("public.subcategorias").update({
+                    supabase.table("subcategorias").update({
                         "nombre_subcat": edit_nombre.strip(),
                         "id_enlace_cat": MAPA_CATEGORIAS_MADRE[edit_cat]
                     }).eq("id_subcat", datos_pasillo_actual["id_subcat"]).execute()
@@ -141,7 +142,7 @@ with col_editar:
                     
             if btn_delete:
                 try:
-                    supabase.table("public.subcategorias").delete().eq("id_subcat", datos_pasillo_actual["id_subcat"]).execute()
+                    supabase.table("subcategorias").delete().eq("id_subcat", datos_pasillo_actual["id_subcat"]).execute()
                     st.warning("⚠️ Registro eliminado de la base de datos cloud.")
                     st.rerun()
                 except Exception as e_del:
