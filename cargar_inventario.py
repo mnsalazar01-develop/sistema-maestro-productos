@@ -1,6 +1,6 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 1 DE 3)
-# VERSIÓN: 3.7.5 (REPARACIÓN DE VISUALIZADOR DE RECHAZADOS - CASCADA CORE)
+# VERSIÓN: 3.6.0 (BLINDAJE TERMINAL CONTRA ANOMALÍAS RESIDUALES)
 # DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
 # MODIFICACIÓN: Aplicación estricta de omisión de banner inicial en Parte 1.
 # ==============================================================================
@@ -66,7 +66,7 @@ DICCIONARIO_REGLAS = {
     "avena": 16, "cereal": 16, "corn": 16, "azúcar": 16,
     "lech": 17, "crema": 17, "lact": 17, "yog": 18, "yogu": 18, "nugget": 19, "papas cong": 19, "brocol cong": 20, "helad": 21, "palet": 21,
     "agua": 22, "mineral": 22, "jugo": 23, "nectar": 23, "refres": 24, "soda": 24, "cola": 24,
-    "energ": 25, "red bull": 25, "ron ": 26, "caciqu": 26, "frías": 27, "vino": 28, "tinto": 28, "whis": 29, "bucan": 29,
+    "energ": 25, "red bull": 25, "ron ": 26, "caciqu": 26, "frías": 27, "vino": 28, "whis": 29, "bucan": 29,
     "jabón": 30, "champú": 31, "acondic": 31, "crema dent": 33, "pasta dent": 33, "colgat": 33, 
     "papel hig": 34, "toilet": 34, "servill": 34, "maquill": 35, "labial": 35, "deterg": 36, "ace ": 36, "ariel": 36, "suaviz": 37, "downy": 37, 
     "limpia": 38, "cloro": 38, "lysol": 39, "axion": 40, "mascot": 41, "perrar": 41, "gatar": 41, "pamp": 42, "formul": 43, "tornill": 44, "clav": 44
@@ -80,7 +80,7 @@ DICCIONARIO_REGLAS = {
 # ##############################################################################
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 2 DE 3)
-# VERSIÓN: 3.7.5 (REPARACIÓN DE VISUALIZADOR DE RECHAZADOS - CASCADA CORE)
+# VERSIÓN: 3.6.0 (BLINDAJE TERMINAL CONTRA ANOMALÍAS RESIDUALES)
 # DESCRIPCIÓN: La Cascada Completa de los 7 Niveles de Exclusión con Filtros RAE
 # ==============================================================================
 
@@ -97,8 +97,7 @@ def clasificar_texto_local(nombre_recibido):
     if "limon" in texto_lower and "limón" not in texto_lower: return None
     if "frias" in texto_lower and "frías" not in texto_lower: return None
     if "brocoli" in texto_lower and "brócoli" not in texto_lower: return None
-    if "champiñon " in texto_lower and "champiñón" not in texto_lower: return None
- 
+        
     # Parachoques de adjetivos: Exige tilde estricta en el sustantivo pero no penaliza derivados relacionales
     if "jabon" in texto_lower and "jabón" not in texto_lower and "jabonoso" not in texto_lower: return None
     if "azucar" in texto_lower and "azúcar" not in texto_lower and "azucarada" not in texto_lower: return None
@@ -136,7 +135,7 @@ def clasificar_texto_local(nombre_recibido):
     if "canela" in texto_lower or "pimient" in texto_lower or "cubito" in texto_lower or "comin" in texto_lower or "onoto" in texto_lower or "alcapar" in texto_lower or "bicarbonat" in texto_lower: return 15
     if "salsa" in texto_lower or "ketchup" in texto_lower or "boloñes" in texto_lower or "pasta de tom" in texto_lower or "vinagr" in texto_lower: return 14
     if "carne" in texto_lower or "res " in texto_lower or "bistec" in texto_lower or "molida" in texto_lower or "pollo" in texto_lower or "pechuga" in texto_lower or "cerdo" in texto_lower or "morcil" in texto_lower or "huevo" in texto_lower or "lagart" in texto_lower: return 1
-    if "endiablado" in texto_lower or "champiñon" in texto_lower or "champiñón" in texto_lower: return 12
+    if "champiñon" in texto_lower or "champiñón" in texto_lower: return 12
     if "atún" in texto_lower or "sardin" in texto_lower or "enlat" in texto_lower: return 5 if ("rueda" in texto_lower or "filet" in texto_lower or "lomo" in texto_lower) else 12
 
     # --- NIVEL 5: SNACKS SALADOS, BEBIDAS ENVASETADAS Y MOLIENDAS TRADICIONALES DE MAÍZ ---
@@ -158,7 +157,7 @@ def clasificar_texto_local(nombre_recibido):
     if "pasa" in texto_lower: return 13
     if "gel antibac" in texto_lower or "antibacterial" in texto_lower: return 30
 
-    # --- NIVEL 7: EXTRACCIÓN PRIMITIVA DE DESPENSA LIMPIA ---
+    # --- NIVEL 7: EXTRACCIÓN PRIMITIVA DE DESPANSA LIMPIA ---
     if "musa" in texto_lower or "amaril" in texto_lower or "amarill" in texto_lower: return 2
     if "arroz" in texto_lower or "gran" in texto_lower: return 8
     if "pasta" in texto_lower or "espagu" in texto_lower: return 9
@@ -178,11 +177,11 @@ def clasificar_texto_local(nombre_recibido):
 # ##############################################################################
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 3 DE 3)
-# VERSIÓN: 3.7.5 (REPARACIÓN DE VISUALIZADOR DE RECHAZADOS - CASCADA CORE)
+# VERSIÓN: 3.6.0 (BLINDAJE TERMINAL CONTRA ANOMALÍAS RESIDUALES)
 # DESCRIPCIÓN: Interfaz de Auditoría por Columnas, Conteo Correlativo e Inyector Cloud
 # ==============================================================================
 
-archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v375")
+archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v360")
 
 if archivo_subido:
     try: df = pd.read_csv(archivo_subido, encoding='utf-8')
@@ -196,72 +195,95 @@ if archivo_subido:
         
         for idx, fila in df.iterrows():
             nombre_prod = fila['nombre']
-            id_subcat = clasificar_texto_local(nombre_prod)
-            if id_subcat:
+            id_enlace_subcat = clasificar_texto_local(nombre_prod)
+            if id_enlace_subcat:
                 productos_clasificados.append({
                     "nombre_catalogo": str(nombre_prod).strip(),
-                    "Pasillo / Departamento": MAPA_PASILLOS_VENEZUELA.get(id_subcat, f"Subcategoría {id_subcat}"),
-                    "id_subcat_interno": id_subcat
+                    "Pasillo / Departamento": MAPA_PASILLOS_VENEZUELA.get(id_enlace_subcat, f"Subcategoría {id_enlace_subcat}"),
+                    "id_subcat_interno": id_enlace_subcat
                 })
             else:
-                # Sincronización Gráfica: Asegura que la string mocha entre limpia a la lista de omitidos
-                no_clasificados.append({"nombre": str(nombre_prod).strip()})
+                no_clasificados.append({"nombre": nombre_prod})
         
-        # RENDERIZADO SIMÉTRICO CRÍTICO DE DOS COLUMNAS EN ESPEJO HORIZONTAL
+        # 1. RENDERIZADO SIMÉTRICO DE LAS TABLAS CON NUEVO ORDENAMIENTO DE ALTA DENSIDAD
         col_tab1, col_tab2 = st.columns(2)
         
         with col_tab1:
             st.metric("Artículos Aprobados para el Catálogo", len(productos_clasificados))
             if productos_clasificados:
-                df_previa = pd.DataFrame(productos_clasificados).sort_values(by=["id_subcat_interno", "nombre_catalogo"], ascending=[True, True]).reset_index(drop=True)
+                df_previa = pd.DataFrame(productos_clasificados)
+                
+                # ORDENAMIENTO MANDATORIO: Secuencial por Número de Pasillo + Alfabético de la A a la Z
+                df_previa = df_previa.sort_values(
+                    by=["id_subcat_interno", "nombre_catalogo"], 
+                    ascending=[True, True]
+                ).reset_index(drop=True)
+                
+                # Conteo Humano Correlativo iniciando estrictamente en 1
                 df_previa.index = df_previa.index + 1
                 df_previa.index.name = "N° de Ítem"
+                
                 st.dataframe(df_previa[["nombre_catalogo", "Pasillo / Departamento"]], use_container_width=True)
                 
         with col_tab2:
             st.metric("Artículos Rechazados / Sin Clasificar", len(no_clasificados))
             if no_clasificados:
-                df_omitidos = pd.DataFrame(no_clasificados).sort_values(by="nombre", ascending=True).reset_index(drop=True)
+                df_omitidos = pd.DataFrame(no_clasificados)
+                df_omitidos = df_omitidos.sort_values(by="nombre", ascending=True).reset_index(drop=True)
                 df_omitidos.index = df_omitidos.index + 1
                 df_omitidos.index.name = "N° de Ítem"
-                st.dataframe(df_omitidos[["nombre"]], use_container_width=True)
-            else:
-                st.success("🎉 ¡Excelente! Cero artículos rechazados en este lote.")
-        
+                
+                st.dataframe(df_omitidos, use_container_width=True)
+
+        # 2. FILA EN ESPEJO HORIZONTAL SIMÉTRICA PARA LOS BOTONES CORPORATIVOS
         st.markdown("---")
         col_btn1, col_btn2 = st.columns(2)
+        
         with col_btn1:
             if productos_clasificados:
-                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v375"):
-                    with st.spinner("Inyectando registros en bloques de 50 hacia la tabla 'catalogo'..."):
+                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v363"):
+                    with st.spinner("Inyectando registros en bloques de 50 hacia la tabla 'catalogo' con blindaje relacional..."):
                         TAMANO_LOTE, total_guardados, error_registrado = 50, 0, None
                         for i in range(0, len(productos_clasificados), TAMANO_LOTE):
                             lote_actual = productos_clasificados[i:i + TAMANO_LOTE]
                             try:
-                                payload = [{"nombre_catalogo": p["nombre_catalogo"], "id_subcat": p["id_subcat_interno"]} for p in lote_actual]
-                                supabase.table("catalogo").insert(payload).execute()
+                                # REPARADO AL RAS: Sincronización exacta de las llaves del diccionario en la RAM
+                                payload = [
+                                    {
+                                        "nombre_catalogo": item["nombre_catalogo"], 
+                                        "id_pasillo": item["id_subcat_interno"]
+                                    } 
+                                    for item in lote_actual
+                                ]
+                                
+                                # Comando upsert con la sintaxis oficial de Supabase v2
+                                supabase.table("catalogo").upsert(payload, on_conflict="nombre_catalogo").execute()
                                 total_guardados += len(lote_actual)
+                                
                             except Exception as e_lote:
                                 error_registrado = e_lote
                                 break
+                                
                         if total_guardados == len(productos_clasificados):
                             st.balloons()
-                            st.success(f"¡Éxito total! Se guardaron {total_guardados} productos de forma permanente en tu tabla 'catalogo'.")
-                        elif total_guardados > 0: st.warning(f"⚠️ Carga parcial: Se salvaron {total_guardados} ítems, error: {error_registrado}")
-                        else: st.error(f"❌ Error definitivo de persistencia: {error_registrado}")
+                            st.success(f"🎉 ¡Éxito total! Se guardaron/actualizaron {total_guardados} productos de forma permanente en tu tabla 'catalogo' privada.")
+                        elif total_guardados > 0: 
+                            st.warning(f"⚠️ Carga parcial: Se salvaron {total_guardados} ítems, error relacional: {str(error_registrado)}")
+                        else: 
+                            st.error(f"❌ Error definitivo de persistencia: {str(error_registrado)}")
                             
         with col_btn2:
             if no_clasificados:
-                df_omitidos_down = pd.DataFrame(no_clasificados).sort_values(by="nombre", ascending=True).reset_index(drop=True)
-                csv_omitidos = df_omitidos_down.to_csv(index=False).encode('utf-8')
+                csv_omitidos = df_omitidos.to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="⚠️ Descargar Rechazados para revisión",
                     data=csv_omitidos,
                     file_name="productos_omitidos.csv",
                     mime="text/csv",
-                    key="btn_descargar_omitidos_local_v375"
+                    key="btn_descargar_omitidos_local_v363"
                 )
-                
+
+
 # ##############################################################################
 # BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 3 DE 3 <<<
 # ##############################################################################
