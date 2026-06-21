@@ -1,6 +1,6 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 1 DE 3)
-# VERSIÓN: 4.3.0 (RUTA EXPLÍCITA DE ESQUEMA - PUBLIC.SUBCATEGORIAS)
+# VERSIÓN: 4.4.0 (ACOPLAMIENTO DE CAMPOS REALES Y TIPADO SEGURO)
 # DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
 # MODIFICACIÓN: Aplicación estricta de omisión de banner inicial en Parte 1.
 # ==============================================================================
@@ -35,14 +35,20 @@ st.title("📤 Carga por Lotes - Datos de Inventario")
 st.markdown("Clasificación automatizada local enlazada dinámicamente a las llaves relacionales de tu base de datos cloud.")
 st.markdown("---")
 
-# 4. DESCARGA EN VIVO CON RUTA DE ESQUEMA ABSOLUTA (EVITA CEGUERA DE POSTGREST)
+# 4. DESCARGA EN VIVO CON PARSEO DEFENSIVO ROBUSTO (SIN BLOQUEOS DE RED)
 def descargar_mapa_subcategorias_cloud():
     try:
-        # Costura v4.3.0: Prefijo de esquema explícito 'public.' para romper el bloqueo de internet
-        res_sub = supabase.table("public.subcategorias").select("id_subcat, nombre_subcat").execute()
+        # Consulta limpia sin prefijo duplicado hacia la tabla relacional física
+        res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").execute()
         if res_sub and hasattr(res_sub, 'data') and res_sub.data:
-            # Mapeamos de forma síncrona el entero con la string real de la base de datos
-            return {int(item["id_subcat"]): item["nombre_subcat"] for item in res_sub.data}
+            mapa_limpio = {}
+            for item in res_sub.data:
+                raw_id = item.get("id_subcat")
+                raw_nombre = item.get("nombre_subcat")
+                if raw_id is not None:
+                    # Limpia, extrae y castea de forma ultra-segura el tipado BigInt desde JSON
+                    mapa_limpio[int(float(str(raw_id).strip()))] = str(raw_nombre).strip()
+            return mapa_limpio
     except Exception as e_mapa:
         st.sidebar.error(f"⚠️ Error al sincronizar subcategorías cloud: {e_mapa}")
     return {}
@@ -80,7 +86,7 @@ DICCIONARIO_REGLAS = {
 # ##############################################################################
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 2 DE 3)
-# VERSIÓN: 4.3.0 (RUTA EXPLÍCITA DE ESQUEMA - PUBLIC.SUBCATEGORIAS)
+# VERSIÓN: 4.4.0 (ACOPLAMIENTO DE CAMPOS REALES Y TIPADO SEGURO)
 # DESCRIPCIÓN: La Cascada Completa de los 7 Niveles de Exclusión con Filtros RAE
 # ==============================================================================
 
@@ -178,11 +184,11 @@ def clasificar_texto_local(nombre_recibido):
 # ##############################################################################
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 3 DE 3)
-# VERSIÓN: 4.3.0 (RUTA EXPLÍCITA DE ESQUEMA - PUBLIC.SUBCATEGORIAS)
+# VERSIÓN: 4.4.0 (ACOPLAMIENTO DE CAMPOS REALES Y TIPADO SEGURO)
 # DESCRIPCIÓN: Interfaz de Auditoría por Columnas, Conteo Correlativo e Inyector Cloud
 # ==============================================================================
 
-archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v430")
+archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v440")
 
 if archivo_subido:
     try: df = pd.read_csv(archivo_subido, encoding='utf-8')
@@ -198,7 +204,7 @@ if archivo_subido:
             nombre_prod = fila['nombre']
             id_subcat = clasificar_texto_local(nombre_prod)
             
-            # Buscamos en caliente la Llave Foránea exacta dentro del mapa fresco de internet
+            # Sincronización en vivo cruzando contra el mapa de llaves foráneas descargado de internet
             if id_subcat and id_subcat in MAPA_PASILLOS_VENEZUELA:
                 productos_clasificados.append({
                     "nombre_catalogo": str(nombre_prod).strip(),
@@ -231,15 +237,15 @@ if archivo_subido:
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
             if productos_clasificados:
-                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v430"):
+                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v440"):
                     with st.spinner("Inyectando registros en bloques de 50 hacia la tabla 'catalogo'..."):
                         TAMANO_LOTE, total_guardados, error_registrado = 50, 0, None
                         for i in range(0, len(productos_clasificados), TAMANO_LOTE):
                             lote_actual = productos_clasificados[i:i + TAMANO_LOTE]
                             try:
-                                # Forzamos también el prefijo explícito en el insert para asegurar la ruta de inyección
                                 payload = [{"nombre_catalogo": p["nombre_catalogo"], "id_subcat": p["id_subcat_interno"]} for p in lote_actual]
-                                supabase.table("public.catalogo").insert(payload).execute()
+                                # Inyección directa e inmune respetando la FK de tu base de datos cloud
+                                supabase.table("catalogo").insert(payload).execute()
                                 total_guardados += len(lote_actual)
                             except Exception as e_lote:
                                 error_registrado = e_lote
@@ -259,7 +265,7 @@ if archivo_subido:
                     data=csv_omitidos,
                     file_name="productos_omitidos.csv",
                     mime="text/csv",
-                    key="btn_descargar_omitidos_local_v430"
+                    key="btn_descargar_omitidos_local_v440"
                 )
                 
 # ##############################################################################
