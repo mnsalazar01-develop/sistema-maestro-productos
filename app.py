@@ -43,7 +43,7 @@ def mostrar_centro_control():
             st.switch_page(pagina_maestro)
 
     with col_reglas:
-        st.markdown("#### Diccionario de Reglas")
+        st.markdown("#### Gestionar Subcategorias")
         st.caption("Panel de control para incluir y actualizar prefijos de productos.")
         if st.button("Mantenimiento de Reglas", use_container_width=True, key="btn_p1_reglas_v430"):
             st.switch_page(pagina_reglas)
@@ -56,7 +56,7 @@ pagina_inicio = st.Page(mostrar_centro_control, title="🏭 Centro de Control", 
 pagina_inventario = st.Page("cargar_inventario.py", title="Cargar Inventario Masivo", icon="📤")
 pagina_productos = st.Page("cargar_productos.py", title="Registrar Producto Manual", icon="📝")
 pagina_maestro = st.Page("maestro_datos.py", title="Maestro de Datos", icon="📊")
-pagina_reglas = st.Page("diccionario_reglas.py", title="Mantenedor de Reglas", icon="⚙️")
+pagina_reglas = st.Page("gestionar_subcategorias.py", title="Subcategorias", icon="⚙️")
 
 # 4. CONSTRUCCIÓN AUTOMÁTICA DEL MOTOR DE NAVEGACIÓN EN LA BARRA LATERAL
 enrutador_global = st.navigation([
