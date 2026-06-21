@@ -1,23 +1,24 @@
 # ==============================================================================
-# PROGRAMA SATÉLITE: gestionar_subcategorias.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 1.1.0 (REPARACIÓN DE RUTA DE API - INMUNE A PGRST205)
-# DESCRIPCIÓN: Mantenedor CRUD para el Árbol de Subcategorías de la Compañía
-# MODIFICACIÓN: Remoción del prefijo 'public.' para corregir duplicación de PostgREST.
+# PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 1 DE 3)
+# VERSIÓN: 4.4.0 (ACOPLAMIENTO DE CAMPOS REALES Y TIPADO SEGURO)
+# DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
+# MODIFICACIÓN: Aplicación estricta de omisión de banner inicial en Parte 1.
 # ==============================================================================
 
 import streamlit as st
 import pandas as pd
+import io
 from supabase import create_client, Client
 
-# 1. CONFIGURACIÓN CORPORATIVA DE LA VENTANA DE STREAMLIT
+# 1. CONFIGURACIÓN INDEPENDIENTE DE LA VENTANA WEB DE STREAMLIT
 st.set_page_config(
-    page_title="Gestión de Subcategorías",
-    page_icon="🥦",
+    page_title="Carga Masiva - Datos de Inventario",
+    page_icon="📤",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# 2. CONEXIÓN SEGURA HEREDADA CON LAS LLAVES DE SUPABASE
+# 2. HERENCIA DE CONEXIÓN SEGURA INDEPENDIENTE CON LLAVES PROPIAS
 @st.cache_resource
 def init_supabase_local() -> Client:
     url = st.secrets["supabase"]["url"]
@@ -27,125 +28,246 @@ def init_supabase_local() -> Client:
 try:
     supabase = init_supabase_local()
 except Exception as e:
-    st.error(f"❌ Error de Conexión Base: {e}")
+    st.sidebar.error(f"❌ Error de Conexión: {e}")
+
+# 3. TÍTULO PRINCIPAL DE LA COMPAÑÍA (Lienzo libre gobernado por app.py)
+st.title("📤 Carga por Lotes - Datos de Inventario")
+st.markdown("Clasificación automatizada local enlazada dinámicamente a las llaves relacionales de tu base de datos cloud.")
+st.markdown("---")
+
+# 4. DESCARGA EN VIVO CON PARSEO DEFENSIVO ROBUSTO (SIN BLOQUEOS DE RED)
+def descargar_mapa_subcategorias_cloud():
+    try:
+        # Consulta limpia sin prefijo duplicado hacia la tabla relacional física
+        res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").execute()
+        if res_sub and hasattr(res_sub, 'data') and res_sub.data:
+            mapa_limpio = {}
+            for item in res_sub.data:
+                raw_id = item.get("id_subcat")
+                raw_nombre = item.get("nombre_subcat")
+                if raw_id is not None:
+                    # Limpia, extrae y castea de forma ultra-segura el tipado BigInt desde JSON
+                    mapa_limpio[int(float(str(raw_id).strip()))] = str(raw_nombre).strip()
+            return mapa_limpio
+    except Exception as e_mapa:
+        st.sidebar.error(f"⚠️ Error al sincronizar subcategorías cloud: {e_mapa}")
+    return {}
+
+MAPA_PASILLOS_VENEZUELA = descargar_mapa_subcategorias_cloud()
+
+if not MAPA_PASILLOS_VENEZUELA:
+    st.error("❌ Alerta de Tubería: No se pudieron descargar las subcategorías desde la tabla 'subcategorias' en internet. Verifica que tenga registros.")
     st.stop()
 
-st.title("🥦 Gestión del Árbol de Subcategorías")
-st.markdown("Consola unificada para auditar, sembrar y actualizar los pasillos del automercado en la nube.")
-st.markdown("---")
+# 5. MATRIZ INTEGRAL PURGADA DE RAÍCES COMPLEMENTARIAS HISTÓRICAS
+DICCIONARIO_REGLAS = {
+    "carne": 1, "res ": 1, "bistec": 1, "molida": 1, "pollo": 1, "pechuga": 1, "cerdo": 1, "lagart": 1,
+    "solom": 1, "solomito": 1, "pulpa": 1, "chocoz": 1, "muchach": 1, "coch": 1, "cochin": 1,
+    "charc": 2, "jamón": 2, "mortad": 2, "salchic": 2, "tocin": 2, "queso": 2, "choriz": 2, "pastrami": 2,
+    "pan ": 6, "baguet": 6, "canill": 6, "acem": 6, "torta": 7, "ponqu": 7, "hojald": 7, "pastel": 7, "cake": 7,
+    "gran": 8, "arroz": 8, "frijol": 8, "caraota": 8, "lenteja": 8, "garbanz": 8, "café": 8,
+    "harin": 9, "har": 9, "fororo": 9, "maicena": 9, "pasta": 9, "espagu": 9, "fideo": 9,
+    "aceit": 10, "oliva": 10, "mantec": 11, "margar": 11, "manteq": 11, "atún": 12, "sardin": 12, "pepito": 12, "enlat": 12,
+    "mermel": 13, "conserv": 13, "panela": 13, "pande": 13, "mayon": 14, "mostaz": 14, "sal ": 15, "orég": 15,
+    "avena": 16, "cereal": 16, "corn": 16, "azúcar": 16,
+    "lech": 17, "crema": 17, "lact": 17, "yog": 18, "yogu": 18, "nugget": 19, "papas cong": 19, "brocol cong": 20, "helad": 21, "palet": 21,
+    "agua": 22, "mineral": 22, "jugo": 23, "nectar": 23, "refres": 24, "soda": 24, "cola": 24,
+    "energ": 25, "red bull": 25, "ron ": 26, "caciqu": 26, "cerve": 27, "frías": 27, "vino": 28, "tinto": 28, "whis": 29, "bucan": 29,
+    "jabón": 30, "champú": 31, "acondic": 31, "crema dent": 33, "pasta dent": 33, "colgat": 33, 
+    "papel hig": 34, "toilet": 34, "servill": 34, "maquill": 35, "labial": 35, "deterg": 36, "ace ": 36, "ariel": 36, "suaviz": 37, "downy": 37, 
+    "limpia": 38, "cloro": 38, "lysol": 39, "axion": 40, "mascot": 41, "perrar": 41, "gatar": 41, "pamp": 42, "formul": 43, "tornill": 44, "clav": 44
+}
 
-# 3. LECTURA SÍNCRONA DE LOS DATOS MAESTROS (TABLA MADRE CATEGORIAS)
-@st.cache_data(ttl=10)
-def descargar_categorias_madre():
-    try:
-        # Se limpia el prefijo public. para que la librería no duplique la URL
-        res = supabase.table("categorias").select("*").execute()
-        if res and hasattr(res, 'data') and res.data:
-            df_cat = pd.DataFrame(res.data)
-            col_id = [c for c in df_cat.columns if "id" in c.lower() or c.lower() == "id_cat"][0]
-            col_nom = [c for c in df_cat.columns if "nombre" in c.lower() or "desc" in c.lower() or c.lower() == "nombre_cat"][0]
-            return {str(fila[col_nom]): int(fila[col_id]) for _, fila in df_cat.iterrows()}
-    except Exception as e:
-        st.sidebar.error(f"⚠️ Alerta Categorías: {e}")
-    return {"Categoría General Base (Default)": 1}
+# ##############################################################################
+# BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 1 DE 3 <<<
+# ##############################################################################
+# ##############################################################################
+# BANNER SUPERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 2 DE 3 <<<
+# ##############################################################################
+# ==============================================================================
+# PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 2 DE 3)
+# VERSIÓN: 4.4.0 (ACOPLAMIENTO DE CAMPOS REALES Y TIPADO SEGURO)
+# DESCRIPCIÓN: La Cascada Completa de los 7 Niveles de Exclusión con Filtros RAE
+# ==============================================================================
 
-MAPA_CATEGORIAS_MADRE = descargar_categorias_madre()
+def clasificar_texto_local(nombre_recibido):
+    texto = str(nombre_recibido).strip()
+    texto_lower = texto.lower()
+    
+    # FILTRO ORTOGRÁFICO PUNITIVO SELECTIVO: Castiga la falta de tilde en sustantivos puros
+    if "atun" in texto_lower and "atún" not in texto_lower: return None
+    if "cafe" in texto_lower and "café" not in texto_lower: return None
+    if "champu" in texto_lower and "champú" not in texto_lower: return None
+    if "jamon" in texto_lower and "jamón" not in texto_lower: return None
+    if "platano" in texto_lower and "plátano" not in texto_lower: return None
+    if "limon" in texto_lower and "limón" not in texto_lower: return None
+    if "frias" in texto_lower and "frías" not in texto_lower: return None
+    if "brocoli" in texto_lower and "brócoli" not in texto_lower: return None
+    if "champiñon " in texto_lower and "champiñón " not in texto_lower: return None
+    
+    # Parachoques de adjetivos: Exige tilde estricta en el sustantivo pero no penaliza derivados relacionales
+    if "jabon" in texto_lower and "jabón" not in texto_lower and "jabonoso" not in texto_lower: return None
+    if "azucar" in texto_lower and "azúcar" not in texto_lower and "azucarada" not in texto_lower: return None
 
-# 4. AUDITORÍA VISUAL CENTRAL (SELECT EN VIVO DESDE INTERNET)
-st.markdown("### 📊 Pasillos Registrados actualmente en la Nube")
-try:
-    # BLINDAJE v1.1.0: Consulta limpia apuntando directamente a la tabla física real
-    res_sub = supabase.table("subcategorias").select("id_subcat, id_enlace_cat, nombre_subcat").execute()
-    if res_sub and hasattr(res_sub, 'data') and res_sub.data:
-        df_sub = pd.DataFrame(res_sub.data)
-        
-        # Ordenamiento de auditoría retail por ID secuencial ascendente
-        df_sub = df_sub.sort_values(by="id_subcat", ascending=True).reset_index(drop=True)
-        
-        # Conteo humano correlativo partiendo desde 1 en la pantalla
-        df_sub.index = df_sub.index + 1
-        df_sub.index.name = "N° de Ítem"
-        
-        st.dataframe(
-            df_sub.rename(columns={
-                "id_subcat": "ID Pasillo",
-                "id_enlace_cat": "ID Categoría Madre",
-                "nombre_subcat": "Descripción de Subcategoría"
-            }),
-            use_container_width=True
-        )
-        lista_pasillos_existentes = res_sub.data
+    # --- NIVEL 1: PRIORIDAD SUPREMA DE PANADERÍA, HARINAS Y FERRETERÍA DE CONSUMO ---
+    if "pan para perro" in texto_lower or "pan de perro" in texto_lower or "pan caliente" in texto_lower: return 6
+    if "harin" in texto_lower or "har " in texto_lower or "harina" in texto_lower: return 9
+    if "santa teresa" in texto_lower or "cacique" in texto_lower or "pampero" in texto_lower: return 26
+    if "arena s" in texto_lower: return 41
+    if "filtro" in texto_lower: return 44
+    if "aluminio" in texto_lower: return 44
+    if "paño" in texto_lower: return 38
+
+    # --- NIVEL 2: MÓDULO INFANTIL, HIGIENE ÍNTIMA Y TRATAMIENTO BUCAL DENTAL ---
+    if "perrarin" in texto_lower or "gatarin" in texto_lower or "mascot" in texto_lower or "para perro" in texto_lower or "para gato" in texto_lower: return 41
+    if "crema dent" in texto_lower or "pasta dent" in texto_lower or "colgat" in texto_lower or "enjuague" in texto_lower or "plax" in texto_lower or "hilo dent" in texto_lower: return 33
+    if "crema corp" in texto_lower or "crema para p" in texto_lower or "talco" in texto_lower or "desod" in texto_lower or "axila" in texto_lower: return 32
+    if "crema cero" in texto_lower or "pañalitis" in texto_lower or "pañal" in texto_lower or "pañale" in texto_lower: return 42
+    if "colonia" in texto_lower or "toallita" in texto_lower: return 43 if "bebé" in texto_lower else 32
+    if "oxigenad" in texto_lower: return 32
+    if "jabón de b" in texto_lower: return 32
+    if "jabon liquido de avena" in texto_lower or "jabón líquido de avena" in texto_lower: return 32
+    if "toalla" in texto_lower or "sanitari" in texto_lower or "protect" in texto_lower or "diario" in texto_lower: return 34 if ("toalla" in texto_lower or "sanitari" in texto_lower) else 32
+    if "tampon" in texto_lower: return 34
+    if "afeit" in texto_lower: return 32
+    if "champú" in texto_lower or "shamp" in texto_lower: return 31
+
+    # --- NIVEL 3: LAVANDERÍA, DESINFECTANTES Y UTENSILIOS DE PLANCHAS ---
+    if "jabón de pa" in texto_lower or "panela azul" in texto_lower or "panela bla" in texto_lower or "jabón de cuaba" in texto_lower: return 36
+    if "desinf" in texto_lower or "cloro" in texto_lower or "lysol" in texto_lower: return 39
+    if "lavap" in texto_lower or "crema lava" in texto_lower or "axion" in texto_lower or "esponja" in texto_lower: return 40
+    if "fiambre" in texto_lower or "choriz" in texto_lower or "pastrami" in texto_lower: return 2
+
+    # --- NIVEL 4: CONDIMENTOS INTERCEPTORES, VEGETALES INDUSTRIALES Y PROTEÍNAS ---
+    if "canela" in texto_lower or "pimient" in texto_lower or "cubito" in texto_lower or "comin" in texto_lower or "onoto" in texto_lower or "alcapar" in texto_lower or "bicarbonat" in texto_lower: return 15
+    if "salsa" in texto_lower or "ketchup" in texto_lower or "boloñes" in texto_lower or "pasta de tom" in texto_lower or "vinagr" in texto_lower: return 14
+    if "carne" in texto_lower or "res " in texto_lower or "bistec" in texto_lower or "molida" in texto_lower or "pollo" in texto_lower or "pechuga" in texto_lower or "cerdo" in texto_lower or "morcil" in texto_lower or "huevo" in texto_lower or "lagart" in texto_lower: return 1
+    if "endiablado" in texto_lower or "champiñon" in texto_lower or "champiñón" in texto_lower or "champiño" in texto_lower: return 12
+    if "atún" in texto_lower or "sardin" in texto_lower or "enlat" in texto_lower: return 5 if ("rueda" in texto_lower or "filet" in texto_lower or "lomo" in texto_lower) else 12
+
+    # --- NIVEL 5: SNACKS SALADOS, BEBIDAS ENVASETADAS Y MOLIENDAS TRADICIONALES DE MAÍZ ---
+    if "papas frit" in texto_lower or "platanit" in texto_lower or "dorito" in texto_lower or "mani " in texto_lower or "maní" in texto_lower or "chistri" in texto_lower or "cheeto" in texto_lower or "natuchip" in texto_lower or "tortilla" in texto_lower: return 16
+    if "crema de arroz" in texto_lower or "cerelac" in texto_lower: return 16
+    if "cachapa" in texto_lower: return 9
+    if "yog" in texto_lower or "yogu" in texto_lower or "yogurt" in texto_lower: return 18
+    if "galleta" in texto_lower or "galleta de s" in texto_lower or "galletas de s" in texto_lower: return 9
+    if "chocola" in texto_lower or "samba" in texto_lower or "cri-cri" in texto_lower or "cricri" in texto_lower: return 16
+    if "helad" in texto_lower: return 21
+    if "jugo" in texto_lower or "nectar" in texto_lower or "néctar" in texto_lower or "bebida de" in texto_lower or "yukery" in texto_lower or "natulac" in texto_lower or "frica" in texto_lower or "té " in texto_lower or "té" in texto_lower: return 23
+    if "refres" in texto_lower or "hit" in texto_lower or "chinotto" in texto_lower or "soda" in texto_lower or "cola" in texto_lower: return 24
+    if "cerve" in texto_lower or "frías" in texto_lower or "malt" in texto_lower or "ron" in texto_lower: return 27 if "cerve" in texto_lower or "frías" in texto_lower or "malt" in texto_lower else 26
+    if "chicha" in texto_lower: return 16 if "polvo" in texto_lower else 17
+
+    # --- NIVEL 6: SUPER-GLOSARIO DE FERIA VENEZOLANA AMPLIADO ---
+    if any(x in texto_lower for x in ["cambur", "plátano", "fresa", "manzan", "naranj", "mandra", "parch", "guanab", "guayab", "patil", "meloc", "melon", "melón", "lecho", "pina", "piña", "mango", "pumar", "nispe", "grap", "toronj", "limón", "coco ", "uva ", "pana"]): return 3
+    if any(x in texto_lower for x in ["ceboll", "tomate", "piment", "ajic", "aji ", "ají ", "ajo ", "puerro", "cilan", "perej", "celeri", "aliño", "ceboti", "ceboul", "papa ", "yuca ", "ocum", "ñame ", "auyam", "batat", "zanah", "jengib", "lechu", "repol", "brócoli", "colif", "espin", "vaina", "beren", "calab", "pepin", "aguac", "jojot", "acelg", "chayot", "albahac", "menta", "yautia", "malanga", "colombian", "remolach", "vainit"]): return 4
+    if "pasa" in texto_lower: return 13
+    if "gel antibac" in texto_lower or "antibacterial" in texto_lower: return 30
+
+    # --- NIVEL 7: EXTRACCIÓN PRIMITIVA DE DESPENSA LIMPIA ---
+    if "musa" in texto_lower or "amaril" in texto_lower or "amarill" in texto_lower: return 2
+    if "arroz" in texto_lower or "gran" in texto_lower: return 8
+    if "pasta" in texto_lower or "espagu" in texto_lower: return 9
+    if "lech" in texto_lower or "lact" in texto_lower or "crema" in texto_lower or "natilla" in texto_lower: return 17
+    if "agua" in texto_lower: return 22
+    if "aceit" in texto_lower: return 10
+    if "sal " in texto_lower: return 15
+    for k, v in DICCIONARIO_REGLAS.items():
+        if k in texto_lower: return v
+    return None
+
+# ##############################################################################
+# BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 2 DE 3 <<<
+# ##############################################################################
+# ##############################################################################
+# BANNER SUPERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 3 DE 3 <<<
+# ##############################################################################
+# ==============================================================================
+# PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 3 DE 3)
+# VERSIÓN: 4.4.0 (ACOPLAMIENTO DE CAMPOS REALES Y TIPADO SEGURO)
+# DESCRIPCIÓN: Interfaz de Auditoría por Columnas, Conteo Correlativo e Inyector Cloud
+# ==============================================================================
+
+archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v440")
+
+if archivo_subido:
+    try: df = pd.read_csv(archivo_subido, encoding='utf-8')
+    except UnicodeDecodeError: df = pd.read_csv(archivo_subido, encoding='latin-1')
+    
+    if 'nombre' not in df.columns:
+        st.error("❌ Error: Tu archivo plano debe contener una columna llamada exactamente 'nombre' (en minúsculas).")
     else:
-        st.info("💡 La tabla 'subcategorias' está vacía en internet. Utiliza el formulario inferior para sembrar registros.")
-        lista_pasillos_existentes = []
-except Exception as e_select:
-    st.error(f"❌ Error al leer subcategorías: {e_select}")
-    lista_pasillos_existentes = []
-
-st.markdown("---")
-
-# 5. FORMULARIOS OPERATIVOS (CREATE / UPDATE / DELETE)
-col_crear, col_editar = st.columns(2)
-
-with col_crear:
-    st.markdown("### ➕ Sembrar Nuevo Pasillo")
-    with st.form("form_crear_subcat", clear_on_submit=True):
-        nuevo_id = st.number_input("Asignar ID Numérico fijo (id_subcat):", min_value=1, step=1, value=len(lista_pasillos_existentes)+1)
-        nuevo_nombre = st.text_input("Nombre comercial del Pasillo (con Emojis):", placeholder="Ej: 🪵 Carbón y Leña")
-        cat_madre_sel = st.selectbox("Vincular a Categoría Madre (Restricción FK):", list(MAPA_CATEGORIAS_MADRE.keys()))
+        st.markdown("### 🧠 Auditoría Visual Previa (Clasificación Local)")
+        productos_clasificados, no_clasificados = [], []
         
-        btn_crear = st.form_submit_button("💾 Guardar Pasillo en Nube")
-        
-        if btn_crear:
-            if not nuevo_nombre:
-                st.error("❌ Error: Debes escribir la descripción de la subcategoría.")
-            else:
-                payload = {
-                    "id_subcat": int(nuevo_id),
-                    "id_enlace_cat": MAPA_CATEGORIAS_MADRE[cat_madre_sel],
-                    "nombre_subcat": nuevo_nombre.strip()
-                }
-                try:
-                    supabase.table("subcategorias").insert(payload).execute()
-                    st.success(f"✅ ¡Éxito! Pasillo '{nuevo_nombre}' creado con ID {nuevo_id}.")
-                    st.rerun()
-                except Exception as e_ins:
-                    st.error(f"❌ Error de persistencia: {e_ins}")
-
-with col_editar:
-    st.markdown("### 📝 Modificar Pasillo Existente")
-    if lista_pasillos_existentes:
-        opciones_combo = {f"ID {p['id_subcat']} - {p['nombre_subcat']}": p for p in lista_pasillos_existentes}
-        pasillo_sel = st.selectbox("Selecciona el Pasillo a editar o remover:", list(opciones_combo.keys()))
-        datos_pasillo_actual = opciones_combo[pasillo_sel]
-        
-        with st.form("form_editar_subcat"):
-            edit_nombre = st.text_input("Corregir descripción / Emojis:", value=datos_pasillo_actual["nombre_subcat"])
-            edit_cat = st.selectbox("Re-vincular Categoría Madre:", list(MAPA_CATEGORIAS_MADRE.keys()))
+        for idx, fila in df.iterrows():
+            nombre_prod = fila['nombre']
+            id_subcat = clasificar_texto_local(nombre_prod)
             
-            col_b1, col_b2 = st.columns(2)
-            with col_b1:
-                btn_update = st.form_submit_button("🔄 Actualizar Nombre")
-            with col_b2:
-                btn_delete = st.form_submit_button("🗑️ Eliminar Registro")
+            # Sincronización en vivo cruzando contra el mapa de llaves foráneas descargado de internet
+            if id_subcat and id_subcat in MAPA_PASILLOS_VENEZUELA:
+                productos_clasificados.append({
+                    "nombre_catalogo": str(nombre_prod).strip(),
+                    "Pasillo / Departamento": MAPA_PASILLOS_VENEZUELA[id_subcat],
+                    "id_subcat_interno": id_subcat
+                })
+            else:
+                no_clasificados.append({"nombre": str(nombre_prod).strip()})
+        
+        col_tab1, col_tab2 = st.columns(2)
+        with col_tab1:
+            st.metric("Artículos Aprobados para el Catálogo", len(productos_clasificados))
+            if productos_clasificados:
+                df_previa = pd.DataFrame(productos_clasificados).sort_values(by=["id_subcat_interno", "nombre_catalogo"], ascending=[True, True]).reset_index(drop=True)
+                df_previa.index = df_previa.index + 1
+                df_previa.index.name = "N° de Ítem"
+                st.dataframe(df_previa[["nombre_catalogo", "Pasillo / Departamento"]], use_container_width=True)
                 
-            if btn_update:
-                try:
-                    supabase.table("subcategorias").update({
-                        "nombre_subcat": edit_nombre.strip(),
-                        "id_enlace_cat": MAPA_CATEGORIAS_MADRE[edit_cat]
-                    }).eq("id_subcat", datos_pasillo_actual["id_subcat"]).execute()
-                    st.success("✅ Registro modificado correctamente.")
-                    st.rerun()
-                except Exception as e_up:
-                    st.error(f"❌ Fallo al actualizar: {e_up}")
-                    
-            if btn_delete:
-                try:
-                    supabase.table("subcategorias").delete().eq("id_subcat", datos_pasillo_actual["id_subcat"]).execute()
-                    st.warning("⚠️ Registro eliminado de la base de datos cloud.")
-                    st.rerun()
-                except Exception as e_del:
-                    st.error(f"❌ No se puede borrar (Posee productos vinculados): {e_del}")
-    else:
-        st.info("Aún no existen pasillos en internet para habilitar modificaciones.")
+        with col_tab2:
+            st.metric("Artículos Rechazados / Sin Clasificar", len(no_clasificados))
+            if no_clasificados:
+                df_omitidos = pd.DataFrame(no_clasificados).sort_values(by="nombre", ascending=True).reset_index(drop=True)
+                df_omitidos.index = df_omitidos.index + 1
+                df_omitidos.index.name = "N° de Ítem"
+                st.dataframe(df_omitidos[["nombre"]], use_container_width=True)
+            else:
+                st.success("🎉 ¡Excelente! Cero artículos rechazados en este lote.")
+        
+        st.markdown("---")
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            if productos_clasificados:
+                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v440"):
+                    with st.spinner("Inyectando registros en bloques de 50 hacia la tabla 'catalogo'..."):
+                        TAMANO_LOTE, total_guardados, error_registrado = 50, 0, None
+                        for i in range(0, len(productos_clasificados), TAMANO_LOTE):
+                            lote_actual = productos_clasificados[i:i + TAMANO_LOTE]
+                            try:
+                                payload = [{"nombre_catalogo": p["nombre_catalogo"], "id_subcat": p["id_subcat_interno"]} for p in lote_actual]
+                                # Inyección directa e inmune respetando la FK de tu base de datos cloud
+                                supabase.table("catalogo").insert(payload).execute()
+                                total_guardados += len(lote_actual)
+                            except Exception as e_lote:
+                                error_registrado = e_lote
+                                break
+                        if total_guardados == len(productos_clasificados):
+                            st.balloons()
+                            st.success(f"¡Éxito total! Se guardaron {total_guardados} productos de forma permanente en tu tabla 'catalogo'.")
+                        elif total_guardados > 0: st.warning(f"⚠️ Carga parcial: Se salvaron {total_guardados} ítems, error: {error_registrado}")
+                        else: st.error(f"❌ Error definitivo de persistencia: {error_registrado}")
+                            
+        with col_btn2:
+            if no_clasificados:
+                df_omitidos_down = pd.DataFrame(no_clasificados).sort_values(by="nombre", ascending=True).reset_index(drop=True)
+                csv_omitidos = df_omitidos_down.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="⚠️ Descargar Rechazados para revisión",
+                    data=csv_omitidos,
+                    file_name="productos_omitidos.csv",
+                    mime="text/csv",
+                    key="btn_descargar_omitidos_local_v440"
+                )
+                
+# ##############################################################################
+# BANNER INFERIOR: >>> CARGAR_INVENTARIO.PY - PARTE 3 DE 3 <<<
+# ##############################################################################
