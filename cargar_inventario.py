@@ -1,6 +1,6 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 1 DE 3)
-# VERSIÓN: 4.1.0 (BYPASS DE CACHÉ - CONSULTA SÍNCRONA CRUDA GLOBAL)
+# VERSIÓN: 4.2.0 (ACOPLAMIENTO DE CAMPOS REALES - ID_SUBCAT / NOMBRE_SUBCAT)
 # DESCRIPCIÓN: Procesador Masivo de Catálogos Genéricos Retail Nivel 5
 # MODIFICACIÓN: Aplicación estricta de omisión de banner inicial en Parte 1.
 # ==============================================================================
@@ -35,14 +35,14 @@ st.title("📤 Carga por Lotes - Datos de Inventario")
 st.markdown("Clasificación automatizada local enlazada dinámicamente a las llaves relacionales de tu base de datos cloud.")
 st.markdown("---")
 
-# 4. DESCARGA EN VIVO Y DIRECTA DE LA MÁSCARA RELACIONAL (SIN BLOQUEOS DE CACHÉ)
+# 4. DESCARGA EN VIVO Y DIRECTA APUNTANDO A LAS CABECERAS REALES DE TU TABLA POSTGRESQL
 def descargar_mapa_subcategorias_cloud():
     try:
-        # La consulta viaja directo a internet a buscar el id (int8) y el nombre de la subcategoría
-        res_sub = supabase.table("subcategorias").select("id, nombre").execute()
+        # Costura v4.2.0: Select quirúrgico a las columnas verdaderas de tu servidor Supabase
+        res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").execute()
         if res_sub and hasattr(res_sub, 'data') and res_sub.data:
-            # Forzamos la indexación foránea mapeando enteros limpios de forma síncrona
-            return {int(item["id"]): item["nombre"] for item in res_sub.data}
+            # Mapeamos de forma síncrona el entero con la string real descargada de internet
+            return {int(item["id_subcat"]): item["nombre_subcat"] for item in res_sub.data}
     except Exception as e_mapa:
         st.sidebar.error(f"⚠️ Error al sincronizar subcategorías cloud: {e_mapa}")
     return {}
@@ -80,7 +80,7 @@ DICCIONARIO_REGLAS = {
 # ##############################################################################
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 2 DE 3)
-# VERSIÓN: 4.1.0 (BYPASS DE CACHÉ - CONSULTA SÍNCRONA CRUDA GLOBAL)
+# VERSIÓN: 4.2.0 (ACOPLAMIENTO DE CAMPOS REALES - ID_SUBCAT / NOMBRE_SUBCAT)
 # DESCRIPCIÓN: La Cascada Completa de los 7 Niveles de Exclusión con Filtros RAE
 # ==============================================================================
 
@@ -178,11 +178,11 @@ def clasificar_texto_local(nombre_recibido):
 # ##############################################################################
 # ==============================================================================
 # PROGRAMA SATÉLITE: cargar_inventario.py (PARTE 3 DE 3)
-# VERSIÓN: 4.1.0 (BYPASS DE CACHÉ - CONSULTA SÍNCRONA CRUDA GLOBAL)
+# VERSIÓN: 4.2.0 (ACOPLAMIENTO DE CAMPOS REALES - ID_SUBCAT / NOMBRE_SUBCAT)
 # DESCRIPCIÓN: Interfaz de Auditoría por Columnas, Conteo Correlativo e Inyector Cloud
 # ==============================================================================
 
-archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v410")
+archivo_subido = st.file_uploader("Selecciona tu archivo plano .csv de productos", type=["csv"], key="uploader_inventario_v420")
 
 if archivo_subido:
     try: df = pd.read_csv(archivo_subido, encoding='utf-8')
@@ -231,7 +231,7 @@ if archivo_subido:
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
             if productos_clasificados:
-                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v410"):
+                if st.button("🚀 Confirmar y Guardar Registros en Catálogo Cloud", key="btn_enviar_catalogo_v420"):
                     with st.spinner("Inyectando registros en bloques de 50 hacia la tabla 'catalogo'..."):
                         TAMANO_LOTE, total_guardados, error_registrado = 50, 0, None
                         for i in range(0, len(productos_clasificados), TAMANO_LOTE):
@@ -258,7 +258,7 @@ if archivo_subido:
                     data=csv_omitidos,
                     file_name="productos_omitidos.csv",
                     mime="text/csv",
-                    key="btn_descargar_omitidos_local_v410"
+                    key="btn_descargar_omitidos_local_v420"
                 )
                 
 # ##############################################################################
