@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: dashboard_catalogo.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 1.0.0 (LÍNEA BASE DE ANALÍTICA Y CONTROL DE SURTIDO)
+# VERSIÓN: 1.1.0 (UPGRADE DE INTELIGENCIA DE SURTIDO - ALERTAS DE DISTRICUCIÓN)
 # DESCRIPCIÓN: Panel de Control Gerencial para Monitoreo de Existencias Cloud
-# MODIFICACIÓN: Despliegue inicial de KPIs atómicos, mix de variedad y buscador.
+# MODIFICACIÓN: Inclusión de matriz de detección automática de zonas muertas (SKUs < 3).
 # ==============================================================================
 
 import streamlit as st
@@ -31,11 +31,10 @@ except Exception as e:
     st.stop()
 
 st.title("📊 Indicadores de Gestión y Control de Catálogo")
-st.markdown("Auditoría analítica en caliente sobre la densidad del surtido e integridad de las subcategorías en la nube.")
+st.markdown("Auditoría analítica en caliente sobre la densidad del surtido, familias sub-distribuidas e integridad de la nube.")
 st.markdown("---")
 
 # 3. EXTRACCIÓN SÍNCRONA Y CRUDA DE DATOS EN LA NUBE (BYPASS DE CACHÉ EN VIVO)
-@st.markdown_transaction if hasattr(st, 'markdown_transaction') else lambda x: x
 def descargar_datos_maestros_bi():
     try:
         # Descargamos el catálogo completo de productos
@@ -57,11 +56,10 @@ if df_productos_raw.empty:
     st.stop()
 
 if df_subcats_raw.empty:
-    st.error("❌ Quiebre Estructural: No se detectaron subcategorías sembradas en internet. Corre el instalador batch primero.")
+    st.error("❌ Quiebre Estructural: No se detectaron subcategorías sembradas en internet. Corre el inicializador batch primero.")
     st.stop()
 
 # 5. MOTOR DE RE-ACOPLAMIENTO RELACIONAL LOCAL EN LA MEMORIA RAM
-# Normalizamos los tipos de datos a enteros limpios para garantizar un match perfecto sin falsos omitidos
 df_productos_raw["id_enlace_subcat"] = df_productos_raw["id_enlace_subcat"].astype(int)
 df_subcats_raw["id_subcat"] = df_subcats_raw["id_subcat"].astype(int)
 
@@ -81,41 +79,59 @@ total_subcats_existentes = len(df_subcats_raw)
 cobertura_variedad = (subcats_activas / total_subcats_existentes) * 100
 
 col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
-
 with col_kpi1:
-    st.metric(
-        label="Surtido Total de la Compañía",
-        value=f"{total_articulos} Artículos",
-        help="Conteo neto de SKUs individuales guardados de forma permanente en la tabla catalogo"
-    )
-
+    st.metric("Surtido Total de la Compañía", f"{total_articulos} Artículos")
 with col_kpi2:
-    st.metric(
-        label="Variedad Activa de Surtido",
-        value=f"{subcats_activas} de {total_subcats_existentes}",
-        help="Cantidad de subcategorías que poseen al menos un producto registrado en la tienda"
-    )
-
+    st.metric("Variedad Activa de Surtido", f"{subcats_activas} de {total_subcats_existentes}")
 with col_kpi3:
-    st.metric(
-        label="Porcentaje de Cobertura Comercial",
-        value=f"{cobertura_variedad:.1f} %",
-        help="Densidad de ocupación de las familias del árbol respecto a la meta total del negocio"
-    )
+    st.metric("Porcentaje de Cobertura Comercial", f"{cobertura_variedad:.1f} %")
 
 st.markdown("---")
 
-# 7. GRÁFICO DINÁMICO HISTOGRAMA: TOP DE SURTIDO POR VARIEDAD LÓGICA
-st.markdown("### 📊 Densidad de Productos por Subcategoría")
+# 7. NUEVA AUDITORÍA DE ZONAS MUERTAS: ALERTAS DE SUB-DISTRIBUCIÓN CRÍTICA
+st.markdown("### 🚨 Alerta de Subcategorías Poco Distribuidas / Renglones Críticos")
+st.markdown("Departamentos que poseen **menos de 3 productos registrados** en la base de datos cloud. Requieren ampliación de surtido de marcas urgente para evitar el abandono de góndolas [5.1].")
 
-# Agrupamos y contamos la cantidad de productos por cada descripción con emoji
+# Calculamos el conteo real por cada subcategoría del catálogo
+conteo_por_subcat = df_master_bi["nombre_subcat"].value_counts().to_dict()
+
+# Cruzamos contra el maestro de subcategorías completo para detectar también las de cero (0) registros
+alertas_distribucion = []
+for _, fila_sub in df_subcats_raw.iterrows():
+    nom_sub = fila_sub["nombre_subcat"]
+    skus_registrados = conteo_por_subcat.get(nom_sub, 0)
+    
+    # Filtro Comercial: Si tiene menos de 3 SKUs, entra al contenedor de atención prioritaria
+    if skus_registrados < 3:
+        alertas_distribucion.append({
+            "Subcategoría Comercial": nom_sub,
+            "Artículos Registrados": skus_registrados,
+            "Diagnóstico Gerencial": "⚠️ ZONA MUERTA (Vacío en góndola)" if skus_registrados == 0 else "📉 SUB-DISTRIBUIDA (Ampliar variedad)"
+        })
+
+if alertas_distribucion:
+    df_alertas_final = pd.DataFrame(alertas_distribucion).sort_values(by="Artículos Registrados", ascending=True).reset_index(drop=True)
+    df_alertas_final.index = df_alertas_final.index + 1
+    df_alertas_final.index.name = "N° Alerta"
+    
+    st.dataframe(
+        df_alertas_final.style.map(
+            lambda x: "background-color: #ffcccc; color: #cc0000; font-weight: bold;" if "ZONA MUERTA" in str(x) else ("background-color: #fff2cc; color: #b38600;" if "SUB-DISTRIBUIDA" in str(x) else ""),
+            subset=["Diagnóstico Gerencial"]
+        ),
+        use_container_width=True
+    )
+else:
+    st.success("🎉 ¡Excelente! La casa está 100% equilibrada. Todas las subcategorías comerciales poseen 3 o más productos asignados.")
+
+st.markdown("---")
+
+# 8. GRÁFICO DINÁMICO HISTOGRAMA: TOP DE SURTIDO POR VARIEDAD LÓGICA
+st.markdown("### 📊 Densidad General de Productos por Subcategoría")
 df_conteo_grafico = df_master_bi["nombre_subcat"].value_counts().reset_index()
 df_conteo_grafico.columns = ["Subcategoría / Variedad", "Cantidad de SKUs"]
-
-# Ordenamos de mayor a menor volumen comercial para la toma de decisiones gerenciales
 df_conteo_grafico = df_conteo_grafico.sort_values(by="Cantidad de SKUs", ascending=False)
 
-# Pintamos el gráfico nativo de barras horizontales de alta densidad de Streamlit
 st.bar_chart(
     data=df_conteo_grafico,
     x="Subcategoría / Variedad",
@@ -125,15 +141,14 @@ st.bar_chart(
 
 st.markdown("---")
 
-# 8. BUSCADOR INTELIGENTE Y GRILLA DE AUDITORÍA CON CONTEO HUMANO CORRELATIVO
+# 9. BUSCADOR INTELIGENTE Y GRILLA DE AUDITORÍA CON CONTEO HUMANO CORRELATIVO
 st.markdown("### 🔍 Buscador de Surtido y Filtro de Auditoría Rápida")
-
 busqueda_operador = st.text_input(
     "Filtrar catálogos al instante (Escribe una marca, palabra o raíz léxica):",
-    placeholder="Ej: mary, pan, jabon, enlatado"
+    placeholder="Ej: mary, pan, jabon, enlatado",
+    key="txt_busqueda_dashboard_v110"
 ).strip().lower()
 
-# Aplicamos la máscara de filtrado dinámico sobre la string
 df_grilla_filtrada = df_master_bi.copy()
 if busqueda_operador:
     df_grilla_filtrada = df_grilla_filtrada[
@@ -141,10 +156,7 @@ if busqueda_operador:
         df_grilla_filtrada["nombre_subcat"].str.lower().str.contains(busqueda_operador)
     ]
 
-# Formateamos la tabla final para la lectura visual limpia del supervisor
 df_grilla_final = df_grilla_filtrada[["nombre_catalogo", "nombre_subcat"]].sort_values(by="nombre_catalogo").reset_index(drop=True)
-
-# Conteo humano correlativo riguroso partiendo estrictamente desde 1
 df_grilla_final.index = df_grilla_final.index + 1
 df_grilla_final.index.name = "N° de Ítem"
 
