@@ -29,13 +29,13 @@ st.title("🖱️ Clasificador Interactivo Drag & Drop Web")
 st.markdown("Mueve los productos con el mouse directamente en el navegador para reclasificar pasillos en caliente en la nube. ¡100% libre de instalaciones en tu PC!")
 st.markdown("---")
 
-# 3. EXTRACCIÓN SÍNCRONA DE ARTÍCULOS EN DEPÓSITO (ID 12) Y EL 100% DE LAS SUBCATEGORIAS
+# 3. EXTRACCIÓN SÍNCRONA DE LOS 372 ARTÍCULOS COMPLETOS Y EL 100% DE LAS SUBCATEGORIAS
 def descargar_datos_clasificador_web():
     try:
-        # Paginación inteligente: Traemos un bulto controlado de 50 artículos pendientes a la vez para cuidar la fluidez del mouse
-        res_cat = supabase.table("catalogo").select("id_catalogo, nombre_catalogo").eq("id_enlace_subcat", 12).limit(50).execute()
+        # COSTURA v2.1.0: Liberamos la consulta eliminando el .eq() para traer TODOS los artículos del catálogo de internet
+        res_cat = supabase.table("catalogo").select("id_catalogo, nombre_catalogo").limit(400).execute()
         
-        # EXPANSIÓN v2.0.0: Descargamos el 100% de las subcategorías existentes en tu base de datos real de internet
+        # Descargamos el 100% de las subcategorías existentes en tu base de datos real de internet
         res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").order("id_subcat").execute()
         
         if res_cat and hasattr(res_cat, 'data') and res_sub and hasattr(res_sub, 'data'):
@@ -46,14 +46,13 @@ def descargar_datos_clasificador_web():
 
 lista_pendientes, lista_subcats = descargar_datos_clasificador_web()
 
-# 4. PARACHOQUES DE INTERNET: EVITA LA EJECUCIÓN SI NO HAY ELEMENTOS EN EL DEPÓSITO GENERAL
+# 4. PARACHOQUES DE INTERNET: EVITA LA EJECUCIÓN SI LA TABLA CLOUD ESTÁ EN BLANCO
 if not lista_pendientes:
-    st.success("🎉 ¡Excelente! No quedan productos pendientes con la clasificación básica de Víveres (ID 12) en la nube.")
+    st.info("💡 Catálogo Vacío: Carga productos primero para encender la grilla de arrastre.")
     st.stop()
 
 # 5. PREPARACIÓN DE LAS ESTRUCTURAS JSON SEGURAS EN LA MEMORIA RAM
 json_pendientes = json.dumps(lista_pendientes)
-# EXPANSIÓN v2.0.0: Ya no filtramos por ID fijo. Se inyecta la lista completa del 1 al 46 bajada en caliente de internet
 json_subcats = json.dumps(lista_subcats)
 
 # 6. LIENZO GRÁFICO TEXTO PLANO CON MATRIZ RESPONSIVA FLEXIBLE (GRID DE ALTA DENSIDAD)
@@ -67,7 +66,6 @@ html_drag_and_drop_template = """
         .contenedor-global { display: flex; gap: 20px; }
         .columna-izq { flex: 1; background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; min-height: 650px; max-height: 650px; overflow-y: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .columna-der { flex: 4; background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; min-height: 650px; max-height: 650px; overflow-y: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        /* EXPANSIÓN v2.0.0: Cuadrícula responsiva que acomoda dinámicamente todas las subcategorías en filas */
         .grilla-destinos { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
         .caja-destino { background: #e9ecef; border: 2px dashed #ced4da; border-radius: 6px; padding: 8px; min-height: 120px; max-height: 150px; overflow-y: auto; transition: all 0.2s ease; }
         .caja-destino.dragover { background: #d1ecf1; border-color: #17a2b8; }
@@ -81,7 +79,7 @@ html_drag_and_drop_template = """
 
 <div class="contenedor-global">
     <div class="columna-izq">
-        <h3>📋 Depósito General (ID 12)</h3>
+        <h3>📋 Depósito General (Surtido Total)</h3>
         <div id="lista-origen" class="caja-origen"></div>
     </div>
     
@@ -150,7 +148,6 @@ html_drag_and_drop_template = """
         ev.preventDefault();
         ev.target.removeEventListener("dragleave", dragLeave);
         
-        // Buscamos el elemento contenedor real si cae encima de un texto o un hijo
         let destino = ev.target;
         while (destino && !destino.classList.contains("caja-destino")) {
             destino = destino.parentElement;
