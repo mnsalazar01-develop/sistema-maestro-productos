@@ -1,19 +1,18 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: clasificar_web_drag.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 7.0.0 (CLASIFICADOR DRAG & DROP PROFESIONAL CERTIFICADO)
-# DESCRIPCIÓN: Panel de Arrastre Multipasillo con Persistencia Dura en Internet
-# MODIFICACIÓN: Inyección de streamlit_sortable para romper el bloqueo de iframe.
+# VERSIÓN: 8.0.0 (EDITOR MASIVO EN CALIENTE - MÍNIMO ESFUERZO POSIBLE)
+# DESCRIPCIÓN: Panel de Refinamiento Retail en Formato de Grilla Excel Nativa
+# MODIFICACIÓN: Inyección de st.data_editor para forzar guardado duro sin JS ni iframes.
 # ==============================================================================
 
 import streamlit as st
 import pandas as pd
-from streamlit_sortable import sortable
 from supabase import create_client, Client
 
-# 1. CONFIGURACIÓN INDEPENDIENTE DE LA VENTANA WEB DE STREAMLIT
+# 1. CONFIGURACIÓN INDEPENDIENTE DE LA VENTANA DE STREAMLIT
 st.set_page_config(
-    page_title="Clasificador Drag & Drop Web",
-    page_icon="🖱️",
+    page_title="Editor de Catálogo Masivo",
+    page_icon="📝",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -31,17 +30,17 @@ except Exception as e:
     st.error(f"❌ Error de Conexión Base: {e}")
     st.stop()
 
-st.title("🖱️ Clasificador Interactivo Drag & Drop Web (Sortable Engine)")
-st.markdown("Arrastra los productos con el mouse directamente entre los estantes de la tienda. ¡Persistencia relacional indestructible en Supabase Cloud!")
+st.title("📝 Editor Rápido de Catálogo Masivo")
+st.markdown("Modifica la subcategoría de los productos haciendo clic directo sobre la celda como en Excel. ¡Guardado relacional permanente en Supabase Cloud!")
 st.markdown("---")
 
 # 3. EXTRACCIÓN SÍNCRONA DE LOS 372 ARTÍCULOS COMPLETOS Y EL MASTER DE SUBCATEGORIAS
 @st.cache_data(ttl=1)
-def descargar_datos_clasificador_profesional():
+def descargar_datos_grilla_masiva():
     try:
-        # Descargamos los productos (trayendo un bloque fluido de 30 para no saturar el lienzo visual)
-        res_cat = supabase.table("catalogo").select("id_catalogo, nombre_catalogo, id_enlace_subcat").order("id_catalogo").execute()
-        # Descargamos el maestro de subcategorías completo (1 al 46)
+        # Descargamos los 372 productos del catálogo cloud ordenados por descripción
+        res_cat = supabase.table("catalogo").select("id_catalogo, nombre_catalogo, id_enlace_subcat").order("nombre_catalogo").execute()
+        # Descargamos el árbol unificado de subcategorías (1 al 46)
         res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").order("id_subcat").execute()
         
         if res_cat and hasattr(res_cat, 'data') and res_sub and hasattr(res_sub, 'data'):
@@ -50,64 +49,66 @@ def descargar_datos_clasificador_profesional():
         st.sidebar.error(f"⚠️ Error al leer datos desde internet: {e_load}")
     return pd.DataFrame(), pd.DataFrame()
 
-df_productos, df_subcats = descargar_datos_clasificador_profesional()
+df_productos, df_subcats = descargar_datos_grilla_masiva()
 
 if df_productos.empty or df_subcats.empty:
     st.info("💡 Esperando consistencia de datos... Asegúrate de tener registros en tus tablas cloud.")
     st.stop()
 
-# 4. PREPARACIÓN DE LAS LISTAS PARALELAS EN LA MEMORIA RAM DE PYTHON
-# Aislamos el Depósito General (los productos que están en la subcategoría base de Víveres ID 12)
-df_deposito = df_productos[df_productos["id_enlace_subcat"] == 12].limit(30)
-lista_deposito_strings = [f"{fila['id_catalogo']} - {fila['nombre_catalogo']}" for _, fila in df_deposito.iterrows()]
+# 4. CONSTRUCCIÓN DE MAPAS DE INTERCAMBIO EN LA MEMORIA RAM
+mapa_id_a_nombre = {int(f["id_subcat"]): str(f["nombre_subcat"]) for _, f in df_subcats.iterrows()}
+mapa_nombre_a_id = {str(f["nombre_subcat"]): int(f["id_subcat"]) for _, f in df_subcats.iterrows()}
 
-# Mapeamos los nombres y emojis de las subcategorías destino core principales (ej: IDs 1, 2, 9, 16)
-subcats_destino_core = [1, 2, 9, 16]
-df_subcats_filtradas = df_subcats[df_subcats["id_subcat"].isin(subcats_destino_core)]
+# Inyectamos el nombre del pasillo actual dentro del DataFrame para que el operador lo lea fácil
+df_productos["Subcategoría Comercial"] = df_productos["id_enlace_subcat"].map(mapa_id_a_nombre).fillna("⚠️ Depósito General (ID 12)")
 
-# Construimos la estructura de columnas paralelas que 'streamlit-sortable' necesita para dibujar el arrastre
-estructura_estantes_ram = {"📋 Depósito General (ID 12)": lista_deposito_strings}
+# Preparamos los datos limpios para la hoja interactiva de pantalla
+df_editable = df_productos[["id_catalogo", "nombre_catalogo", "Subcategoría Comercial"]].rename(columns={
+    "id_catalogo": "ID SKU",
+    "nombre_catalogo": "Descripción del Artículo"
+})
 
-mapa_titulos_a_id = {}
-for _, fila_sub in df_subcats_filtradas.iterrows():
-    id_sub = int(fila_sub["id_subcat"])
-    nombre_sub = str(fila_sub["nombre_subcat"])
+# 5. RENDERIZADO DE LA HOJA INTERACTIVA EXCEL NATIVA (EDICIÓN EN CELDA HILOS PUROS)
+st.caption("💡 Instrucción: Haz doble clic sobre cualquier celda de la columna 'Subcategoría Comercial', elige el nuevo destino y presiona Enter [5.1].")
+
+# El data_editor bloquea la edición de ID y Nombre, abriendo únicamente la celda del pasillo como un desplegable dinámico
+grilla_excel_viva = st.data_editor(
+    df_editable,
+    use_container_width=True,
+    hide_index=True,
+    disabled=["ID SKU", "Descripción del Artículo"],
+    column_config={
+        "Subcategoría Comercial": st.column_config.SelectboxColumn(
+            "Variedad / Departamento Destino",
+            options=list(mapa_nombre_a_id.keys()),
+            required=True
+        )
+    }
+)
+
+# 6. CAPTURA AUTOMÁTICA DE CAMBIOS EN CALIENTE Y PERSISTENCIA CLOUD DURA
+# Si el operador alteró alguna celda en la grilla, Streamlit nos entrega el diccionario de mutaciones
+if st.session_state.get("data_editor") and "edited_rows" in st.session_state["data_editor"]:
+    cambios_celdas = st.session_state["data_editor"]["edited_rows"]
     
-    # Extraemos los productos que ya viven en esta subcategoría en internet
-    df_prods_estante = df_productos[df_productos["id_enlace_subcat"] == id_sub]
-    lista_prods_strings = [f"{f['id_catalogo']} - {f['nombre_catalogo']}" for _, f in df_prods_estante.iterrows()]
-    
-    estructura_estantes_ram[nombre_sub] = lista_prods_strings
-    mapa_titulos_a_id[nombre_sub] = id_sub
-
-# 5. RENDERIZADO DEL LIENZO INTERACTIVO PROFESIONAL (REACT DND ENGINE)
-# Se pinta la grilla de arrastre directo en el navegador del operador
-resultado_movimiento = sortable(estructura_estantes_ram, direction="horizontal")
-
-# 6. CAPTURA DEL EVENTO DE SOLTADO Y PERSISTENCIA ATÓMICA EN LA NUBE PROFUNDA
-# Si el resultado_movimiento cambia respecto a lo que descargamos, Python procesa la diferencia en el acto
-if resultado_movimiento:
-    # Verificamos si algún producto del depósito fue soltado en un estante de la derecha
-    for nombre_estante_destino, lista_items_finales in resultado_movimiento.items():
-        if nombre_estante_destino != "📋 Depósito General (ID 12)":
-            id_subcat_destino_cloud = mapa_titulos_a_id[nombre_estante_destino]
-            
-            for item_string in lista_items_finales:
-                # Si el artículo no pertenecía originalmente a este estante, encontramos al trasladado
-                id_sku_movido = int(item_string.split(" - ")[0])
+    if cambios_celdas:
+        for indice_fila_pantalla, celda_mutada in cambios_celdas.items():
+            if "Subcategoría Comercial" in celda_mutada:
+                nuevo_nombre_subcat = celda_mutada["Subcategoría Comercial"]
+                id_subcat_nueva_numeric = mapa_nombre_a_id[nuevo_nombre_subcat]
                 
-                # Buscamos en la RAM qué pasillo tenía grabado este producto antes de mover el mouse
-                id_pasillo_viejo = int(df_productos[df_productos["id_catalogo"] == id_sku_movido].iloc[0]["id_enlace_subcat"])
+                # Extraemos el ID real del producto modificado desde la memoria RAM usando su posición de fila
+                id_sku_modificado = int(df_editable.iloc[int(indice_fila_pantalla)]["ID SKU"])
+                nombre_sku_modificado = str(df_editable.iloc[int(indice_fila_pantalla)]["Descripción del Artículo"])
                 
-                if id_pasillo_viejo != id_subcat_destino_cloud:
-                    try:
-                        # PERSISTENCIA NO VOLÁTIL DURA: Inyección directa e inmune al disco de Supabase
-                        supabase.table("catalogo").update({
-                            "id_enlace_subcat": int(id_subcat_destino_cloud)
-                        }).eq("id_catalogo", int(id_sku_movido)).execute()
-                        
-                        st.toast(f"💾 Guardado Permanente: {item_string} movido con éxito.", icon="✅")
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as e_sortable:
-                        st.error(f"❌ Error relacional: {e_sortable}")
+                try:
+                    # PERSISTENCIA INDUSTRIAL INMUNE: Grabado síncrono directo en el disco sólido de Supabase Cloud
+                    supabase.table("catalogo").update({
+                        "id_enlace_subcat": int(id_subcat_nueva_numeric)
+                    }).eq("id_catalogo", int(id_sku_modificado)).execute()
+                    
+                    st.toast(f"💾 ¡Guardado Permanente! {nombre_sku_modificado} asignado a {nuevo_nombre_subcat}.", icon="✅")
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as e_excel_save:
+                    st.error(f"❌ Error de escritura relacional: {e_excel_save}")
