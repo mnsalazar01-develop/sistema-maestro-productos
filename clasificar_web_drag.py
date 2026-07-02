@@ -35,8 +35,8 @@ def descargar_datos_clasificador_web():
         # Descargamos los productos que están temporalmente en el bolsón general de Víveres (ID 12)
         res_cat = supabase.table("catalogo").select("id_catalogo, nombre_catalogo").eq("id_enlace_subcat", 12).limit(30).execute()
         
-        # Traemos el listado completo de subcategorías existentes ordenadas por ID
-        res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").order("id_subcat", ascending=True).execute()
+        # Costura v1.0.4: Removemos el parámetro conflictivo 'ascending' para asegurar compatibilidad total de librerías
+        res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").order("id_subcat").execute()
         
         if res_cat and hasattr(res_cat, 'data') and res_sub and hasattr(res_sub, 'data'):
             return res_cat.data, res_sub.data
@@ -57,7 +57,7 @@ json_pendientes = json.dumps(lista_pendientes)
 subcats_filtradas = [s for s in lista_subcats if int(s["id_subcat"]) in (1, 2, 9, 16)]
 json_subcats = json.dumps(subcats_filtradas)
 
-# 6. LIENZO GRÁFICO TEXTO PLANO (SIN PREFIJO 'f' - INMUNE A ERROR DE LLAVES INMUTABLES)
+# 6. LIENZO GRÁFICO TEXTO PLANO (INMUNE A ERROR DE LLAVES INMUTABLES)
 html_drag_and_drop_template = """
 <!DOCTYPE html>
 <html>
@@ -91,7 +91,6 @@ html_drag_and_drop_template = """
 </div>
 
 <script>
-    // Marcadores de posición limpios reemplazados por Python de forma segura
     const productos = __PENDIENTES__;
     const subcategorias = __SUBCATEGORIAS__;
 
@@ -156,7 +155,6 @@ html_drag_and_drop_template = """
         
         if (ev.target.classList.contains("caja-destino")) {
             ev.target.appendChild(elemento_arrastrado);
-            // Extraemos de forma limpia el ID numérico de la subcategoría
             const id_subcat_destino = ev.target.id.replace("subcat-", "");
             
             window.parent.postMessage({
@@ -171,7 +169,7 @@ html_drag_and_drop_template = """
 </html>
 """
 
-# Blíndaje v1.0.3: Reemplazo de texto plano sin usar f-strings, eliminando los SyntaxErrors de raíz
+# Reemplazo de texto plano seguro inmune a SyntaxErrors
 html_final = html_drag_and_drop_template.replace("__PENDIENTES__", json_pendientes).replace("__SUBCATEGORIAS__", json_subcats)
 
 # 7. CAPTURA DEL PULSO DE RETORNO Y EJECUCIÓN DEL UPDATE EN LA NUBE
