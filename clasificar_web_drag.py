@@ -35,7 +35,7 @@ def descargar_datos_clasificador_web():
         # Descargamos los productos que están temporalmente en el bolsón general de Víveres (ID 12)
         res_cat = supabase.table("catalogo").select("id_catalogo, nombre_catalogo").eq("id_enlace_subcat", 12).limit(30).execute()
         
-        # Traemos el listado completo de subcategorías existentes para poblar la grilla de internet
+        # Traemos el listado completo de subcategorías existentes ordenadas por ID
         res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").order("id_subcat", ascending=True).execute()
         
         if res_cat and hasattr(res_cat, 'data') and res_sub and hasattr(res_sub, 'data'):
@@ -51,29 +51,29 @@ if not lista_pendientes:
     st.success("🎉 ¡Excelente! No quedan productos pendientes con la clasificación básica de Víveres (ID 12) en la nube.")
     st.stop()
 
-# 5. INYECCIÓN DEL LIENZO GRÁFICO AVANZADO MEDIANTE HTML5 + JAVASCRIPT EMBEBIDO
-# Preparamos las estructuras JSON seguras para pasárselas al frame del navegador
+# 5. PREPARACIÓN DE LAS ESTRUCTURAS JSON SEGURAS EN LA MEMORIA RAM
 json_pendientes = json.dumps(lista_pendientes)
-# Costura v1.0.2: Reparamos de forma estricta el contenedor de la tupla numérica de validación
-subcats_filtradas = [s for s in lista_subcats if s["id_subcat"] in (1, 2, 9, 16)]
+# Filtramos de forma estricta las 4 subcategorías core principales para la grilla visual (1, 2, 9, 16)
+subcats_filtradas = [s for s in lista_subcats if int(s["id_subcat"]) in (1, 2, 9, 16)]
 json_subcats = json.dumps(subcats_filtradas)
 
-html_drag_and_drop = f"""
+# 6. LIENZO GRÁFICO TEXTO PLANO (SIN PREFIJO 'f' - INMUNE A ERROR DE LLAVES INMUTABLES)
+html_drag_and_drop_template = """
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <style>
-        body {{ font-family: 'Segoe UI', sans-serif; background-color: #f8f9fa; margin: 0; padding: 10px; color: #333; }}
-        .contenedor-global {{ display: flex; gap: 20px; }}
-        .columna-izq {{ flex: 1; background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; min-height: 500px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
-        .columna-der {{ flex: 3; background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; min-height: 500px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
-        .grilla-destinos {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }}
-        .caja-destino {{ background: #e9ecef; border: 2px dashed #ced4da; border-radius: 6px; padding: 10px; min-height: 400px; transition: all 0.2s ease; }}
-        .caja-destino.dragover {{ background: #d1ecf1; border-color: #17a2b8; }}
-        .item-producto {{ background: #ffffff; border: 1px solid #ced4da; border-radius: 4px; padding: 10px; margin-bottom: 8px; cursor: grab; font-size: 13px; font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.05); user-select: none; }}
-        .item-producto:active {{ cursor: grabbing; }}
-        h3 {{ margin-top: 0; font-size: 15px; color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 5px; }}
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f8f9fa; margin: 0; padding: 10px; color: #333; }
+        .contenedor-global { display: flex; gap: 20px; }
+        .columna-izq { flex: 1; background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; min-height: 500px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .columna-der { flex: 3; background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; min-height: 500px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .grilla-destinos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+        .caja-destino { background: #e9ecef; border: 2px dashed #ced4da; border-radius: 6px; padding: 10px; min-height: 400px; transition: all 0.2s ease; }
+        .caja-destino.dragover { background: #d1ecf1; border-color: #17a2b8; }
+        .item-producto { background: #ffffff; border: 1px solid #ced4da; border-radius: 4px; padding: 10px; margin-bottom: 8px; cursor: grab; font-size: 13px; font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.05); user-select: none; }
+        .item-producto:active { cursor: grabbing; }
+        h3 { margin-top: 0; font-size: 15px; color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 5px; }
     </style>
 </head>
 <body>
@@ -91,11 +91,12 @@ html_drag_and_drop = f"""
 </div>
 
 <script>
-    const productos = {json_pendientes};
-    const subcategorias = {json_subcats};
+    // Marcadores de posición limpios reemplazados por Python de forma segura
+    const productos = __PENDIENTES__;
+    const subcategorias = __SUBCATEGORIAS__;
 
     const divOrigen = document.getElementById("lista-origen");
-    productos.forEach(p => {{
+    productos.forEach(p => {
         const item = document.createElement("div");
         item.className = "item-producto";
         item.id = p.id_catalogo;
@@ -103,10 +104,10 @@ html_drag_and_drop = f"""
         item.innerText = p.id_catalogo + " - " + p.nombre_catalogo;
         item.addEventListener("dragstart", arrastrar);
         divOrigen.appendChild(item);
-    }});
+    });
 
     const divGrid = document.getElementById("contenedor-grid");
-    subcategorias.forEach(s => {{
+    subcategorias.forEach(s => {
         const col = document.createElement("div");
         col.className = "columna-destino-individual";
         
@@ -126,26 +127,26 @@ html_drag_and_drop = f"""
         col.appendChild(titulo);
         col.appendChild(caja);
         divGrid.appendChild(col);
-    }});
+    });
 
-    function arrastrar(ev) {{
+    function arrastrar(ev) {
         ev.dataTransfer.setData("text_id", ev.target.id);
         ev.dataTransfer.setData("text_contenido", ev.target.innerText);
-    }}
+    }
 
-    function permitirDrop(ev) {{
+    function permitirDrop(ev) {
         ev.preventDefault();
-    }}
+    }
 
-    function dragEnter(ev) {{
+    function dragEnter(ev) {
         ev.target.classList.add("dragover");
-    }}
+    }
 
-    function dragLeave(ev) {{
+    function dragLeave(ev) {
         ev.target.classList.remove("dragover");
-    }}
+    }
 
-    function soltar(ev) {{
+    function soltar(ev) {
         ev.preventDefault();
         ev.target.classList.remove("dragover");
         
@@ -153,24 +154,28 @@ html_drag_and_drop = f"""
         const contenido = ev.dataTransfer.getData("text_contenido");
         const elemento_arrastrado = document.getElementById(id_producto);
         
-        if (ev.target.classList.contains("caja-destino")) {{
+        if (ev.target.classList.contains("caja-destino")) {
             ev.target.appendChild(elemento_arrastrado);
-            const id_subcat_destino = ev.target.id.split("-");
+            // Extraemos de forma limpia el ID numérico de la subcategoría
+            const id_subcat_destino = ev.target.id.replace("subcat-", "");
             
-            window.parent.postMessage({{
+            window.parent.postMessage({
                 type: "streamlit:setComponentValue",
-                value: {{ id_prod: id_producto, id_sub: id_subcat_destino[1], txt: contenido }}
+                value: { id_prod: id_producto, id_sub: id_subcat_destino, txt: contenido }
             }, "*");
-        }}
-    }}
+        }
+    }
 </script>
 
 </body>
 </html>
 """
 
-# 6. CAPTURA DEL PULSO DE RETORNO Y EJECUCIÓN DEL UPDATE EN LA NUBE
-evento_retorno = components.html(html_drag_and_drop, height=580, scrolling=False)
+# Blíndaje v1.0.3: Reemplazo de texto plano sin usar f-strings, eliminando los SyntaxErrors de raíz
+html_final = html_drag_and_drop_template.replace("__PENDIENTES__", json_pendientes).replace("__SUBCATEGORIAS__", json_subcats)
+
+# 7. CAPTURA DEL PULSO DE RETORNO Y EJECUCIÓN DEL UPDATE EN LA NUBE
+evento_retorno = components.html(html_final, height=580, scrolling=False)
 
 if evento_retorno is not None and isinstance(evento_retorno, dict):
     id_catalogo_afectado = evento_retorno.get("id_prod")
@@ -179,7 +184,7 @@ if evento_retorno is not None and isinstance(evento_retorno, dict):
     
     if id_catalogo_afectado and id_subcat_asignada:
         try:
-            # Saneamiento v1.0.2: Forzamos el casteo limpio a entero para inyectar en la base de datos real
+            # Sincronización limpia directa modificando la columna del DDL real de Producción
             supabase.table("catalogo").update({
                 "id_enlace_subcat": int(id_subcat_asignada)
             }).eq("id_catalogo", int(id_catalogo_afectado)).execute()
