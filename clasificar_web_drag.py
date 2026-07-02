@@ -29,13 +29,13 @@ st.title("🖱️ Clasificador Interactivo Drag & Drop Web")
 st.markdown("Mueve los productos con el mouse directamente en el navegador para reclasificar pasillos en caliente en la nube. ¡100% libre de instalaciones en tu PC!")
 st.markdown("---")
 
-# 3. EXTRACCIÓN SÍNCRONA DE ARTÍCULOS EN DEPÓSITO (ID 12) Y SUBCATEGORIAS DESTINO CORE
+# 3. EXTRACCIÓN SÍNCRONA DE ARTÍCULOS EN DEPÓSITO (ID 12) Y EL 100% DE LAS SUBCATEGORIAS
 def descargar_datos_clasificador_web():
     try:
-        # Descargamos los productos que están temporalmente en el bolsón general de Víveres (ID 12)
-        res_cat = supabase.table("catalogo").select("id_catalogo, nombre_catalogo").eq("id_enlace_subcat", 12).limit(30).execute()
+        # Paginación inteligente: Traemos un bulto controlado de 50 artículos pendientes a la vez para cuidar la fluidez del mouse
+        res_cat = supabase.table("catalogo").select("id_catalogo, nombre_catalogo").eq("id_enlace_subcat", 12).limit(50).execute()
         
-        # Costura v1.0.4: Removemos el parámetro conflictivo 'ascending' para asegurar compatibilidad total de librerías
+        # EXPANSIÓN v2.0.0: Descargamos el 100% de las subcategorías existentes en tu base de datos real de internet
         res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").order("id_subcat").execute()
         
         if res_cat and hasattr(res_cat, 'data') and res_sub and hasattr(res_sub, 'data'):
@@ -53,11 +53,10 @@ if not lista_pendientes:
 
 # 5. PREPARACIÓN DE LAS ESTRUCTURAS JSON SEGURAS EN LA MEMORIA RAM
 json_pendientes = json.dumps(lista_pendientes)
-# Filtramos de forma estricta las 4 subcategorías core principales para la grilla visual (1, 2, 9, 16)
-subcats_filtradas = [s for s in lista_subcats if int(s["id_subcat"]) in (1, 2, 9, 16)]
-json_subcats = json.dumps(subcats_filtradas)
+# EXPANSIÓN v2.0.0: Ya no filtramos por ID fijo. Se inyecta la lista completa del 1 al 46 bajada en caliente de internet
+json_subcats = json.dumps(lista_subcats)
 
-# 6. LIENZO GRÁFICO TEXTO PLANO (INMUNE A ERROR DE LLAVES INMUTABLES)
+# 6. LIENZO GRÁFICO TEXTO PLANO CON MATRIZ RESPONSIVA FLEXIBLE (GRID DE ALTA DENSIDAD)
 html_drag_and_drop_template = """
 <!DOCTYPE html>
 <html>
@@ -66,14 +65,16 @@ html_drag_and_drop_template = """
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #f8f9fa; margin: 0; padding: 10px; color: #333; }
         .contenedor-global { display: flex; gap: 20px; }
-        .columna-izq { flex: 1; background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; min-height: 500px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .columna-der { flex: 3; background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; min-height: 500px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .grilla-destinos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
-        .caja-destino { background: #e9ecef; border: 2px dashed #ced4da; border-radius: 6px; padding: 10px; min-height: 400px; transition: all 0.2s ease; }
+        .columna-izq { flex: 1; background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; min-height: 650px; max-height: 650px; overflow-y: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .columna-der { flex: 4; background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; min-height: 650px; max-height: 650px; overflow-y: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        /* EXPANSIÓN v2.0.0: Cuadrícula responsiva que acomoda dinámicamente todas las subcategorías en filas */
+        .grilla-destinos { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+        .caja-destino { background: #e9ecef; border: 2px dashed #ced4da; border-radius: 6px; padding: 8px; min-height: 120px; max-height: 150px; overflow-y: auto; transition: all 0.2s ease; }
         .caja-destino.dragover { background: #d1ecf1; border-color: #17a2b8; }
-        .item-producto { background: #ffffff; border: 1px solid #ced4da; border-radius: 4px; padding: 10px; margin-bottom: 8px; cursor: grab; font-size: 13px; font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.05); user-select: none; }
+        .item-producto { background: #ffffff; border: 1px solid #ced4da; border-radius: 4px; padding: 6px 10px; margin-bottom: 6px; cursor: grab; font-size: 12px; font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.05); user-select: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .item-producto:active { cursor: grabbing; }
         h3 { margin-top: 0; font-size: 15px; color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 5px; }
+        h4 { margin: 0 0 4px 0; font-size: 12px; color: #212529; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     </style>
 </head>
 <body>
@@ -81,7 +82,7 @@ html_drag_and_drop_template = """
 <div class="contenedor-global">
     <div class="columna-izq">
         <h3>📋 Depósito General (ID 12)</h3>
-        <div id="lista-origen" class="caja-origen" ondragover="permitirDrop(event)"></div>
+        <div id="lista-origen" class="caja-origen"></div>
     </div>
     
     <div class="columna-der">
@@ -100,6 +101,7 @@ html_drag_and_drop_template = """
         item.className = "item-producto";
         item.id = p.id_catalogo;
         item.draggable = true;
+        item.title = p.nombre_catalogo;
         item.innerText = p.id_catalogo + " - " + p.nombre_catalogo;
         item.addEventListener("dragstart", arrastrar);
         divOrigen.appendChild(item);
@@ -111,9 +113,8 @@ html_drag_and_drop_template = """
         col.className = "columna-destino-individual";
         
         const titulo = document.createElement("h4");
-        titulo.style.margin = "0 0 5px 0";
-        titulo.style.fontSize = "13px";
         titulo.innerText = s.nombre_subcat;
+        titulo.title = s.nombre_subcat;
         
         const caja = document.createElement("div");
         caja.className = "caja-destino";
@@ -147,20 +148,29 @@ html_drag_and_drop_template = """
 
     function soltar(ev) {
         ev.preventDefault();
-        ev.target.classList.remove("dragover");
+        ev.target.removeEventListener("dragleave", dragLeave);
         
-        const id_producto = ev.dataTransfer.getData("text_id");
-        const contenido = ev.dataTransfer.getData("text_contenido");
-        const elemento_arrastrado = document.getElementById(id_producto);
+        // Buscamos el elemento contenedor real si cae encima de un texto o un hijo
+        let destino = ev.target;
+        while (destino && !destino.classList.contains("caja-destino")) {
+            destino = destino.parentElement;
+        }
         
-        if (ev.target.classList.contains("caja-destino")) {
-            ev.target.appendChild(elemento_arrastrado);
-            const id_subcat_destino = ev.target.id.replace("subcat-", "");
+        if (destino) {
+            destino.classList.remove("dragover");
+            const id_producto = ev.dataTransfer.getData("text_id");
+            const contenido = ev.dataTransfer.getData("text_contenido");
+            const elemento_arrastrado = document.getElementById(id_producto);
             
-            window.parent.postMessage({
-                type: "streamlit:setComponentValue",
-                value: { id_prod: id_producto, id_sub: id_subcat_destino, txt: contenido }
-            }, "*");
+            if (elemento_arrastrado) {
+                destino.appendChild(elemento_arrastrado);
+                const id_subcat_destino = destino.id.replace("subcat-", "");
+                
+                window.parent.postMessage({
+                    type: "streamlit:setComponentValue",
+                    value: { id_prod: id_producto, id_sub: id_subcat_destino, txt: contenido }
+                }, "*");
+            }
         }
     }
 </script>
@@ -169,11 +179,11 @@ html_drag_and_drop_template = """
 </html>
 """
 
-# Reemplazo de texto plano seguro inmune a SyntaxErrors
+# Reemplazo de texto plano seguro libre de SyntaxErrors
 html_final = html_drag_and_drop_template.replace("__PENDIENTES__", json_pendientes).replace("__SUBCATEGORIAS__", json_subcats)
 
 # 7. CAPTURA DEL PULSO DE RETORNO Y EJECUCIÓN DEL UPDATE EN LA NUBE
-evento_retorno = components.html(html_final, height=580, scrolling=False)
+evento_retorno = components.html(html_final, height=680, scrolling=False)
 
 if evento_retorno is not None and isinstance(evento_retorno, dict):
     id_catalogo_afectado = evento_retorno.get("id_prod")
