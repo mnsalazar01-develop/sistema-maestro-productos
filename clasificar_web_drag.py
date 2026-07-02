@@ -1,10 +1,3 @@
-# ==============================================================================
-# PROGRAMA SATÉLITE: clasificar_web_drag.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 1.0.0 (CLASIFICADOR INTERACTIVO DRAG & DROP 100% WEB)
-# DESCRIPCIÓN: Consola Gráfica de Arrastre Remoto sin Requisitos de Software en PC
-# MODIFICACIÓN: Despliegue de lienzo HTML5 conectado al id_enlace_subcat de la nube.
-# ==============================================================================
-
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
@@ -36,14 +29,14 @@ st.title("🖱️ Clasificador Interactivo Drag & Drop Web")
 st.markdown("Mueve los productos con el mouse directamente en el navegador para reclasificar pasillos en caliente en la nube. ¡100% libre de instalaciones en tu PC!")
 st.markdown("---")
 
-# 3. EXTRACCIÓN SÍNCRONA DE ARTÍCULOS EN DEPÓSITO (ID 12) Y SUBCATEGORIAS DESTINO
+# 3. EXTRACCIÓN SÍNCRONA DE ARTÍCULOS EN DEPÓSITO (ID 12) Y SUBCATEGORIAS DESTINO CORE
 def descargar_datos_clasificador_web():
     try:
         # Descargamos los productos que están temporalmente en el bolsón general de Víveres (ID 12)
         res_cat = supabase.table("catalogo").select("id_catalogo, nombre_catalogo").eq("id_enlace_subcat", 12).limit(30).execute()
         
-        # Filtramos las subcategorías destino core que usaremos en la grilla visual (IDs 1, 2, 9, 16)
-        res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").in_("id_subcat", [1, 2, 9, 16]).execute()
+        # Traemos el listado completo de subcategorías existentes para poblar la grilla de internet
+        res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").order("id_subcat", ascending=True).execute()
         
         if res_cat and hasattr(res_cat, 'data') and res_sub and hasattr(res_sub, 'data'):
             return res_cat.data, res_sub.data
@@ -61,7 +54,9 @@ if not lista_pendientes:
 # 5. INYECCIÓN DEL LIENZO GRÁFICO AVANZADO MEDIANTE HTML5 + JAVASCRIPT EMBEBIDO
 # Preparamos las estructuras JSON seguras para pasárselas al frame del navegador
 json_pendientes = json.dumps(lista_pendientes)
-json_subcats = json.dumps(lista_subcats)
+# Costura v1.0.2: Reparamos de forma estricta el contenedor de la tupla numérica de validación
+subcats_filtradas = [s for s in lista_subcats if s["id_subcat"] in (1, 2, 9, 16)]
+json_subcats = json.dumps(subcats_filtradas)
 
 html_drag_and_drop = f"""
 <!DOCTYPE html>
@@ -84,13 +79,11 @@ html_drag_and_drop = f"""
 <body>
 
 <div class="contenedor-global">
-    <!-- PANEL IZQUIERDO: DEPOSITADOS -->
     <div class="columna-izq">
         <h3>📋 Depósito General (ID 12)</h3>
         <div id="lista-origen" class="caja-origen" ondragover="permitirDrop(event)"></div>
     </div>
     
-    <!-- PANEL DERECHO: SUBCATEGORIAS DESTINO DE PRODUCCIÓN -->
     <div class="columna-der">
         <h3>📥 Arrastra aquí para refinar la subcategoría comercial:</h3>
         <div id="contenedor-grid" class="grilla-destinos"></div>
@@ -98,11 +91,9 @@ html_drag_and_drop = f"""
 </div>
 
 <script>
-    // Absorción nativa de los datos inyectados por Streamlit Cloud
     const productos = {json_pendientes};
     const subcategorias = {json_subcats};
 
-    // Renderizado automatizado de la lista de productos pendientes
     const divOrigen = document.getElementById("lista-origen");
     productos.forEach(p => {{
         const item = document.createElement("div");
@@ -114,7 +105,6 @@ html_drag_and_drop = f"""
         divOrigen.appendChild(item);
     }});
 
-    // Renderizado automatizado de las 4 columnas de subcategorías destino
     const divGrid = document.getElementById("contenedor-grid");
     subcategorias.forEach(s => {{
         const col = document.createElement("div");
@@ -138,7 +128,6 @@ html_drag_and_drop = f"""
         divGrid.appendChild(col);
     }});
 
-    // Funciones del API HTML5 Drag & Drop nativas del navegador
     function arrastrar(ev) {{
         ev.dataTransfer.setData("text_id", ev.target.id);
         ev.dataTransfer.setData("text_contenido", ev.target.innerText);
@@ -164,17 +153,13 @@ html_drag_and_drop = f"""
         const contenido = ev.dataTransfer.getData("text_contenido");
         const elemento_arrastrado = document.getElementById(id_producto);
         
-        // Verificamos que caiga estrictamente dentro de la caja contenedora
         if (ev.target.classList.contains("caja-destino")) {{
             ev.target.appendChild(elemento_arrastrado);
+            const id_subcat_destino = ev.target.id.split("-");
             
-            // Extraemos el ID numérico de la subcategoría destino desde el ID HTML (subcat-X)
-            const id_subcat_destino = ev.target.id.split("-")[1];
-            
-            // Enviamos el pulso de red de regreso a Python a través de la API de comunicación de Streamlit
             window.parent.postMessage({{
                 type: "streamlit:setComponentValue",
-                value: {{ id_prod: id_producto, id_sub: id_subcat_destino, txt: contenido }}
+                value: {{ id_prod: id_producto, id_sub: id_subcat_destino[1], txt: contenido }}
             }, "*");
         }}
     }}
@@ -185,10 +170,8 @@ html_drag_and_drop = f"""
 """
 
 # 6. CAPTURA DEL PULSO DE RETORNO Y EJECUCIÓN DEL UPDATE EN LA NUBE
-# El componente embebido escucha de forma síncrona las interacciones de Javascript
 evento_retorno = components.html(html_drag_and_drop, height=580, scrolling=False)
 
-# Si el operador movió una caja, Python captura los datos en el backend de internet al instante
 if evento_retorno is not None and isinstance(evento_retorno, dict):
     id_catalogo_afectado = evento_retorno.get("id_prod")
     id_subcat_asignada = evento_retorno.get("id_sub")
@@ -196,13 +179,12 @@ if evento_retorno is not None and isinstance(evento_retorno, dict):
     
     if id_catalogo_afectado and id_subcat_asignada:
         try:
-            # Actualización en caliente modificando la columna del DDL real de Producción
+            # Saneamiento v1.0.2: Forzamos el casteo limpio a entero para inyectar en la base de datos real
             supabase.table("catalogo").update({
                 "id_enlace_subcat": int(id_subcat_asignada)
             }).eq("id_catalogo", int(id_catalogo_afectado)).execute()
             
-            st.toast(f"🔄 Sincronizado: {texto_articulo} reclasificado en caliente.", icon="⚡")
-            # Forzamos un refrescamiento de la pantalla para vaciar el artículo del depósito izquierdo
+            st.toast(f"🔄 Reclasificado: {texto_articulo}", icon="⚡")
             st.rerun()
         except Exception as e_update_web:
             st.error(f"❌ Error de persistencia relacional en internet: {e_update_web}")
