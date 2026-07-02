@@ -2,30 +2,29 @@ import sys
 import os
 import toml
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, 
-                             QVBoxLayout, QListWidget, QLabel, QAbstractItemView)
+                             QVBoxLayout, QListWidget, QLabel)
 from PyQt6.QtCore import Qt
 from supabase import create_client, Client
 
-# 🔑 EXTRACTOR NORMALIZADO TOML: Extrae las credenciales con el estándar de Streamlit
-def cargar_credenciales_desde_secrets():
+# 🔑 EXTRACTOR INTEGRAL DE SECRETS: Lee las llaves idéntico a como lo hace Streamlit
+def cargar_credenciales_seguras_retail():
     ruta_secrets = os.path.join(".streamlit", "secrets.toml")
     if not os.path.exists(ruta_secrets):
-        print("❌ Error Crítico: No se encuentra el archivo .streamlit/secrets.toml en la raíz.")
+        print("❌ Error Crítico: No se encuentra el archivo .streamlit/secrets.toml en la raíz de la suite.")
         sys.exit(1)
-        
     try:
-        # Devoramos el archivo respetando la estructura oficial del ecosistema
-        config = toml.load(ruta_secrets)
-        url_cloud = config["supabase"]["url"]
-        key_cloud = config["supabase"]["key"]
-        return url_cloud, key_cloud
+        # Cargamos el archivo nativo usando la biblioteca estricta del framework
+        secrets_dict = toml.load(ruta_secrets)
+        url_limpia = str(secrets_dict["supabase"]["url"]).strip()
+        key_limpia = str(secrets_dict["supabase"]["key"]).strip()
+        return url_limpia, key_limpia
     except Exception as e_toml:
-        print(f"❌ Error al decodificar la estructura del secrets.toml: {e_toml}")
+        print(f"❌ Error fatal al decodificar la estructura del secrets.toml: {e_toml}")
         sys.exit(1)
 
-SUPABASE_URL, SUPABASE_KEY = cargar_credenciales_desde_secrets()
+SUPABASE_URL, SUPABASE_KEY = cargar_credenciales_seguras_retail()
 
-# Inicializamos el cliente oficial sintonizado con el ADN relacional de internet
+# Inicializamos el cliente oficial de internet libre de parches de texto duros
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 class ListaProductosArrastrable(QListWidget):
@@ -47,30 +46,31 @@ class ListaProductosArrastrable(QListWidget):
 
     def dropEvent(self, event):
         if event.mimeData().hasText():
-            # Extraemos de forma limpia el ID primario y la descripción del producto arrastrado
+            # Reparación v1.2.0: Desempaquetado e indexación estricta de la trama de texto
             datos = event.mimeData().text().split(" - ")
             id_catalogo_prod = datos[0]
             nombre_producto = " - ".join(datos[1:])
             
             try:
-                # Si se soltó en una caja con ID relacional válido, actualización en caliente en Supabase
+                # Si se soltó en una caja con ID relacional válido, actualización en caliente en la nube
                 if self.categoria_destino is not None:
                     print(f"Moviendo relacionalmente: {nombre_producto} -> ID Subcategoría: {self.categoria_destino}")
                     
+                    # Impactamos de forma síncrona el campo correcto de tu DDL de Producción
                     supabase.table("catalogo").update({
                         "id_enlace_subcat": int(self.categoria_destino)
                     }).eq("id_catalogo", int(id_catalogo_prod)).execute()
                     
                 else:
-                    # Si regresa a la lista izquierda, lo enviamos al bolsón de Víveres General (ID 12) como parachoques
+                    # Si regresa a la lista izquierda, lo reubicamos en el bolsón general de Víveres (ID 12)
                     supabase.table("catalogo").update({
                         "id_enlace_subcat": 12 
                     }).eq("id_catalogo", int(id_catalogo_prod)).execute()
 
-                # Pintamos el elemento de forma visual en la nueva lista de destino
+                # Pintamos visualmente el registro en el nuevo contenedor destino
                 self.addItem(f"{id_catalogo_prod} - {nombre_producto}")
                 
-                # Consolidamos el movimiento nativo dentro del hilo de interfaz de Qt
+                # Consolidamos el movimiento nativo dentro del hilo gráfico local de Qt
                 event.setDropAction(Qt.DropAction.MoveAction)
                 event.acceptProposedAction()
                 super().dropEvent(event)
@@ -80,7 +80,7 @@ class ListaProductosArrastrable(QListWidget):
 class VentanaClasificadora(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Clasificador Iterativo de Catálogo - Retail Venezuela (TOML Sync)")
+        self.setWindowTitle("Clasificador Iterativo de Catálogo - Retail Venezuela (TOML Corrected)")
         self.resize(1200, 650)
 
         # Contenedor central de alta densidad visual
@@ -102,7 +102,7 @@ class VentanaClasificadora(QMainWindow):
 
         layout_categorias = QHBoxLayout()
 
-        # Mapeo estricto emparejado con los IDs BigInt reales de tu base de datos cloud
+        # Mapeo estricto emparejado con los IDs BigInt reales de tu base de datos cloud de Producción
         self.categorias_config = [
             ("🥩 Carnicería", 1),
             ("🧀 Charcutería", 2),
@@ -136,7 +136,7 @@ class VentanaClasificadora(QMainWindow):
             for prod in res_pendientes.data:
                 self.lista_pendientes.addItem(f"{prod['id_catalogo']} - {prod['nombre_catalogo']}")
 
-            # 2. Poblamos las cajas de la derecha descargando los productos ya refinados en internet
+            # 2. Poblamos las cajas de la derecha descargando los productos ya conocidos en internet
             for _, id_subcat_real in self.categorias_config:
                 res_clasificados = supabase.table("catalogo").select("id_catalogo, nombre_catalogo").eq("id_enlace_subcat", id_subcat_real).execute()
                 for prod in res_clasificados.data:
