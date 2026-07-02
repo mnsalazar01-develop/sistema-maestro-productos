@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: clasificar_web_drag.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 3.1.0 (CORRECCIÓN SINTÁCTICA DE SELECCIÓN - INMUNE A EXCEPCIÓN APPI)
+# VERSIÓN: 3.2.0 (CORRECCIÓN PARÁMETRO COLUMNS - INMUNE A TYPEERROR)
 # DESCRIPCIÓN: Panel de Clasificación Nativa 100% Python sin Intermediarios JS
-# MODIFICACIÓN: Normalización de selection_mode como lista para asegurar persistencia.
+# MODIFICACIÓN: Inyección explícita de st.columns(2) para asegurar consistencia.
 # ==============================================================================
 
 import streamlit as st
@@ -64,24 +64,25 @@ mapa_subcats_nombre_a_id = {str(fila["nombre_subcat"]): int(fila["id_subcat"]) f
 df_productos["Subcategoría Actual en Nube"] = df_productos["id_enlace_subcat"].map(mapa_subcats_id_a_nombre).fillna("⚠️ Renglón Huérfano / Depósito general")
 
 # 6. DISTRIBUCIÓN DE LA PANTALLA EN DOS PANELES DE ALTA DENSIDAD VISUAL
-col_tabla, col_formulario = st.columns()
+# CORRECCIÓN v3.2.0: Inyectamos el argumento posicional 2 para definir las columnas del lienzo web
+col_tabla, col_formulario = st.columns(2)
 
 with col_tabla:
     st.markdown("### 📋 Surtido Registrado de la Compañía (372 SKUs)")
-    st.caption("Haz clic en la casilla de la izquierda para seleccionar el producto que deseas mover [5.1].")
+    st.caption("Haz clic en la casilla de la izquierda para seleccionar el producto que deseas mover.")
     
     df_visualizacion = df_productos[["id_catalogo", "nombre_catalogo", "Subcategoría Actual en Nube"]].rename(columns={
         "id_catalogo": "ID SKU",
         "nombre_catalogo": "Descripción del Artículo"
     })
     
-    # CORRECCIÓN v3.1.0: Envolvemos single dentro de una lista estricta para satisfacer el validador nativo
+    # Configuramos el modo de selección protegido compatible con versiones estables y modernas
     seleccion_tabla = st.dataframe(
         df_visualizacion,
         use_container_width=True,
         hide_index=True,
         on_select="rerun",
-        selection_mode=["single-row"] if hasattr(st, "dataframe") else "single"
+        selection_mode="single-row"
     )
 
 with col_formulario:
@@ -107,7 +108,7 @@ with col_formulario:
         
         id_subcat_destino_numeric = mapa_subcats_nombre_a_id[subcat_destino_seleccionada]
         
-        if st.button("🚀 Confirmar y Guardar Cambios en Nube", use_container_width=True, key="btn_guardar_refine_v310"):
+        if st.button("🚀 Confirmar y Guardar Cambios en Nube", use_container_width=True, key="btn_guardar_refine_v320"):
             with st.spinner("Modificando registro directamente en el disco duro de Supabase..."):
                 try:
                     # PERSISTENCIA PURA DE BACKEND: Inmune a bloqueos del navegador o iframes de red
