@@ -1,8 +1,8 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: clasificar_web_drag.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 8.0.0 (EDITOR MASIVO EN CALIENTE - MÍNIMO ESFUERZO POSIBLE)
+# VERSIÓN: 8.1.0 (BLINDAJE DE EDICIÓN EXCEL DIRECTA - PERSISTENCIA DURA CLOUD)
 # DESCRIPCIÓN: Panel de Refinamiento Retail en Formato de Grilla Excel Nativa
-# MODIFICACIÓN: Inyección de st.data_editor para forzar guardado duro sin JS ni iframes.
+# MODIFICACIÓN: Captura por asignación directa de variable para forzar el UPDATE.
 # ==============================================================================
 
 import streamlit as st
@@ -38,11 +38,8 @@ st.markdown("---")
 @st.cache_data(ttl=1)
 def descargar_datos_grilla_masiva():
     try:
-        # Descargamos los 372 productos del catálogo cloud ordenados por descripción
         res_cat = supabase.table("catalogo").select("id_catalogo, nombre_catalogo, id_enlace_subcat").order("nombre_catalogo").execute()
-        # Descargamos el árbol unificado de subcategorías (1 al 46)
         res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").order("id_subcat").execute()
-        
         if res_cat and hasattr(res_cat, 'data') and res_sub and hasattr(res_sub, 'data'):
             return pd.DataFrame(res_cat.data), pd.DataFrame(res_sub.data)
     except Exception as e_load:
@@ -59,24 +56,23 @@ if df_productos.empty or df_subcats.empty:
 mapa_id_a_nombre = {int(f["id_subcat"]): str(f["nombre_subcat"]) for _, f in df_subcats.iterrows()}
 mapa_nombre_a_id = {str(f["nombre_subcat"]): int(f["id_subcat"]) for _, f in df_subcats.iterrows()}
 
-# Inyectamos el nombre del pasillo actual dentro del DataFrame para que el operador lo lea fácil
 df_productos["Subcategoría Comercial"] = df_productos["id_enlace_subcat"].map(mapa_id_a_nombre).fillna("⚠️ Depósito General (ID 12)")
 
-# Preparamos los datos limpios para la hoja interactiva de pantalla
 df_editable = df_productos[["id_catalogo", "nombre_catalogo", "Subcategoría Comercial"]].rename(columns={
     "id_catalogo": "ID SKU",
     "nombre_catalogo": "Descripción del Artículo"
 })
 
-# 5. RENDERIZADO DE LA HOJA INTERACTIVA EXCEL NATIVA (EDICIÓN EN CELDA HILOS PUROS)
-st.caption("💡 Instrucción: Haz doble clic sobre cualquier celda de la columna 'Subcategoría Comercial', elige el nuevo destino y presiona Enter [5.1].")
+st.caption("💡 Instrucción: Haz doble clic sobre la celda del pasillo, elige el destino y presiona Enter. ¡El guardado es inmediato!")
 
-# El data_editor bloquea la edición de ID y Nombre, abriendo únicamente la celda del pasillo como un desplegable dinámico
+# 5. RENDERIZADO Y CAPTURA DIRECTA DE LA HOJA INTERACTIVA EXCEL NATIVA
+# Al asignar el componente directo a la variable 'grilla_excel_viva', capturamos las celdas mutadas sin intermediarios
 grilla_excel_viva = st.data_editor(
     df_editable,
     use_container_width=True,
     hide_index=True,
     disabled=["ID SKU", "Descripción del Artículo"],
+    key="editor_maestro_catalogo_v810",
     column_config={
         "Subcategoría Comercial": st.column_config.SelectboxColumn(
             "Variedad / Departamento Destino",
@@ -86,10 +82,9 @@ grilla_excel_viva = st.data_editor(
     }
 )
 
-# 6. CAPTURA AUTOMÁTICA DE CAMBIOS EN CALIENTE Y PERSISTENCIA CLOUD DURA
-# Si el operador alteró alguna celda en la grilla, Streamlit nos entrega el diccionario de mutaciones
-if st.session_state.get("data_editor") and "edited_rows" in st.session_state["data_editor"]:
-    cambios_celdas = st.session_state["data_editor"]["edited_rows"]
+# 6. BI-PASS DE PERSISTENCIA DURA: Procesamos las mutaciones leyendo la variable viva del componente
+if st.session_state.get("editor_maestro_catalogo_v810") and "edited_rows" in st.session_state["editor_maestro_catalogo_v810"]:
+    cambios_celdas = st.session_state["editor_maestro_catalogo_v810"]["edited_rows"]
     
     if cambios_celdas:
         for indice_fila_pantalla, celda_mutada in cambios_celdas.items():
@@ -97,12 +92,12 @@ if st.session_state.get("data_editor") and "edited_rows" in st.session_state["da
                 nuevo_nombre_subcat = celda_mutada["Subcategoría Comercial"]
                 id_subcat_nueva_numeric = mapa_nombre_a_id[nuevo_nombre_subcat]
                 
-                # Extraemos el ID real del producto modificado desde la memoria RAM usando su posición de fila
+                # Extraemos el ID real del producto modificado usando la fila de la memoria RAM
                 id_sku_modificado = int(df_editable.iloc[int(indice_fila_pantalla)]["ID SKU"])
                 nombre_sku_modificado = str(df_editable.iloc[int(indice_fila_pantalla)]["Descripción del Artículo"])
                 
                 try:
-                    # PERSISTENCIA INDUSTRIAL INMUNE: Grabado síncrono directo en el disco sólido de Supabase Cloud
+                    # PERSISTENCIA ABSOLUTA DURA: Grabado real directo en el disco de Supabase Cloud
                     supabase.table("catalogo").update({
                         "id_enlace_subcat": int(id_subcat_nueva_numeric)
                     }).eq("id_catalogo", int(id_sku_modificado)).execute()
