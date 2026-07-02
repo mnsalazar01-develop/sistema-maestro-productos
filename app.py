@@ -1,95 +1,191 @@
-# ==============================================================================
-# PROGRAMA CENTRAL: app.py (CENTRO DE CONTROL PURIFICADO)
-# VERSIÓN: 4.6.0 (INTEGRACIÓN NATIVA DEL CLASIFICADOR DRAG & DROP WEB)
-# DESCRIPCIÓN: Panel Central Retail con Navegación por Botones y Control de Auto-Importación
-# MODIFICACIÓN: Enrutamiento directo al módulo HTML5 sin requisitos locales de PC.
-# ==============================================================================
-
 import streamlit as st
+import streamlit.components.v1 as components
+import pandas as pd
+import json
+from supabase import create_client, Client
 
-# 1. CONFIGURACIÓN CORPORATIVA DE LA VENTANA WEB DE PRODUCCIÓN
+# 1. CONFIGURACIÓN INDEPENDIENTE DE LA VENTANA WEB DE STREAMLIT
 st.set_page_config(
-    page_title="Sistema Maestro de Productos",
-    page_icon="📦",
+    page_title="Clasificador Drag & Drop Web",
+    page_icon="🖱️",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# 2. DEFINICIÓN DE LA PÁGINA DE PORTADA (CENTRO DE CONTROL)
-def mostrar_centro_control():
-    st.title("🏭 Centro de Control")
-    st.markdown("Bienvenido al ecosistema modular de clasificación, control y analítica de productos.")
-    st.markdown("---")
+# 2. HERENCIA DE CONEXIÓN SEGURA INDEPENDIENTE CON LAS LLAVES DE LA COMPAÑÍA
+@st.cache_resource
+def init_supabase_local() -> Client:
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
 
-    # Grilla horizontal simétrica de 6 columnas limpias de alta densidad para la suite
-    col_inv, col_prod, col_maestro, col_subcat, col_saneamiento, col_bi = st.columns(6)
+try:
+    supabase = init_supabase_local()
+except Exception as e:
+    st.error(f"❌ Error de Conexión Base: {e}")
+    st.stop()
 
-    with col_inv:
-        st.markdown("#### Carga de Inventario")
-        st.caption("Carga de archivos planos CSV mediante el diccionario de confianza.")
-        if st.button("📤 Batch - Imput Inventario", use_container_width=True, key="btn_p1_inv_v460"):
-            st.switch_page(pagina_inventario)
+st.title("🖱️ Clasificador Interactivo Drag & Drop Web")
+st.markdown("Mueve los productos con el mouse directamente en el navegador para reclasificar pasillos en caliente en la nube. ¡100% libre de instalaciones en tu PC!")
+st.markdown("---")
 
-    with col_prod:
-        st.markdown("#### Registrar Producto")
-        st.caption("Alta manual reactiva de artículos nuevos y control multimedia.")
-        if st.button("Registrar Productos", use_container_width=True, key="btn_p1_prod_v460"):
-            st.switch_page(pagina_productos)
+# 3. EXTRACCIÓN SÍNCRONA DE ARTÍCULOS EN DEPÓSITO (ID 12) Y SUBCATEGORIAS DESTINO CORE
+def descargar_datos_clasificador_web():
+    try:
+        # Descargamos los productos que están temporalmente en el bolsón general de Víveres (ID 12)
+        res_cat = supabase.table("catalogo").select("id_catalogo, nombre_catalogo").eq("id_enlace_subcat", 12).limit(30).execute()
+        
+        # Saneamiento v1.0.1: Traemos el listado completo de subcategorías existentes para poblar la grilla de internet
+        res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").order("id_subcat", ascending=True).execute()
+        
+        if res_cat and hasattr(res_cat, 'data') and res_sub and hasattr(res_sub, 'data'):
+            return res_cat.data, res_sub.data
+    except Exception as e_load:
+        st.sidebar.error(f"⚠️ Error al leer datos desde internet: {e_load}")
+    return [], []
 
-    with col_maestro:
-        st.markdown("#### Maestro de Datos")
-        st.caption("Visualizador de registros en tiempo real y extractor binario a formato Excel.")
-        if st.button("Maestro de Datos", use_container_width=True, key="btn_p1_mae_v460"):
-            st.switch_page(pagina_maestro)
+lista_pendientes, lista_subcats = descargar_datos_clasificador_web()
 
-    with col_subcat:
-        st.markdown("#### Subcategorias")
-        st.caption("Consola unificada para auditar, sembrar y actualizar las familias del automercado.")
-        if st.button("Gestionar Subcategorias", use_container_width=True, key="btn_p1_sub_v460"):
-            st.switch_page(pagina_subcategorias)
+# 4. PARACHOQUES DE INTERNET: EVITA LA EJECUCIÓN SI NO HAY ELEMENTOS EN EL DEPÓSITO GENERAL
+if not lista_pendientes:
+    st.success("🎉 ¡Excelente! No quedan productos pendientes con la clasificación básica de Víveres (ID 12) en la nube.")
+    st.stop()
 
-    with col_saneamiento:
-        st.markdown("#### Saneamiento Batch")
-        st.caption("Purga atómica en caliente del servidor para restablecer el árbol relacional del 1 al 46.")
-        if st.button("⚡ Inicializador Batch", use_container_width=True, key="btn_p1_saneamiento_v460"):
-            st.switch_page(pagina_saneamiento)
+# 5. INYECCIÓN DEL LIENZO GRÁFICO AVANZADO MEDIANTE HTML5 + JAVASCRIPT EMBEBIDO
+# Preparamos las estructuras JSON seguras para pasárselas al frame del navegador
+json_pendientes = json.dumps(lista_pendientes)
+# Limitamos visualmente en el mapa a las 4 subcategorías core principales para la grilla visual de demostración (1, 2, 9, 16)
+subcats_filtradas = [s for s in lista_subcats if s["id_subcat"] in]
+json_subcats = json.dumps(subcats_filtradas)
 
-    with col_bi:
-        st.markdown("#### Analítica BI")
-        st.caption("Dashboard gerencial de surtido, densidad de marcas y subcategorías poco distribuidas.")
-        if st.button("📊 Dashboard Analítico", use_container_width=True, key="btn_p1_bi_v460"):
-            st.switch_page(pagina_dashboard)
+html_drag_and_drop = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {{ font-family: 'Segoe UI', sans-serif; background-color: #f8f9fa; margin: 0; padding: 10px; color: #333; }}
+        .contenedor-global {{ display: flex; gap: 20px; }}
+        .columna-izq {{ flex: 1; background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; min-height: 500px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
+        .columna-der {{ flex: 3; background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; min-height: 500px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
+        .grilla-destinos {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }}
+        .caja-destino {{ background: #e9ecef; border: 2px dashed #ced4da; border-radius: 6px; padding: 10px; min-height: 400px; transition: all 0.2s ease; }}
+        .caja-destino.dragover {{ background: #d1ecf1; border-color: #17a2b8; }}
+        .item-producto {{ background: #ffffff; border: 1px solid #ced4da; border-radius: 4px; padding: 10px; margin-bottom: 8px; cursor: grab; font-size: 13px; font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.05); user-select: none; }}
+        .item-producto:active {{ cursor: grabbing; }}
+        h3 {{ margin-top: 0; font-size: 15px; color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 5px; }}
+    </style>
+</head>
+<body>
 
-    st.markdown("---")
-    st.info("💡 Consejo técnico: Utiliza la barra lateral de la izquierda para ingresar directo a los programas o para cambiar de estación de trabajo con un clic.")
+<div class="contenedor-global">
+    <div class="columna-izq">
+        <h3>📋 Depósito General (ID 12)</h3>
+        <div id="lista-origen" class="caja-origen" ondragover="permitirDrop(event)"></div>
+    </div>
+    
+    <div class="columna-der">
+        <h3>📥 Arrastra aquí para refinar la subcategoría comercial:</h3>
+        <div id="contenedor-grid" class="grilla-destinos"></div>
+    </div>
+</div>
 
-# 3. DECLARACIÓN FORMAL DE INSTANCIAS DE PÁGINAS SATÉLITES EN LA RAÍZ
-pagina_inicio = st.Page(mostrar_centro_control, title="🏭 Centro de Control", icon="🏠", default=True)
-pagina_inventario = st.Page("cargar_inventario.py", title="Cargar Inventario Masivo", icon="📤")
-pagina_productos = st.Page("cargar_productos.py", title="Registrar Producto Manual", icon="📝")
-pagina_maestro = st.Page("maestro_datos.py", title="Maestro de Datos", icon="📊")
-pagina_subcategorias = st.Page("gestionar_subcategorias.py", title="Subcategorias", icon="⚙️")
-pagina_saneamiento = st.Page("batch_inicializar_tablas.py", title="Saneamiento Batch", icon="⚡")
-pagina_dashboard = st.Page("dashboard_catalogo.py", title="Dashboard Analítico", icon="📊")
-# Costura v4.6.0: Apuntamos directamente al archivo clasificar_web_drag.py para correr 100% en la nube
-pagina_qt_local = st.Page("clasificar_web_drag.py", title="Clasificador Drag & Drop", icon="🖱️")
+<script>
+    // Saneamiento v1.0.1: Duplicamos las llaves en la f-string para inyectar JSON crudo sin romper a Python
+    const productos = {json_pendientes};
+    const subcategorias = {json_subcats};
 
-# 4. CONSTRUCCIÓN AUTOMÁTICA DEL MOTOR DE NAVEGACIÓN EN LA BARRA LATERAL
-enrutador_global = st.navigation([
-    pagina_inicio,
-    pagina_inventario, 
-    pagina_productos, 
-    pagina_maestro, 
-    pagina_subcategorias,
-    pagina_saneamiento,
-    pagina_dashboard,
-    pagina_qt_local
-])
+    const divOrigen = document.getElementById("lista-origen");
+    productos.forEach(p => {{
+        const item = document.createElement("div");
+        item.className = "item-producto";
+        item.id = p.id_catalogo;
+        item.draggable = true;
+        item.innerText = p.id_catalogo + " - " + p.nombre_catalogo;
+        item.addEventListener("dragstart", arrastrar);
+        divOrigen.appendChild(item);
+    }});
 
-# Componentes fijos de control e identidad comercial en la barra de la izquierda
-st.sidebar.markdown("### 🔒 Ecosistema Retail Activo")
-st.sidebar.caption("Estaciones de trabajo descentralizadas e independientes.")
-st.sidebar.markdown("---")
+    const divGrid = document.getElementById("contenedor-grid");
+    subcategorias.forEach(s => {{
+        const col = document.createElement("div");
+        col.className = "columna-destino-individual";
+        
+        const titulo = document.createElement("h4");
+        titulo.style.margin = "0 0 5px 0";
+        titulo.style.fontSize = "13px";
+        titulo.innerText = s.nombre_subcat;
+        
+        const caja = document.createElement("div");
+        caja.className = "caja-destino";
+        caja.id = "subcat-" + s.id_subcat;
+        caja.addEventListener("dragover", permitirDrop);
+        caja.addEventListener("dragenter", dragEnter);
+        caja.addEventListener("dragleave", dragLeave);
+        caja.addEventListener("drop", soltar);
+        
+        col.appendChild(titulo);
+        col.appendChild(caja);
+        divGrid.appendChild(col);
+    }});
 
-# 5. DESPACHO CENTRAL SEGURO Y CONTROL DEL HILO DE EJECUCIÓN
-enrutador_global.run()
+    function arrastrar(ev) {{
+        ev.dataTransfer.setData("text_id", ev.target.id);
+        ev.dataTransfer.setData("text_contenido", ev.target.innerText);
+    }}
+
+    function permitirDrop(ev) {{
+        ev.preventDefault();
+    }}
+
+    function dragEnter(ev) {{
+        ev.target.classList.add("dragover");
+    }}
+
+    function dragLeave(ev) {{
+        ev.target.classList.remove("dragover");
+    }}
+
+    function soltar(ev) {{
+        ev.preventDefault();
+        ev.target.classList.remove("dragover");
+        
+        const id_producto = ev.dataTransfer.getData("text_id");
+        const contenido = ev.dataTransfer.getData("text_contenido");
+        const elemento_arrastrado = document.getElementById(id_producto);
+        
+        if (ev.target.classList.contains("caja-destino")) {{
+            ev.target.appendChild(elemento_arrastrado);
+            const id_subcat_destino = ev.target.id.split("-")[1];
+            
+            window.parent.postMessage({{
+                type: "streamlit:setComponentValue",
+                value: {{ id_prod: id_producto, id_sub: id_subcat_destino, txt: contenido }}
+            }, "*");
+        }}
+    }}
+</script>
+
+</body>
+</html>
+"""
+
+# 6. CAPTURA DEL PULSO DE RETORNO Y EJECUCIÓN DEL UPDATE EN LA NUBE
+evento_retorno = components.html(html_drag_and_drop, height=580, scrolling=False)
+
+if evento_retorno is not None and isinstance(evento_retorno, dict):
+    id_catalogo_afectado = evento_retorno.get("id_prod")
+    id_subcat_asignada = evento_retorno.get("id_sub")
+    texto_articulo = evento_retorno.get("txt")
+    
+    if id_catalogo_afectado and id_subcat_asignada:
+        try:
+            # Saneamiento v1.0.1: Forzamos el casteo limpio a entero para inyectar en la base de datos real
+            supabase.table("catalogo").update({
+                "id_enlace_subcat": int(id_subcat_asignada)
+            }).eq("id_catalogo", int(id_catalogo_afectado)).execute()
+            
+            st.toast(f"🔄 Reclasificado: {texto_articulo}", icon="⚡")
+            st.rerun()
+        except Exception as e_update_web:
+            st.error(f"❌ Error de persistencia relacional en internet: {e_update_web}")
