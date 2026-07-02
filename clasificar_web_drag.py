@@ -1,17 +1,12 @@
-# ==============================================================================
-# PROGRAMA SATÉLITE: clasificar_web_drag.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 3.2.0 (CORRECCIÓN PARÁMETRO COLUMNS - INMUNE A TYPEERROR)
-# DESCRIPCIÓN: Panel de Clasificación Nativa 100% Python sin Intermediarios JS
-# MODIFICACIÓN: Inyección explícita de st.columns(2) para asegurar consistencia.
-# ==============================================================================
-
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
+import json
 from supabase import create_client, Client
 
-# 1. CONFIGURACIÓN INDEPENDIENTE DE LA VENTANA DE CLASIFICACIÓN DE STREAMLIT
+# 1. CONFIGURACIÓN INDEPENDIENTE DE LA VENTANA WEB DE STREAMLIT
 st.set_page_config(
-    page_title="Refinar Catálogo",
+    page_title="Clasificador Drag & Drop Web",
     page_icon="🖱️",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -30,98 +25,178 @@ except Exception as e:
     st.error(f"❌ Error de Conexión Base: {e}")
     st.stop()
 
-st.title("🖱️ Consola de Refine y Clasificación de Catálogo")
-st.markdown("Selecciona los productos de la grilla para reubicar o corregir su subcategoría comercial de forma permanente en la nube.")
+# ==============================================================================
+# 🧠 RECEPTOR EN CALIENTE: CAPTURA LOS PULSOS DE ARRASTRE PERMANENTES DESDE LA URL
+# ==============================================================================
+parametros_url = st.query_params
+if "id_prod" in parametros_url and "id_sub" in parametros_url:
+    id_afectado = parametros_url["id_prod"]
+    id_destino = parametros_url["id_sub"]
+    try:
+        # PERSISTENCIA INTERNET DURA: Modificamos el disco duro de Supabase mediante Python nativo
+        supabase.table("catalogo").update({
+            "id_enlace_subcat": int(id_destino)
+        }).eq("id_catalogo", int(id_afectado)).execute()
+        
+        # Limpiamos los parámetros de la URL para evitar bucles infinitos de red
+        st.query_params.clear()
+        st.toast("💾 ¡Guardado Permanente en Supabase!", icon="✅")
+        st.rerun()
+    except Exception as e_url_persist:
+        st.error(f"❌ Error relacional en internet: {e_url_persist}")
+
+st.title("🖱️ Clasificador Interactivo Drag & Drop Web")
+st.markdown("Mueve los productos con el mouse directamente en el navegador para reclasificar pasillos en caliente en la nube. ¡100% libre de instalaciones en tu PC!")
 st.markdown("---")
 
-# 3. EXTRACCIÓN SÍNCRONA DE LOS 372 ARTÍCULOS COMPLETOS Y EL MASTER DE SUBCATEGORIAS
-@st.cache_data(ttl=2)
-def descargar_datos_consola_refine():
+# 3. EXTRACCIÓN SÍNCRONA DE LOS 372 ARTÍCULOS COMPLETOS Y EL 100% DE LAS SUBCATEGORIAS
+def descargar_datos_clasificador_web():
     try:
-        # Descargamos el catálogo completo con su subcategoría grabada en internet
-        res_cat = supabase.table("catalogo").select("id_catalogo, nombre_catalogo, id_enlace_subcat").order("id_catalogo").execute()
-        # Descargamos las subcategorías oficiales (1 al 46) para mapear descripciones
+        # Descargamos todos los productos de tu catálogo cloud de Producción
+        res_cat = supabase.table("catalogo").select("id_catalogo, nombre_catalogo, id_enlace_subcat").limit(400).execute()
+        # Descargamos el árbol completo unificado de subcategorías (1 al 46)
         res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").order("id_subcat").execute()
         
         if res_cat and hasattr(res_cat, 'data') and res_sub and hasattr(res_sub, 'data'):
-            return pd.DataFrame(res_cat.data), pd.DataFrame(res_sub.data)
+            return res_cat.data, res_sub.data
     except Exception as e_load:
         st.sidebar.error(f"⚠️ Error al leer datos desde internet: {e_load}")
-    return pd.DataFrame(), pd.DataFrame()
+    return [], []
 
-df_productos, df_subcats = descargar_datos_consola_refine()
+lista_pendientes, lista_subcats = descargar_datos_clasificador_web()
 
-# 4. PARACHOQUES DE SEGURIDAD RELACIONAL
-if df_productos.empty or df_subcats.empty:
-    st.info("💡 Esperando consistencia de datos... Asegúrate de tener registros en tus tablas cloud.")
+if not lista_pendientes:
+    st.info("💡 Catálogo Vacío: Carga productos primero para encender la grilla de arrastre.")
     st.stop()
 
-# 5. CONSTRUCCIÓN DEL MAPA DE INTERCAMBIO EN LA MEMORIA RAM
-mapa_subcats_id_a_nombre = {int(fila["id_subcat"]): str(fila["nombre_subcat"]) for _, fila in df_subcats.iterrows()}
-mapa_subcats_nombre_a_id = {str(fila["nombre_subcat"]): int(fila["id_subcat"]) for _, fila in df_subcats.iterrows()}
+# 4. PREPARACIÓN DE LAS ESTRUCTURAS JSON SEGURAS EN LA MEMORIA RAM
+json_pendientes = json.dumps(lista_pendientes)
+json_subcats = json.dumps(lista_subcats)
 
-# Inyectamos de forma temporal la string del pasillo dentro del dataframe para la lectura del operador
-df_productos["Subcategoría Actual en Nube"] = df_productos["id_enlace_subcat"].map(mapa_subcats_id_a_nombre).fillna("⚠️ Renglón Huérfano / Depósito general")
+# 5. LIENZO GRÁFICO TEXTO PLANO CON MATRIZ RESPONSIVA FLEXIBLE (DREG & DROP PRO)
+html_drag_and_drop_template = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f8f9fa; margin: 0; padding: 10px; color: #333; }
+        .contenedor-global { display: flex; gap: 20px; }
+        .columna-izq { flex: 1; background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; min-height: 650px; max-height: 650px; overflow-y: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .columna-der { flex: 4; background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; min-height: 650px; max-height: 650px; overflow-y: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .grilla-destinos { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+        .caja-destino { background: #e9ecef; border: 2px dashed #ced4da; border-radius: 6px; padding: 8px; min-height: 120px; max-height: 150px; overflow-y: auto; transition: all 0.2s ease; }
+        .caja-destino.dragover { background: #d1ecf1; border-color: #17a2b8; }
+        .item-producto { background: #ffffff; border: 1px solid #ced4da; border-radius: 4px; padding: 6px 10px; margin-bottom: 6px; cursor: grab; font-size: 12px; font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.05); user-select: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-producto:active { cursor: grabbing; }
+        h3 { margin-top: 0; font-size: 15px; color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 5px; }
+        h4 { margin: 0 0 4px 0; font-size: 12px; color: #212529; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    </style>
+</head>
+<body>
 
-# 6. DISTRIBUCIÓN DE LA PANTALLA EN DOS PANELES DE ALTA DENSIDAD VISUAL
-# CORRECCIÓN v3.2.0: Inyectamos el argumento posicional 2 para definir las columnas del lienzo web
-col_tabla, col_formulario = st.columns(2)
+<div class="contenedor-global">
+    <div class="columna-izq">
+        <h3>📋 Depósito General (Sin Asignar)</h3>
+        <div id="lista-origen" class="caja-origen"></div>
+    </div>
+    
+    <div class="columna-der">
+        <h3>📥 Arrastra aquí para refinar la subcategoría comercial:</h3>
+        <div id="contenedor-grid" class="grilla-destinos"></div>
+    </div>
+</div>
 
-with col_tabla:
-    st.markdown("### 📋 Surtido Registrado de la Compañía (372 SKUs)")
-    st.caption("Haz clic en la casilla de la izquierda para seleccionar el producto que deseas mover.")
-    
-    df_visualizacion = df_productos[["id_catalogo", "nombre_catalogo", "Subcategoría Actual en Nube"]].rename(columns={
-        "id_catalogo": "ID SKU",
-        "nombre_catalogo": "Descripción del Artículo"
-    })
-    
-    # Configuramos el modo de selección protegido compatible con versiones estables y modernas
-    seleccion_tabla = st.dataframe(
-        df_visualizacion,
-        use_container_width=True,
-        hide_index=True,
-        on_select="rerun",
-        selection_mode="single-row"
-    )
+<script>
+    const productos = __PENDIENTES__;
+    const subcategorias = __SUBCATEGORIAS__;
 
-with col_formulario:
-    st.markdown("### 📥 Módulo de Reubicación Cloud")
-    
-    # Extraemos las filas marcadas por el operador de forma segura
-    indices_seleccionados = seleccion_tabla.get("selection", {}).get("rows", [])
-    
-    if indices_seleccionados and len(indices_seleccionados) > 0:
-        # Extraemos la fila exacta de la memoria RAM usando el primer índice posicional
-        idx_fila = indices_seleccionados[0]
-        id_sku_seleccionado = int(df_visualizacion.iloc[idx_fila]["ID SKU"])
-        nombre_prod_seleccionado = str(df_visualizacion.iloc[idx_fila]["Descripción del Artículo"])
-        subcat_actual_prod = str(df_visualizacion.iloc[idx_fila]["Subcategoría Actual en Nube"])
+    const divGrid = document.getElementById("contenedor-grid");
+    subcategorias.forEach(s => {
+        const col = document.createElement("div");
+        col.className = "columna-destino-individual";
         
-        st.info(f"📦 **Artículo a procesar:**\n{nombre_prod_seleccionado}\n\n📍 **Ubicación actual:** {subcat_actual_prod}")
+        const titulo = document.createElement("h4");
+        titulo.innerText = s.nombre_subcat;
+        titulo.title = s.nombre_subcat;
         
-        lista_opciones_combobox = list(mapa_subcats_nombre_a_id.keys())
-        subcat_destino_seleccionada = st.selectbox(
-            "Selecciona la nueva variedad comercial de destino:",
-            options=lista_opciones_combobox
-        )
+        const caja = document.createElement("div");
+        caja.className = "caja-destino";
+        caja.id = "subcat-" + s.id_subcat;
+        caja.addEventListener("dragover", permitirDrop);
+        caja.addEventListener("dragenter", dragEnter);
+        caja.addEventListener("dragleave", dragLeave);
+        caja.addEventListener("drop", soltar);
         
-        id_subcat_destino_numeric = mapa_subcats_nombre_a_id[subcat_destino_seleccionada]
+        col.appendChild(titulo);
+        col.appendChild(caja);
+        divGrid.appendChild(col);
+    });
+
+    const divOrigen = document.getElementById("lista-origen");
+    productos.forEach(p => {
+        const item = document.createElement("div");
+        item.className = "item-producto";
+        item.id = p.id_catalogo;
+        item.draggable = true;
+        item.title = p.nombre_catalogo;
+        item.innerText = p.id_catalogo + " - " + p.nombre_catalogo;
+        item.addEventListener("dragstart", arrastrar);
         
-        if st.button("🚀 Confirmar y Guardar Cambios en Nube", use_container_width=True, key="btn_guardar_refine_v320"):
-            with st.spinner("Modificando registro directamente en el disco duro de Supabase..."):
-                try:
-                    # PERSISTENCIA PURA DE BACKEND: Inmune a bloqueos del navegador o iframes de red
-                    supabase.table("catalogo").update({
-                        "id_enlace_subcat": int(id_subcat_destino_numeric)
-                    }).eq("id_catalogo", int(id_sku_seleccionado)).execute()
-                    
-                    st.toast(f"✅ ¡Guardado Permanente! {nombre_prod_seleccionado} movido a {subcat_destino_seleccionada}.", icon="💾")
-                    
-                    # Limpiamos la caché e hilo para forzar refrescamiento instantáneo de grilla
-                    st.cache_data.clear()
-                    st.rerun()
-                except Exception as e_update_puro:
-                    st.error(f"❌ Error definitivo de persistencia relacional: {e_update_puro}")
-    else:
-        st.info("💡 Por favor, toca o selecciona un producto de la tabla de la izquierda para habilitar el panel de guardado permanente.")
+        const cajaDestino = document.getElementById("subcat-" + p.id_enlace_subcat);
+        if (cajaDestino && parseInt(p.id_enlace_subcat) !== 12) {
+            cajaDestino.appendChild(item);
+        } else {
+            divOrigen.appendChild(item);
+        }
+    });
+
+    function arrastrar(ev) {
+        ev.dataTransfer.setData("text_id", ev.target.id);
+    }
+
+    function permitirDrop(ev) {
+        ev.preventDefault();
+    }
+
+    function dragEnter(ev) {
+        ev.target.classList.add("dragover");
+    }
+
+    function dragLeave(ev) {
+        ev.target.classList.remove("dragover");
+    }
+
+    function soltar(ev) {
+        ev.preventDefault();
+        
+        let destino = ev.target;
+        while (destino && !destino.classList.contains("caja-destino")) {
+            destino = destino.parentElement;
+        }
+        
+        if (destino) {
+            destino.classList.remove("dragover");
+            const id_producto = ev.dataTransfer.getData("text_id");
+            const elemento_arrastrado = document.getElementById(id_producto);
+            
+            if (elemento_arrastrado) {
+                destino.appendChild(elemento_arrastrado);
+                const id_subcat_destino = destino.id.replace("subcat-", "");
+                
+                // BLINDAJE v4.0.0: Forzamos la redirección por parámetros de URL, comunicando a Python con poder inmutable
+                window.parent.location.search = "?id_prod=" + id_producto + "&id_sub=" + id_subcat_destino;
+            }
+        }
+    }
+</script>
+
+</body>
+</html>
+"""
+
+# Reemplazo seguro inyectando las strings JSON sin usar f-strings peligrosas
+html_final = html_drag_and_drop_template.replace("__PENDIENTES__", json_pendientes).replace("__SUBCATEGORIAS__", json_subcats)
+
+# Pintamos el lienzo interactivo definitivo en la pantalla web
+components.html(html_final, height=680, scrolling=False)
