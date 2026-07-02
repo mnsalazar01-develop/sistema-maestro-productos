@@ -32,8 +32,8 @@ st.markdown("---")
 # 3. EXTRACCIÓN SÍNCRONA DE LOS 372 ARTÍCULOS COMPLETOS Y EL 100% DE LAS SUBCATEGORIAS
 def descargar_datos_clasificador_web():
     try:
-        # COSTURA v2.1.0: Liberamos la consulta eliminando el .eq() para traer TODOS los artículos del catálogo de internet
-        res_cat = supabase.table("catalogo").select("id_catalogo, nombre_catalogo").limit(400).execute()
+        # CORRECCIÓN v2.2.0: Descargamos obligatoriamente la columna id_enlace_subcat para saber dónde pintar cada producto al cargar
+        res_cat = supabase.table("catalogo").select("id_catalogo, nombre_catalogo, id_enlace_subcat").limit(400).execute()
         
         # Descargamos el 100% de las subcategorías existentes en tu base de datos real de internet
         res_sub = supabase.table("subcategorias").select("id_subcat, nombre_subcat").order("id_subcat").execute()
@@ -79,7 +79,7 @@ html_drag_and_drop_template = """
 
 <div class="contenedor-global">
     <div class="columna-izq">
-        <h3>📋 Depósito General (Surtido Total)</h3>
+        <h3>📋 Depósito General (Sin Asignar)</h3>
         <div id="lista-origen" class="caja-origen"></div>
     </div>
     
@@ -92,18 +92,6 @@ html_drag_and_drop_template = """
 <script>
     const productos = __PENDIENTES__;
     const subcategorias = __SUBCATEGORIAS__;
-
-    const divOrigen = document.getElementById("lista-origen");
-    productos.forEach(p => {
-        const item = document.createElement("div");
-        item.className = "item-producto";
-        item.id = p.id_catalogo;
-        item.draggable = true;
-        item.title = p.nombre_catalogo;
-        item.innerText = p.id_catalogo + " - " + p.nombre_catalogo;
-        item.addEventListener("dragstart", arrastrar);
-        divOrigen.appendChild(item);
-    });
 
     const divGrid = document.getElementById("contenedor-grid");
     subcategorias.forEach(s => {
@@ -125,6 +113,27 @@ html_drag_and_drop_template = """
         col.appendChild(titulo);
         col.appendChild(caja);
         divGrid.appendChild(col);
+    });
+
+    // CORRECCIÓN v2.2.0: Distribuidor inteligente de arranque. Sincroniza la visualización con el ID real de Supabase
+    const divOrigen = document.getElementById("lista-origen");
+    productos.forEach(p => {
+        const item = document.createElement("div");
+        item.className = "item-producto";
+        item.id = p.id_catalogo;
+        item.draggable = true;
+        item.title = p.nombre_catalogo;
+        item.innerText = p.id_catalogo + " - " + p.nombre_catalogo;
+        item.addEventListener("dragstart", arrastrar);
+        
+        // Buscamos si existe la caja de la derecha correspondiente a su pasillo de internet
+        const cajaDestino = document.getElementById("subcat-" + p.id_enlace_subcat);
+        // Si el producto ya está clasificado en una subcategoría refinada (que no sea el bolsón base 12), va a su estante
+        if (cajaDestino && parseInt(p.id_enlace_subcat) !== 12) {
+            cajaDestino.appendChild(item);
+        } else {
+            divOrigen.appendChild(item); // Si está en el bolsón 12 o no está refinado, va al depósito izquierdo
+        }
     });
 
     function arrastrar(ev) {
@@ -197,4 +206,4 @@ if evento_retorno is not None and isinstance(evento_retorno, dict):
             st.toast(f"🔄 Reclasificado: {texto_articulo}", icon="⚡")
             st.rerun()
         except Exception as e_update_web:
-            st.error(f"❌ Error de persistencia relacional en internet: {e_update_web}")
+            st.error(f"❌ Error de Human Error / Red: {e_update_web}")
