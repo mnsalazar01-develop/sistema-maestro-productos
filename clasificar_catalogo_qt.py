@@ -1,33 +1,29 @@
 import sys
 import os
+import toml
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, 
                              QVBoxLayout, QListWidget, QLabel, QAbstractItemView)
 from PyQt6.QtCore import Qt
 from supabase import create_client, Client
 
-# 🔑 EXTRACTOR AUTOMÁTICO DE CREDENCIALES DESDE TU ARCHIVO SECRETS LOCAL
-def cargar_credenciales_secrets():
-    # Construimos la ruta física hacia la carpeta oculta de tu entorno Streamlit
+# 🔑 EXTRACTOR NORMALIZADO TOML: Extrae las credenciales con el estándar de Streamlit
+def cargar_credenciales_desde_secrets():
     ruta_secrets = os.path.join(".streamlit", "secrets.toml")
-    url_cloud, key_cloud = None, None
-    
-    if os.path.exists(ruta_secrets):
-        with open(ruta_secrets, "r", encoding="utf-8") as f:
-            lineas = f.readlines()
-            for linea in lineas:
-                # Removemos comentarios accidentales y espacios en blanco
-                linea_limpia = linea.split("#")[0].strip()
-                if "url =" in linea_limpia.lower():
-                    url_cloud = linea_limpia.split("=")[1].replace('"', '').replace("'", "").strip()
-                if "key =" in linea_limpia.lower():
-                    key_cloud = linea_limpia.split("=")[1].replace('"', '').replace("'", "").strip()
-    return url_cloud, key_cloud
+    if not os.path.exists(ruta_secrets):
+        print("❌ Error Crítico: No se encuentra el archivo .streamlit/secrets.toml en la raíz.")
+        sys.exit(1)
+        
+    try:
+        # Devoramos el archivo respetando la estructura oficial del ecosistema
+        config = toml.load(ruta_secrets)
+        url_cloud = config["supabase"]["url"]
+        key_cloud = config["supabase"]["key"]
+        return url_cloud, key_cloud
+    except Exception as e_toml:
+        print(f"❌ Error al decodificar la estructura del secrets.toml: {e_toml}")
+        sys.exit(1)
 
-SUPABASE_URL, SUPABASE_KEY = cargar_credenciales_secrets()
-
-if not SUPABASE_URL or not SUPABASE_KEY:
-    print("❌ Error Crítico: No se pudo extraer la configuración de conexión desde .streamlit/secrets.toml")
-    sys.exit(1)
+SUPABASE_URL, SUPABASE_KEY = cargar_credenciales_desde_secrets()
 
 # Inicializamos el cliente oficial sintonizado con el ADN relacional de internet
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -57,7 +53,7 @@ class ListaProductosArrastrable(QListWidget):
             nombre_producto = " - ".join(datos[1:])
             
             try:
-                # Si se soltó en una caja con ID relacional válido, actualizamos Supabase
+                # Si se soltó en una caja con ID relacional válido, actualización en caliente en Supabase
                 if self.categoria_destino is not None:
                     print(f"Moviendo relacionalmente: {nombre_producto} -> ID Subcategoría: {self.categoria_destino}")
                     
@@ -84,10 +80,10 @@ class ListaProductosArrastrable(QListWidget):
 class VentanaClasificadora(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Clasificador Iterativo de Catálogo - Retail Venezuela (Secrets Sync)")
+        self.setWindowTitle("Clasificador Iterativo de Catálogo - Retail Venezuela (TOML Sync)")
         self.resize(1200, 650)
 
-        # Contenedor central hachado horizontalmente de alta densidad visual
+        # Contenedor central de alta densidad visual
         widget_central = QWidget()
         layout_principal = QHBoxLayout(widget_central)
         self.setCentralWidget(widget_central)
@@ -133,7 +129,7 @@ class VentanaClasificadora(QMainWindow):
 
     def cargar_datos_supabase(self):
         """Descarga el estado de consistencia actual de tu tabla relacional catalogo"""
-        print("Conectando con Supabase Cloud mediante Secrets...")
+        print("Conectando con Supabase Cloud mediante TOML Parser...")
         try:
             # 1. Poblamos la lista izquierda trayendo los productos en el bolsón general de Víveres (ID 12)
             res_pendientes = supabase.table("catalogo").select("id_catalogo, nombre_catalogo").eq("id_enlace_subcat", 12).execute()
