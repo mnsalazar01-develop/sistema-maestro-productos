@@ -55,7 +55,7 @@ MAPA_CATEGORIAS_MADRE = descargar_categorias_madre()
 st.markdown("### 📊 Pasillos Registrados actualmente en la Nube")
 try:
     # BLINDAJE v1.1.0: Consulta limpia apuntando directamente a la tabla física real
-    res_sub = supabase.table("subcategorias").select("id_subcat, id_enlace_cat, nombre_subcat").execute()
+    res_sub = supabase.table("subcategorias").select("id_subcat, id_cat, nombre").execute()
     if res_sub and hasattr(res_sub, 'data') and res_sub.data:
         df_sub = pd.DataFrame(res_sub.data)
         
@@ -69,8 +69,8 @@ try:
         st.dataframe(
             df_sub.rename(columns={
                 "id_subcat": "ID Pasillo",
-                "id_enlace_cat": "ID Categoría Madre",
-                "nombre_subcat": "Descripción de Subcategoría"
+                "id_cat": "ID Categoría Madre",
+                "nombre": "Descripción de Subcategoría"
             }),
             use_container_width=True
         )
@@ -115,12 +115,12 @@ with col_crear:
 with col_editar:
     st.markdown("### 📝 Modificar Pasillo Existente")
     if lista_pasillos_existentes:
-        opciones_combo = {f"ID {p['id_subcat']} - {p['nombre_subcat']}": p for p in lista_pasillos_existentes}
+        opciones_combo = {f"ID {p['id_subcat']} - {p['nombre']}": p for p in lista_pasillos_existentes}
         pasillo_sel = st.selectbox("Selecciona el Pasillo a editar o remover:", list(opciones_combo.keys()))
         datos_pasillo_actual = opciones_combo[pasillo_sel]
         
         with st.form("form_editar_subcat"):
-            edit_nombre = st.text_input("Corregir descripción / Emojis:", value=datos_pasillo_actual["nombre_subcat"])
+            edit_nombre = st.text_input("Corregir descripción / Emojis:", value=datos_pasillo_actual["nombre"])
             edit_cat = st.selectbox("Re-vincular Categoría Madre:", list(MAPA_CATEGORIAS_MADRE.keys()))
             
             col_b1, col_b2 = st.columns(2)
@@ -132,8 +132,8 @@ with col_editar:
             if btn_update:
                 try:
                     supabase.table("subcategorias").update({
-                        "nombre_subcat": edit_nombre.strip(),
-                        "id_enlace_cat": MAPA_CATEGORIAS_MADRE[edit_cat]
+                        "nombre": edit_nombre.strip(),
+                        "id_cat": MAPA_CATEGORIAS_MADRE[edit_cat]
                     }).eq("id_subcat", datos_pasillo_actual["id_subcat"]).execute()
                     st.success("✅ Registro modificado correctamente.")
                     st.rerun()
