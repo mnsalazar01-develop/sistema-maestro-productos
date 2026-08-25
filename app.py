@@ -67,6 +67,7 @@ def mostrar_centro_control():
 pagina_inicio = st.Page(mostrar_centro_control, title="🏭 Centro de Control", icon="🏠", default=True)
 pagina_inventario = st.Page("cargar_inventario.py", title="Cargar Inventario Masivo", icon="📤")
 pagina_productos = st.Page("cargar_productos.py", title="Registrar Producto Manual", icon="📝")
+pagina_grilla_productos = st.Page("grilla_productos.py", title="Grilla Productos", icon="📝")
 pagina_maestro = st.Page("maestro_datos.py", title="Maestro de Datos", icon="📊")
 pagina_subcategorias = st.Page("gestionar_subcategorias.py", title="Subcategorias", icon="⚙️")
 pagina_saneamiento = st.Page("batch_inicializar_tablas.py", title="Saneamiento Batch", icon="⚡")
@@ -78,7 +79,8 @@ pagina_qt_local = st.Page("clasificar_web_drag.py", title="Clasificador Drag & D
 enrutador_global = st.navigation([
     pagina_inicio,
     pagina_inventario, 
-    pagina_productos, 
+    pagina_productos,
+    pagina_grilla_productos,
     pagina_maestro, 
     pagina_subcategorias,
     pagina_saneamiento,
