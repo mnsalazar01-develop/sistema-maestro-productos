@@ -1,9 +1,7 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: grilla_productos.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 1.0.0
+# VERSIÓN: 1.1.0 (BÚSQUEDA POR NOMBRE/MARCA + FILTROS CAT/SUBCAT)
 # DESCRIPCIÓN: Grilla interactiva de catálogo de productos con filtros dinámicos
-#              Conecta a Supabase y muestra la tabla public.productos con
-#              búsqueda, filtros por categoría/subcategoría/marca y badges visuales.
 # ==============================================================================
 
 import streamlit as st
@@ -32,7 +30,7 @@ except Exception as e:
     st.stop()
 
 st.title("📦 Grilla de Catálogo de Productos")
-st.markdown("Vista unificada del inventario retail con filtros dinámicos, búsqueda inteligente e indicadores de negocio.")
+st.markdown("Vista unificada del inventario retail con búsqueda inteligente y filtros por jerarquía de categorías.")
 st.markdown("---")
 
 # 3. FUNCIONES AUXILIARES DE CARGA DE DATOS MAESTROS
@@ -105,32 +103,34 @@ else:
 # 6. PANEL DE FILTROS EN SIDEBAR
 st.sidebar.header("🔍 Filtros de Búsqueda")
 
-# Búsqueda por texto
-busqueda = st.sidebar.text_input("Buscar por nombre o código de barras:", placeholder="Ej: Leche, 7800000001...")
+# 6.1 CAJA DE TEXTO: Buscar por nombre, marca o código de barras
+busqueda = st.sidebar.text_input(
+    "Buscar producto:",
+    placeholder="Nombre, marca o código de barras..."
+)
 
-# Filtro por categoría
+# 6.2 FILTRO POR CATEGORÍA
 if not df_categorias.empty:
     opciones_cat = ["Todas"] + sorted(df_categorias["nombre"].dropna().unique().tolist())
-    filtro_cat = st.sidebar.selectbox("Filtrar por Categoría:", opciones_cat)
 else:
-    filtro_cat = "Todas"
+    opciones_cat = ["Todas"]
 
-# Filtro por subcategoría (dependiente de categoría seleccionada)
-if filtro_cat != "Todas" and not df_subcategorias.empty:
+filtro_cat = st.sidebar.selectbox("Categoría:", opciones_cat)
+
+# 6.3 FILTRO POR SUBCATEGORÍA (dependiente de categoría seleccionada)
+if filtro_cat != "Todas" and not df_subcategorias.empty and not df_categorias.empty:
     id_cat_sel = df_categorias.loc[df_categorias["nombre"] == filtro_cat, "id_cat"].values[0]
     subcats_filtradas = df_subcategorias[df_subcategorias["id_cat"] == id_cat_sel]["nombre"].dropna().unique().tolist()
     opciones_subcat = ["Todas"] + sorted(subcats_filtradas)
 else:
-    opciones_subcat = ["Todas"] + sorted(df_subcategorias["nombre"].dropna().unique().tolist()) if not df_subcategorias.empty else ["Todas"]
+    if not df_subcategorias.empty:
+        opciones_subcat = ["Todas"] + sorted(df_subcategorias["nombre"].dropna().unique().tolist())
+    else:
+        opciones_subcat = ["Todas"]
 
-filtro_subcat = st.sidebar.selectbox("Filtrar por Subcategoría:", opciones_subcat)
+filtro_subcat = st.sidebar.selectbox("Subcategoría:", opciones_subcat)
 
-# Filtro por marca
-marcas_disponibles = sorted(df["marca"].dropna().unique().tolist()) if "marca" in df.columns else []
-opciones_marca = ["Todas"] + marcas_disponibles
-filtro_marca = st.sidebar.selectbox("Filtrar por Marca:", opciones_marca)
-
-# Filtros booleanos de negocio
+# 6.4 FILTROS BOOLEANOS DE NEGOCIO
 st.sidebar.markdown("---")
 st.sidebar.subheader("🏷️ Flags de Negocio")
 col_b1, col_b2 = st.sidebar.columns(2)
@@ -144,21 +144,23 @@ with col_b2:
 # 7. APLICACIÓN DE FILTROS
 mask = pd.Series([True] * len(df))
 
+# Filtro de búsqueda por texto (nombre, marca o código de barras)
 if busqueda:
     busqueda_lower = busqueda.lower()
     mask_nombre = df["nombre"].fillna("").str.lower().str.contains(busqueda_lower, na=False)
+    mask_marca = df["marca"].fillna("").str.lower().str.contains(busqueda_lower, na=False)
     mask_codigo = df["codigo_barras"].fillna("").str.lower().str.contains(busqueda_lower, na=False)
-    mask &= (mask_nombre | mask_codigo)
+    mask &= (mask_nombre | mask_marca | mask_codigo)
 
+# Filtro por categoría
 if filtro_cat != "Todas" and "nombre_cat" in df.columns:
     mask &= (df["nombre_cat"] == filtro_cat)
 
+# Filtro por subcategoría
 if filtro_subcat != "Todas" and "nombre_subcat" in df.columns:
     mask &= (df["nombre_subcat"] == filtro_subcat)
 
-if filtro_marca != "Todas" and "marca" in df.columns:
-    mask &= (df["marca"] == filtro_marca)
-
+# Filtros booleanos
 if filtro_favorito and "es_favorito" in df.columns:
     mask &= (df["es_favorito"] == True)
 if filtro_estrategico and "es_estrategico" in df.columns:
@@ -185,7 +187,6 @@ else:
 st.markdown("---")
 
 # 9. PREPARACIÓN DE LA GRILLA PARA VISUALIZACIÓN
-# Columnas a mostrar en la grilla principal
 columnas_display = [
     "id_producto",
     "codigo_barras",
@@ -201,11 +202,9 @@ columnas_display = [
     "cod_verif",
 ]
 
-# Nos aseguramos de que existan las columnas
 columnas_existentes = [c for c in columnas_display if c in df_filtrado.columns]
 df_display = df_filtrado[columnas_existentes].copy()
 
-# Renombrar columnas para presentación
 renombres = {
     "id_producto": "ID",
     "codigo_barras": "Código de Barras",
@@ -239,7 +238,6 @@ st.markdown(f"### 📋 Resultados: `{len(df_filtrado)}` productos encontrados")
 if df_display.empty:
     st.info("💡 No hay productos que coincidan con los filtros seleccionados. Ajusta los criterios de búsqueda.")
 else:
-    # Usamos st.dataframe para grilla interactiva nativa de Streamlit
     st.dataframe(
         df_display,
         use_container_width=True,
@@ -260,15 +258,13 @@ else:
         }
     )
 
-    # Botón de descarga CSV
     csv = df_display.to_csv(index=True).encode("utf-8")
     st.download_button(
         label="📥 Descargar resultados como CSV",
         data=csv,
         file_name="grilla_productos.csv",
-        mime="text/csv",
-        use_container_width=False
+        mime="text/csv"
     )
 
 st.markdown("---")
-st.caption("🔒 Conexión segura a Supabase | Datos en tiempo real | v1.0.0")
+st.caption("🔒 Conexión segura a Supabase | Datos en tiempo real | v1.1.0")
