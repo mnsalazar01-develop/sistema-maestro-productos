@@ -1,18 +1,25 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: grilla_productos.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 1.3.0 (FILTROS PRINCIPALES + GRILLA EDITABLE + IMÁGENES)
+# VERSIÓN: 1.4.0
 # DESCRIPCIÓN: Grilla interactiva y editable de catálogo de productos con
-#              vista previa de imágenes, filtros en área principal y
-#              persistencia a Supabase.
+#              imágenes desde bucket privado (URLs firmadas), filtros en área
+#              principal, edición inline y persistencia a Supabase.
+# REGLAS: Sin panel lateral | Versión explícita | URLs firmadas para imágenes
 # ==============================================================================
 
 import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
 
+# ------------------------------------------------------------------------------
+# CONSTANTES DE VERSIÓN
+# ------------------------------------------------------------------------------
+VERSION_PROGRAMA = "1.4.0"
+NOMBRE_PROGRAMA = "Grilla de Productos"
+
 # 1. CONFIGURACIÓN CORPORATIVA DE LA VENTANA DE STREAMLIT
 st.set_page_config(
-    page_title="Grilla de Productos",
+    page_title=f"{NOMBRE_PROGRAMA} v{VERSION_PROGRAMA}",
     page_icon="📦",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -31,8 +38,11 @@ except Exception as e:
     st.error(f"❌ Error de Conexión Base: {e}")
     st.stop()
 
-st.title("📦 Grilla de Catálogo de Productos")
-st.markdown("Vista unificada del inventario retail con imágenes, edición inline y filtros dinámicos.")
+# ------------------------------------------------------------------------------
+# ENCABEZADO CON VERSIÓN
+# ------------------------------------------------------------------------------
+st.title(f"📦 {NOMBRE_PROGRAMA}")
+st.markdown(f"**Versión {VERSION_PROGRAMA}** — Vista unificada del inventario retail con imágenes firmadas, edición inline y filtros dinámicos.")
 st.markdown("---")
 
 # 3. FUNCIONES AUXILIARES DE CARGA DE DATOS MAESTROS
@@ -66,6 +76,45 @@ def cargar_productos():
         st.error(f"❌ Error cargando productos: {e}")
     return pd.DataFrame()
 
+# 3.1 FUNCIÓN PARA FIRMAR URL DE IMAGEN DESDE BUCKET PRIVADO
+@st.cache_data(ttl=300)
+def firmar_url_imagen(url_imagen: str, duracion_segundos: int = 3600) -> str:
+    """
+    Firma una URL de imagen almacenada en un bucket privado de Supabase Storage.
+    Si la URL no pertenece al proyecto de Supabase, se retorna tal cual.
+    """
+    if not url_imagen or pd.isna(url_imagen):
+        return ""
+
+    try:
+        # Detectar si la URL pertenece al storage de Supabase
+        supabase_url = st.secrets["supabase"]["url"]
+        if supabase_url not in str(url_imagen):
+            return str(url_imagen)  # URL externa, no requiere firma
+
+        # Extraer bucket y path de la URL pública de Supabase Storage
+        # Formato típico: https://<proyecto>.supabase.co/storage/v1/object/public/<bucket>/<path>
+        # Para buckets privados usamos create_signed_url
+        partes = str(url_imagen).split("/storage/v1/object/public/")
+        if len(partes) == 2:
+            bucket_y_path = partes[1]
+            bucket_name = bucket_y_path.split("/")[0]
+            file_path = "/".join(bucket_y_path.split("/")[1:])
+
+            res = supabase.storage.from_(bucket_name).create_signed_url(file_path, duracion_segundos)
+            if res and "signedURL" in res:
+                # La signedURL puede ser relativa, construir URL completa
+                signed = res["signedURL"]
+                if signed.startswith("http"):
+                    return signed
+                else:
+                    return f"{supabase_url}{signed}"
+    except Exception as e:
+        # Si falla la firma, retornar la URL original como fallback
+        pass
+
+    return str(url_imagen)
+
 # 4. CARGA DE DATOS EN MEMORIA
 df_categorias = cargar_categorias()
 df_subcategorias = cargar_subcategorias()
@@ -75,8 +124,12 @@ if df_productos_raw.empty:
     st.warning("⚠️ No se encontraron productos en la base de datos o la tabla está vacía.")
     st.stop()
 
-# 5. ENRIQUECIMIENTO DEL DATASET (JOINS EN MEMORIA)
+# 5. ENRIQUECIMIENTO DEL DATASET (JOINS EN MEMORIA + URL FIRMADA)
 df = df_productos_raw.copy()
+
+# Firmar URLs de imágenes antes del merge
+if "url_imagen" in df.columns:
+    df["url_imagen"] = df["url_imagen"].apply(lambda x: firmar_url_imagen(x, 3600))
 
 # Merge con categorías
 if not df_categorias.empty:
@@ -102,7 +155,7 @@ if not df_subcategorias.empty:
 else:
     df["nombre_subcat"] = "—"
 
-# 6. FILTROS EN ÁREA PRINCIPAL (SIN SIDEBAR)
+# 6. FILTROS EN ÁREA PRINCIPAL (SIN PANEL LATERAL)
 st.markdown("### 🔍 Filtros de Búsqueda")
 
 f1, f2, f3, f4 = st.columns([2.5, 1.5, 1.5, 2.5])
@@ -188,13 +241,13 @@ else:
 
 st.markdown("---")
 
-# 9. GRILLA EDITABLE CON IMÁGENES
+# 9. GRILLA EDITABLE CON IMÁGENES FIRMADAS
 st.markdown(f"### 📋 Resultados: `{len(df_filtrado)}` productos — Edita directamente y guarda")
 
 if df_filtrado.empty:
     st.info("💡 No hay productos que coincidan con los filtros seleccionados.")
 else:
-    # Columnas que se mostrarán en el editor (URL de imagen incluida al inicio)
+    # Columnas que se mostrarán en el editor
     columnas_editor = [
         "url_imagen",
         "id_producto",
@@ -239,7 +292,7 @@ else:
     column_config = {
         "Imagen": st.column_config.ImageColumn(
             "Imagen",
-            help="Vista previa del producto",
+            help="Vista previa del producto desde bucket privado (URL firmada)",
             width="small"
         ),
         "ID": st.column_config.NumberColumn("ID", disabled=True, width="small"),
@@ -309,6 +362,7 @@ else:
             if cambios_realizados > 0:
                 st.success(f"✅ {cambios_realizados} producto(s) actualizado(s) correctamente en Supabase.")
                 cargar_productos.clear()
+                firmar_url_imagen.clear()
                 st.session_state.df_original = df_editado.copy()
                 st.rerun()
             elif errores:
@@ -327,4 +381,4 @@ else:
         )
 
 st.markdown("---")
-st.caption("🔒 Conexión segura a Supabase | Datos editables en vivo con imágenes | v1.3.0")
+st.caption(f"🔒 Conexión segura a Supabase | Datos editables en vivo con imágenes firmadas | v{VERSION_PROGRAMA}")
