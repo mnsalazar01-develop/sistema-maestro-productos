@@ -1,10 +1,10 @@
 # ==============================================================================
-# PROGRAMA SATÉLITE: grilla_productos_v167.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 1.6.7
+# PROGRAMA SATÉLITE: grilla_productos_v166.py (BLOQUE ÚNICO COMPLETO)
+# VERSIÓN: 1.6.6
 # DESCRIPCIÓN: Grilla de catálogo con creación de productos, modificación de
 #              productos incluyendo actualización de imagen. Imágenes guardadas
 #              directamente en el bucket (sin subdirectorio) con formato de
-#              nombre exacto: img_AAAAMMDD_HHMMSS.ext
+#              nombre: img_AAAAMMDD_HHMMSS.ext
 # REGLAS: Sin panel lateral | Versión en nombre de archivo | Sin filtros check
 #         | URLs firmadas solo filtradas | Subcategoría dependiente de categoría
 # ==============================================================================
@@ -18,7 +18,7 @@ from datetime import datetime
 # ------------------------------------------------------------------------------
 # CONSTANTES DE VERSIÓN Y CONFIGURACIÓN
 # ------------------------------------------------------------------------------
-VERSION_PROGRAMA = "1.6.7"
+VERSION_PROGRAMA = "1.6.6"
 NOMBRE_PROGRAMA = "Grilla de Productos"
 BUCKET_IMAGENES = "imagenes"
 
@@ -425,8 +425,7 @@ with st.expander("Desplegar formulario de creación", expanded=False):
                         if archivo_imagen is not None:
                             try:
                                 ext = archivo_imagen.name.split(".")[-1].lower()
-                                # FORMATO EXACTO v1.6.7: img_AAAAMMDD_HHMMSS.ext
-                                # Directamente en bucket, sin subdirectorio
+                                # FORMATO v1.6.6: img_AAAAMMDD_HHMMSS.ext (directamente en bucket, sin subdirectorio)
                                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                                 file_path = f"img_{timestamp}.{ext}"
                                 file_bytes = archivo_imagen.getvalue()
@@ -642,8 +641,7 @@ if not df_filtrado.empty:
                     if nueva_imagen is not None:
                         try:
                             ext = nueva_imagen.name.split(".")[-1].lower()
-                            # FORMATO EXACTO v1.6.7: img_AAAAMMDD_HHMMSS.ext
-                            # Directamente en bucket, sin subdirectorio
+                            # FORMATO v1.6.6: img_AAAAMMDD_HHMMSS.ext (directamente en bucket)
                             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                             file_path = f"img_{timestamp}.{ext}"
                             file_bytes = nueva_imagen.getvalue()
