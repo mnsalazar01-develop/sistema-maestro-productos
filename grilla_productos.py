@@ -1,11 +1,11 @@
 # ==============================================================================
-# PROGRAMA SATÉLITE: grilla_productos_v140.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 1.4.0
+# PROGRAMA SATÉLITE: grilla_productos_v150.py (BLOQUE ÚNICO COMPLETO)
+# VERSIÓN: 1.5.0
 # DESCRIPCIÓN: Grilla interactiva y editable de catálogo de productos con
-#              imágenes desde bucket privado (URLs firmadas), filtros en área
-#              principal, edición inline y persistencia a Supabase.
+#              reclasificación de categoría/subcategoría, imágenes firmadas desde
+#              bucket privado, filtros en área principal y persistencia a Supabase.
 # REGLAS: Sin panel lateral | Versión en nombre de archivo | Sin filtros check
-#         | Optimización de firmas de imágenes (solo filtradas, cacheadas)
+#         | Optimización de firmas de imágenes | Reclasificación habilitada
 # ==============================================================================
 
 import streamlit as st
@@ -15,7 +15,7 @@ from supabase import create_client, Client
 # ------------------------------------------------------------------------------
 # CONSTANTES DE VERSIÓN
 # ------------------------------------------------------------------------------
-VERSION_PROGRAMA = "1.4.0"
+VERSION_PROGRAMA = "1.5.0"
 NOMBRE_PROGRAMA = "Grilla de Productos"
 
 # 1. CONFIGURACIÓN CORPORATIVA DE LA VENTANA DE STREAMLIT
@@ -43,7 +43,7 @@ except Exception as e:
 # ENCABEZADO CON VERSIÓN
 # ------------------------------------------------------------------------------
 st.title(f"📦 {NOMBRE_PROGRAMA}")
-st.markdown(f"**Versión {VERSION_PROGRAMA}** — Vista unificada del inventario retail con imágenes firmadas, edición inline y filtros dinámicos.")
+st.markdown(f"**Versión {VERSION_PROGRAMA}** — Reclasificación de productos, imágenes firmadas y edición inline.")
 st.markdown("---")
 
 # 3. FUNCIONES AUXILIARES DE CARGA DE DATOS MAESTROS
@@ -78,8 +78,6 @@ def cargar_productos():
     return pd.DataFrame()
 
 # 3.1 FUNCIÓN PARA FIRMAR URL DE IMAGEN DESDE BUCKET PRIVADO
-# OPTIMIZACIÓN: Se firma solo cuando se necesita, con cache de 1 hora.
-# No se firma todo el catálogo al inicio, solo las filas filtradas.
 @st.cache_data(ttl=3600)
 def firmar_url_imagen(url_imagen: str, duracion_segundos: int = 3600) -> str:
     """
@@ -94,12 +92,9 @@ def firmar_url_imagen(url_imagen: str, duracion_segundos: int = 3600) -> str:
         supabase_url = st.secrets["supabase"]["url"]
         url_str = str(url_imagen).strip()
 
-        # Si es URL externa, retornar directamente
         if supabase_url not in url_str:
             return url_str
 
-        # Extraer bucket y path de la URL pública de Supabase Storage
-        # Formato: https://<proyecto>.supabase.co/storage/v1/object/public/<bucket>/<path>
         partes = url_str.split("/storage/v1/object/public/")
         if len(partes) == 2:
             bucket_y_path = partes[1]
@@ -158,12 +153,22 @@ else:
     df["nombre_subcat"] = "—"
 
 # ------------------------------------------------------------------------------
+# MAPEOS PARA RECLASIFICACIÓN (NOMBRE → ID)
+# ------------------------------------------------------------------------------
+lista_categorias = sorted(df_categorias["nombre"].dropna().unique().tolist()) if not df_categorias.empty else ["—"]
+lista_subcategorias = sorted(df_subcategorias["nombre"].dropna().unique().tolist()) if not df_subcategorias.empty else ["—"]
+
+mapa_cat_nombre_a_id = dict(zip(df_categorias["nombre"], df_categorias["id_cat"])) if not df_categorias.empty else {}
+mapa_subcat_nombre_a_id = dict(zip(df_subcategorias["nombre"], df_subcategorias["id_subcat"])) if not df_subcategorias.empty else {}
+# Mapa para validar: subcategoría → id_cat (para alertar si no coincide)
+mapa_subcat_a_cat_id = dict(zip(df_subcategorias["nombre"], df_subcategorias["id_cat"])) if not df_subcategorias.empty else {}
+
+# ------------------------------------------------------------------------------
 # 6. RESUMEN DEL CATÁLOGO (PRIMERO)
 # ------------------------------------------------------------------------------
 st.markdown("### 📊 Resumen del Catálogo")
 col_k1, col_k2, col_k3, col_k4, col_k5 = st.columns(5)
 col_k1.metric("Total Productos", len(df))
-# Placeholder para filtrados, se actualiza después de aplicar filtros
 col_k2.metric("Filtrados", len(df))
 col_k3.metric("Categorías", df_categorias["id_cat"].nunique() if not df_categorias.empty else 0)
 col_k4.metric("Subcategorías", df_subcategorias["id_subcat"].nunique() if not df_subcategorias.empty else 0)
@@ -189,22 +194,16 @@ with f1:
     )
 
 with f2:
-    if not df_categorias.empty:
-        opciones_cat = ["Todas"] + sorted(df_categorias["nombre"].dropna().unique().tolist())
-    else:
-        opciones_cat = ["Todas"]
+    opciones_cat = ["Todas"] + lista_categorias
     filtro_cat = st.selectbox("Categoría:", opciones_cat, label_visibility="collapsed")
 
 with f3:
-    if filtro_cat != "Todas" and not df_subcategorias.empty and not df_categorias.empty:
-        id_cat_sel = df_categorias.loc[df_categorias["nombre"] == filtro_cat, "id_cat"].values[0]
+    if filtro_cat != "Todas" and not df_subcategorias.empty:
+        id_cat_sel = mapa_cat_nombre_a_id.get(filtro_cat)
         subcats_filtradas = df_subcategorias[df_subcategorias["id_cat"] == id_cat_sel]["nombre"].dropna().unique().tolist()
         opciones_subcat = ["Todas"] + sorted(subcats_filtradas)
     else:
-        if not df_subcategorias.empty:
-            opciones_subcat = ["Todas"] + sorted(df_subcategorias["nombre"].dropna().unique().tolist())
-        else:
-            opciones_subcat = ["Todas"]
+        opciones_subcat = ["Todas"] + lista_subcategorias
     filtro_subcat = st.selectbox("Subcategoría:", opciones_subcat, label_visibility="collapsed")
 
 st.markdown("---")
@@ -227,29 +226,23 @@ if filtro_subcat != "Todas" and "nombre_subcat" in df.columns:
 
 df_filtrado = df[mask].copy()
 
-# Actualizar métrica de filtrados (usando placeholder del resumen)
-# Streamlit no permite actualizar métricas después de renderizar, 
-# así que recalculamos y mostramos un resumen dinámico debajo de los filtros
 if len(df_filtrado) != len(df):
     st.info(f"📌 Mostrando **{len(df_filtrado)}** de **{len(df)}** productos según filtros aplicados.")
 
 # ------------------------------------------------------------------------------
-# 9. GRILLA EDITABLE CON IMÁGENES FIRMADAS (SOLO FILTRADAS)
+# 9. GRILLA EDITABLE CON RECLASIFICACIÓN E IMÁGENES FIRMADAS
 # ------------------------------------------------------------------------------
 st.markdown(f"### 📋 Catálogo de Productos — `{len(df_filtrado)}` registros")
 
 if df_filtrado.empty:
     st.info("💡 No hay productos que coincidan con los filtros seleccionados.")
 else:
-    # OPTIMIZACIÓN DE IMÁGENES:
-    # Solo firmamos las URLs de las filas que realmente se van a mostrar.
-    # Esto evita firmar miles de imágenes del catálogo completo.
+    # OPTIMIZACIÓN: Solo firmamos imágenes de las filas filtradas
     if "url_imagen" in df_filtrado.columns:
         df_filtrado["url_imagen"] = df_filtrado["url_imagen"].apply(
             lambda x: firmar_url_imagen(x, 3600)
         )
 
-    # Columnas que se mostrarán en el editor
     columnas_editor = [
         "url_imagen",
         "id_producto",
@@ -268,7 +261,6 @@ else:
     columnas_existentes = [c for c in columnas_editor if c in df_filtrado.columns]
     df_edit = df_filtrado[columnas_existentes].copy()
 
-    # Renombrar para presentación
     renombres = {
         "url_imagen": "Imagen",
         "id_producto": "ID",
@@ -286,11 +278,12 @@ else:
     }
     df_edit.rename(columns=renombres, inplace=True)
 
-    # Guardar el dataframe original en session_state para comparar después
+    # Guardar original para comparación
     if "df_original" not in st.session_state:
         st.session_state.df_original = df_edit.copy()
 
-    # Configuración de columnas para el data_editor
+    # Configuración de columnas del data_editor
+    # Categoría y Subcategoría ahora son EDITABLES (SelectboxColumn)
     column_config = {
         "Imagen": st.column_config.ImageColumn(
             "Imagen",
@@ -303,15 +296,24 @@ else:
         "Marca": st.column_config.TextColumn("Marca", width="medium"),
         "Tamaño": st.column_config.NumberColumn("Tamaño", format="%.2f", width="small"),
         "Unidad": st.column_config.TextColumn("Unidad", width="small"),
-        "Categoría": st.column_config.TextColumn("Categoría", disabled=True, width="medium"),
-        "Subcategoría": st.column_config.TextColumn("Subcategoría", disabled=True, width="medium"),
+        "Categoría": st.column_config.SelectboxColumn(
+            "Categoría",
+            options=lista_categorias,
+            required=True,
+            width="medium"
+        ),
+        "Subcategoría": st.column_config.SelectboxColumn(
+            "Subcategoría",
+            options=lista_subcategorias,
+            required=True,
+            width="medium"
+        ),
         "⭐ Fav": st.column_config.CheckboxColumn("⭐ Fav", width="small"),
         "🔥 Dem": st.column_config.CheckboxColumn("🔥 Dem", width="small"),
         "🎯 Est": st.column_config.CheckboxColumn("🎯 Est", width="small"),
         "✅ Verif": st.column_config.CheckboxColumn("✅ Verif", width="small"),
     }
 
-    # Solo incluir columnas que existen
     column_config_filtrado = {k: v for k, v in column_config.items() if k in df_edit.columns}
 
     df_editado = st.data_editor(
@@ -332,10 +334,11 @@ else:
         if st.button("💾 Guardar Cambios en la Nube", type="primary", use_container_width=True):
             cambios_realizados = 0
             errores = []
+            advertencias = []
 
             df_original = st.session_state.df_original
-            # Columnas comparables (excluir Categoría, Subcategoría e Imagen que son de solo lectura)
-            cols_comparables = [c for c in df_editado.columns if c not in ["Categoría", "Subcategoría", "Imagen"]]
+            # Todas las columnas son comparables excepto Imagen (solo lectura)
+            cols_comparables = [c for c in df_editado.columns if c != "Imagen"]
 
             for idx in df_editado.index:
                 fila_nueva = df_editado.loc[idx]
@@ -349,9 +352,31 @@ else:
                     if col == "ID":
                         continue
                     if col in df_original.columns and fila_nueva[col] != fila_original[col]:
-                        mapeo_inverso = {v: k for k, v in renombres.items()}
-                        campo_db = mapeo_inverso.get(col, col)
-                        campos_cambiados[campo_db] = fila_nueva[col]
+                        # Mapeo especial para Categoría y Subcategoría (nombre → ID)
+                        if col == "Categoría":
+                            nuevo_id_cat = mapa_cat_nombre_a_id.get(fila_nueva[col])
+                            if nuevo_id_cat is not None:
+                                campos_cambiados["id_cat"] = int(nuevo_id_cat)
+                        elif col == "Subcategoría":
+                            nuevo_id_subcat = mapa_subcat_nombre_a_id.get(fila_nueva[col])
+                            if nuevo_id_subcat is not None:
+                                campos_cambiados["id_subcat"] = int(nuevo_id_subcat)
+                        else:
+                            mapeo_inverso = {v: k for k, v in renombres.items()}
+                            campo_db = mapeo_inverso.get(col, col)
+                            campos_cambiados[campo_db] = fila_nueva[col]
+
+                # Validación: subcategoría pertenece a la categoría seleccionada
+                if "id_subcat" in campos_cambiados or "id_cat" in campos_cambiados:
+                    cat_actual = campos_cambiados.get("id_cat", mapa_cat_nombre_a_id.get(fila_nueva["Categoría"]))
+                    subcat_actual = campos_cambiados.get("id_subcat", mapa_subcat_nombre_a_id.get(fila_nueva["Subcategoría"]))
+                    cat_esperada = mapa_subcat_a_cat_id.get(fila_nueva["Subcategoría"])
+
+                    if cat_esperada is not None and cat_actual is not None and cat_esperada != cat_actual:
+                        advertencias.append(
+                            f"ID {fila_nueva['ID']}: Subcategoría '{fila_nueva['Subcategoría']}' no pertenece a Categoría '{fila_nueva['Categoría']}'. "
+                            f"Se guardará igual, pero verifica la reclasificación."
+                        )
 
                 if campos_cambiados:
                     id_producto = int(fila_nueva["ID"])
@@ -360,6 +385,11 @@ else:
                         cambios_realizados += 1
                     except Exception as e:
                         errores.append(f"ID {id_producto}: {e}")
+
+            # Mostrar resultados
+            if advertencias:
+                for adv in advertencias:
+                    st.warning(f"⚠️ {adv}")
 
             if cambios_realizados > 0:
                 st.success(f"✅ {cambios_realizados} producto(s) actualizado(s) correctamente en Supabase.")
@@ -383,4 +413,4 @@ else:
         )
 
 st.markdown("---")
-st.caption(f"🔒 Conexión segura a Supabase | Datos editables en vivo con imágenes firmadas | v{VERSION_PROGRAMA}")
+st.caption(f"🔒 Conexión segura a Supabase | Reclasificación habilitada | Imágenes firmadas | v{VERSION_PROGRAMA}")
