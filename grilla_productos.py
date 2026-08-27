@@ -1,11 +1,11 @@
 # ==============================================================================
-# PROGRAMA SATÉLITE: grilla_productos_v150.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 1.5.0
-# DESCRIPCIÓN: Grilla interactiva y editable de catálogo de productos con
-#              reclasificación de categoría/subcategoría, imágenes firmadas desde
-#              bucket privado, filtros en área principal y persistencia a Supabase.
+# PROGRAMA SATÉLITE: grilla_productos_v160.py (BLOQUE ÚNICO COMPLETO)
+# VERSIÓN: 1.6.0
+# DESCRIPCIÓN: Grilla de catálogo con reclasificación dinámica. La subcategoría
+#              se filtra según la categoría seleccionada en el registro activo.
+#              Imágenes firmadas, filtros en área principal, persistencia Supabase.
 # REGLAS: Sin panel lateral | Versión en nombre de archivo | Sin filtros check
-#         | Optimización de firmas de imágenes | Reclasificación habilitada
+#         | URLs firmadas | Subcategoría dependiente de categoría en edición
 # ==============================================================================
 
 import streamlit as st
@@ -15,7 +15,7 @@ from supabase import create_client, Client
 # ------------------------------------------------------------------------------
 # CONSTANTES DE VERSIÓN
 # ------------------------------------------------------------------------------
-VERSION_PROGRAMA = "1.5.0"
+VERSION_PROGRAMA = "1.6.0"
 NOMBRE_PROGRAMA = "Grilla de Productos"
 
 # 1. CONFIGURACIÓN CORPORATIVA DE LA VENTANA DE STREAMLIT
@@ -39,11 +39,8 @@ except Exception as e:
     st.error(f"❌ Error de Conexión Base: {e}")
     st.stop()
 
-# ------------------------------------------------------------------------------
-# ENCABEZADO CON VERSIÓN
-# ------------------------------------------------------------------------------
 st.title(f"📦 {NOMBRE_PROGRAMA}")
-st.markdown(f"**Versión {VERSION_PROGRAMA}** — Reclasificación de productos, imágenes firmadas y edición inline.")
+st.markdown(f"**Versión {VERSION_PROGRAMA}** — Reclasificación dinámica: subcategoría filtrada por categoría seleccionada.")
 st.markdown("---")
 
 # 3. FUNCIONES AUXILIARES DE CARGA DE DATOS MAESTROS
@@ -80,30 +77,20 @@ def cargar_productos():
 # 3.1 FUNCIÓN PARA FIRMAR URL DE IMAGEN DESDE BUCKET PRIVADO
 @st.cache_data(ttl=3600)
 def firmar_url_imagen(url_imagen: str, duracion_segundos: int = 3600) -> str:
-    """
-    Firma una URL de imagen almacenada en un bucket privado de Supabase Storage.
-    Si la URL no pertenece al proyecto de Supabase, se retorna tal cual.
-    Cache TTL: 1 hora para evitar llamadas repetitivas.
-    """
     if not url_imagen or pd.isna(url_imagen):
         return ""
-
     try:
         supabase_url = st.secrets["supabase"]["url"]
         url_str = str(url_imagen).strip()
-
         if supabase_url not in url_str:
             return url_str
-
         partes = url_str.split("/storage/v1/object/public/")
         if len(partes) == 2:
             bucket_y_path = partes[1]
             bucket_name = bucket_y_path.split("/")[0]
             file_path = "/".join(bucket_y_path.split("/")[1:])
-
             if not bucket_name or not file_path:
                 return url_str
-
             res = supabase.storage.from_(bucket_name).create_signed_url(file_path, duracion_segundos)
             if res and "signedURL" in res:
                 signed = res["signedURL"]
@@ -113,7 +100,6 @@ def firmar_url_imagen(url_imagen: str, duracion_segundos: int = 3600) -> str:
                     return f"{supabase_url}{signed}"
     except Exception:
         pass
-
     return str(url_imagen)
 
 # 4. CARGA DE DATOS EN MEMORIA
@@ -125,10 +111,9 @@ if df_productos_raw.empty:
     st.warning("⚠️ No se encontraron productos en la base de datos o la tabla está vacía.")
     st.stop()
 
-# 5. ENRIQUECIMIENTO DEL DATASET (JOINS EN MEMORIA)
+# 5. ENRIQUECIMIENTO DEL DATASET
 df = df_productos_raw.copy()
 
-# Merge con categorías
 if not df_categorias.empty:
     df = df.merge(
         df_categorias.rename(columns={"nombre": "nombre_cat", "id_cat": "id_cat_ref"}),
@@ -140,7 +125,6 @@ if not df_categorias.empty:
 else:
     df["nombre_cat"] = "—"
 
-# Merge con subcategorías
 if not df_subcategorias.empty:
     df = df.merge(
         df_subcategorias.rename(columns={"nombre": "nombre_subcat", "id_subcat": "id_subcat_ref"}),
@@ -152,19 +136,14 @@ if not df_subcategorias.empty:
 else:
     df["nombre_subcat"] = "—"
 
-# ------------------------------------------------------------------------------
-# MAPEOS PARA RECLASIFICACIÓN (NOMBRE → ID)
-# ------------------------------------------------------------------------------
-lista_categorias = sorted(df_categorias["nombre"].dropna().unique().tolist()) if not df_categorias.empty else ["—"]
-lista_subcategorias = sorted(df_subcategorias["nombre"].dropna().unique().tolist()) if not df_subcategorias.empty else ["—"]
-
+# MAPEOS PARA RECLASIFICACIÓN
+lista_categorias = sorted(df_categorias["nombre"].dropna().unique().tolist()) if not df_categorias.empty else []
 mapa_cat_nombre_a_id = dict(zip(df_categorias["nombre"], df_categorias["id_cat"])) if not df_categorias.empty else {}
 mapa_subcat_nombre_a_id = dict(zip(df_subcategorias["nombre"], df_subcategorias["id_subcat"])) if not df_subcategorias.empty else {}
-# Mapa para validar: subcategoría → id_cat (para alertar si no coincide)
 mapa_subcat_a_cat_id = dict(zip(df_subcategorias["nombre"], df_subcategorias["id_cat"])) if not df_subcategorias.empty else {}
 
 # ------------------------------------------------------------------------------
-# 6. RESUMEN DEL CATÁLOGO (PRIMERO)
+# 6. RESUMEN DEL CATÁLOGO
 # ------------------------------------------------------------------------------
 st.markdown("### 📊 Resumen del Catálogo")
 col_k1, col_k2, col_k3, col_k4, col_k5 = st.columns(5)
@@ -180,7 +159,7 @@ else:
 st.markdown("---")
 
 # ------------------------------------------------------------------------------
-# 7. FILTROS DE BÚSQUEDA (DESPUÉS DEL RESUMEN)
+# 7. FILTROS DE BÚSQUEDA
 # ------------------------------------------------------------------------------
 st.markdown("### 🔍 Filtros de Búsqueda")
 
@@ -203,7 +182,7 @@ with f3:
         subcats_filtradas = df_subcategorias[df_subcategorias["id_cat"] == id_cat_sel]["nombre"].dropna().unique().tolist()
         opciones_subcat = ["Todas"] + sorted(subcats_filtradas)
     else:
-        opciones_subcat = ["Todas"] + lista_subcategorias
+        opciones_subcat = ["Todas"] + (sorted(df_subcategorias["nombre"].dropna().unique().tolist()) if not df_subcategorias.empty else [])
     filtro_subcat = st.selectbox("Subcategoría:", opciones_subcat, label_visibility="collapsed")
 
 st.markdown("---")
@@ -230,36 +209,26 @@ if len(df_filtrado) != len(df):
     st.info(f"📌 Mostrando **{len(df_filtrado)}** de **{len(df)}** productos según filtros aplicados.")
 
 # ------------------------------------------------------------------------------
-# 9. GRILLA EDITABLE CON RECLASIFICACIÓN E IMÁGENES FIRMADAS
+# 9. GRILLA DE VISUALIZACIÓN (SOLO LECTURA PARA CAT/SUBCAT)
 # ------------------------------------------------------------------------------
 st.markdown(f"### 📋 Catálogo de Productos — `{len(df_filtrado)}` registros")
 
 if df_filtrado.empty:
     st.info("💡 No hay productos que coincidan con los filtros seleccionados.")
 else:
-    # OPTIMIZACIÓN: Solo firmamos imágenes de las filas filtradas
+    # Firmar imágenes solo de filas filtradas
     if "url_imagen" in df_filtrado.columns:
         df_filtrado["url_imagen"] = df_filtrado["url_imagen"].apply(
             lambda x: firmar_url_imagen(x, 3600)
         )
 
-    columnas_editor = [
-        "url_imagen",
-        "id_producto",
-        "codigo_barras",
-        "nombre",
-        "marca",
-        "tamano",
-        "unidad",
-        "nombre_cat",
-        "nombre_subcat",
-        "es_favorito",
-        "alta_demanda",
-        "es_estrategico",
-        "cod_verif",
+    columnas_display = [
+        "url_imagen", "id_producto", "codigo_barras", "nombre", "marca",
+        "tamano", "unidad", "nombre_cat", "nombre_subcat",
+        "es_favorito", "alta_demanda", "es_estrategico", "cod_verif",
     ]
-    columnas_existentes = [c for c in columnas_editor if c in df_filtrado.columns]
-    df_edit = df_filtrado[columnas_existentes].copy()
+    columnas_existentes = [c for c in columnas_display if c in df_filtrado.columns]
+    df_display = df_filtrado[columnas_existentes].copy()
 
     renombres = {
         "url_imagen": "Imagen",
@@ -276,141 +245,191 @@ else:
         "es_estrategico": "🎯 Est",
         "cod_verif": "✅ Verif",
     }
-    df_edit.rename(columns=renombres, inplace=True)
+    df_display.rename(columns=renombres, inplace=True)
 
-    # Guardar original para comparación
-    if "df_original" not in st.session_state:
-        st.session_state.df_original = df_edit.copy()
+    # Ordenar por ID
+    if "ID" in df_display.columns:
+        df_display = df_display.sort_values(by="ID", ascending=True).reset_index(drop=True)
 
-    # Configuración de columnas del data_editor
-    # Categoría y Subcategoría ahora son EDITABLES (SelectboxColumn)
-    column_config = {
-        "Imagen": st.column_config.ImageColumn(
-            "Imagen",
-            help="Vista previa del producto desde bucket privado (URL firmada)",
-            width="small"
-        ),
-        "ID": st.column_config.NumberColumn("ID", disabled=True, width="small"),
-        "Código de Barras": st.column_config.TextColumn("Código de Barras", disabled=True, width="medium"),
-        "Nombre del Producto": st.column_config.TextColumn("Nombre del Producto", width="large"),
-        "Marca": st.column_config.TextColumn("Marca", width="medium"),
-        "Tamaño": st.column_config.NumberColumn("Tamaño", format="%.2f", width="small"),
-        "Unidad": st.column_config.TextColumn("Unidad", width="small"),
-        "Categoría": st.column_config.SelectboxColumn(
-            "Categoría",
-            options=lista_categorias,
-            required=True,
-            width="medium"
-        ),
-        "Subcategoría": st.column_config.SelectboxColumn(
-            "Subcategoría",
-            options=lista_subcategorias,
-            required=True,
-            width="medium"
-        ),
-        "⭐ Fav": st.column_config.CheckboxColumn("⭐ Fav", width="small"),
-        "🔥 Dem": st.column_config.CheckboxColumn("🔥 Dem", width="small"),
-        "🎯 Est": st.column_config.CheckboxColumn("🎯 Est", width="small"),
-        "✅ Verif": st.column_config.CheckboxColumn("✅ Verif", width="small"),
-    }
-
-    column_config_filtrado = {k: v for k, v in column_config.items() if k in df_edit.columns}
-
-    df_editado = st.data_editor(
-        df_edit,
-        column_config=column_config_filtrado,
+    st.dataframe(
+        df_display,
         use_container_width=True,
-        height=600,
-        num_rows="fixed",
-        key="editor_productos",
+        height=500,
+        column_config={
+            "Imagen": st.column_config.ImageColumn("Imagen", help="Vista previa firmada", width="small"),
+            "ID": st.column_config.NumberColumn("ID", width="small"),
+            "Código de Barras": st.column_config.TextColumn("Código de Barras", width="medium"),
+            "Nombre del Producto": st.column_config.TextColumn("Nombre del Producto", width="large"),
+            "Marca": st.column_config.TextColumn("Marca", width="medium"),
+            "Tamaño": st.column_config.NumberColumn("Tamaño", format="%.2f", width="small"),
+            "Unidad": st.column_config.TextColumn("Unidad", width="small"),
+            "Categoría": st.column_config.TextColumn("Categoría", width="medium"),
+            "Subcategoría": st.column_config.TextColumn("Subcategoría", width="medium"),
+            "⭐ Fav": st.column_config.TextColumn("⭐ Fav", width="small"),
+            "🔥 Dem": st.column_config.TextColumn("🔥 Dem", width="small"),
+            "🎯 Est": st.column_config.TextColumn("🎯 Est", width="small"),
+            "✅ Verif": st.column_config.TextColumn("✅ Verif", width="small"),
+        },
         hide_index=True
     )
 
-    # 10. BOTÓN PARA GUARDAR CAMBIOS EN SUPABASE
-    st.markdown("---")
-    col_guardar, col_csv = st.columns([1, 4])
-
-    with col_guardar:
-        if st.button("💾 Guardar Cambios en la Nube", type="primary", use_container_width=True):
-            cambios_realizados = 0
-            errores = []
-            advertencias = []
-
-            df_original = st.session_state.df_original
-            # Todas las columnas son comparables excepto Imagen (solo lectura)
-            cols_comparables = [c for c in df_editado.columns if c != "Imagen"]
-
-            for idx in df_editado.index:
-                fila_nueva = df_editado.loc[idx]
-                fila_original = df_original.loc[idx] if idx in df_original.index else None
-
-                if fila_original is None:
-                    continue
-
-                campos_cambiados = {}
-                for col in cols_comparables:
-                    if col == "ID":
-                        continue
-                    if col in df_original.columns and fila_nueva[col] != fila_original[col]:
-                        # Mapeo especial para Categoría y Subcategoría (nombre → ID)
-                        if col == "Categoría":
-                            nuevo_id_cat = mapa_cat_nombre_a_id.get(fila_nueva[col])
-                            if nuevo_id_cat is not None:
-                                campos_cambiados["id_cat"] = int(nuevo_id_cat)
-                        elif col == "Subcategoría":
-                            nuevo_id_subcat = mapa_subcat_nombre_a_id.get(fila_nueva[col])
-                            if nuevo_id_subcat is not None:
-                                campos_cambiados["id_subcat"] = int(nuevo_id_subcat)
-                        else:
-                            mapeo_inverso = {v: k for k, v in renombres.items()}
-                            campo_db = mapeo_inverso.get(col, col)
-                            campos_cambiados[campo_db] = fila_nueva[col]
-
-                # Validación: subcategoría pertenece a la categoría seleccionada
-                if "id_subcat" in campos_cambiados or "id_cat" in campos_cambiados:
-                    cat_actual = campos_cambiados.get("id_cat", mapa_cat_nombre_a_id.get(fila_nueva["Categoría"]))
-                    subcat_actual = campos_cambiados.get("id_subcat", mapa_subcat_nombre_a_id.get(fila_nueva["Subcategoría"]))
-                    cat_esperada = mapa_subcat_a_cat_id.get(fila_nueva["Subcategoría"])
-
-                    if cat_esperada is not None and cat_actual is not None and cat_esperada != cat_actual:
-                        advertencias.append(
-                            f"ID {fila_nueva['ID']}: Subcategoría '{fila_nueva['Subcategoría']}' no pertenece a Categoría '{fila_nueva['Categoría']}'. "
-                            f"Se guardará igual, pero verifica la reclasificación."
-                        )
-
-                if campos_cambiados:
-                    id_producto = int(fila_nueva["ID"])
-                    try:
-                        supabase.table("productos").update(campos_cambiados).eq("id_producto", id_producto).execute()
-                        cambios_realizados += 1
-                    except Exception as e:
-                        errores.append(f"ID {id_producto}: {e}")
-
-            # Mostrar resultados
-            if advertencias:
-                for adv in advertencias:
-                    st.warning(f"⚠️ {adv}")
-
-            if cambios_realizados > 0:
-                st.success(f"✅ {cambios_realizados} producto(s) actualizado(s) correctamente en Supabase.")
-                cargar_productos.clear()
-                firmar_url_imagen.clear()
-                st.session_state.df_original = df_editado.copy()
-                st.rerun()
-            elif errores:
-                for err in errores:
-                    st.error(f"❌ {err}")
-            else:
-                st.info("💡 No se detectaron cambios para guardar.")
-
-    with col_csv:
-        csv = df_editado.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label="📥 Descargar CSV",
-            data=csv,
-            file_name="grilla_productos.csv",
-            mime="text/csv"
-        )
+    # Botón descarga CSV
+    csv = df_display.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="📥 Descargar CSV",
+        data=csv,
+        file_name="grilla_productos.csv",
+        mime="text/csv"
+    )
 
 st.markdown("---")
-st.caption(f"🔒 Conexión segura a Supabase | Reclasificación habilitada | Imágenes firmadas | v{VERSION_PROGRAMA}")
+
+# ------------------------------------------------------------------------------
+# 10. PANEL DE RECLASIFICACIÓN DINÁMICA
+# ------------------------------------------------------------------------------
+st.markdown("### ✏️ Reclasificar Producto")
+st.markdown("Selecciona un producto de la grilla superior para editar su categoría y subcategoría. La lista de subcategorías se filtra automáticamente según la categoría elegida.")
+
+# Preparar lista de productos para el selectbox
+if not df_filtrado.empty:
+    opciones_producto = {
+        f"ID {row['id_producto']} — {row['nombre']} ({row.get('marca','')})": row
+        for _, row in df_filtrado.iterrows()
+    }
+
+    producto_sel_key = st.selectbox(
+        "Seleccionar producto a reclasificar:",
+        list(opciones_producto.keys()),
+        index=None,
+        placeholder="Elige un producto..."
+    )
+
+    if producto_sel_key:
+        prod = opciones_producto[producto_sel_key]
+
+        # Mostrar datos actuales
+        col_img, col_info = st.columns([1, 4])
+        with col_img:
+            if prod.get("url_imagen"):
+                st.image(firmar_url_imagen(prod["url_imagen"], 3600), width=120)
+            else:
+                st.markdown("🖼️ *Sin imagen*")
+        with col_info:
+            st.markdown(f"**{prod['nombre']}** | Marca: {prod.get('marca','—')} | Código: {prod.get('codigo_barras','—')}")
+            st.markdown(f"📂 Actual: **{prod.get('nombre_cat','—')}** → **{prod.get('nombre_subcat','—')}**")
+
+        st.markdown("---")
+
+        # FORMULARIO DE RECLASIFICACIÓN
+        with st.form("form_reclasificar"):
+            st.markdown("#### Nueva Clasificación")
+
+            col_c1, col_c2 = st.columns(2)
+
+            with col_c1:
+                # Categoría: todas las disponibles
+                cat_actual = prod.get("nombre_cat", lista_categorias[0] if lista_categorias else "")
+                nueva_cat = st.selectbox(
+                    "Nueva Categoría:",
+                    lista_categorias,
+                    index=lista_categorias.index(cat_actual) if cat_actual in lista_categorias else 0
+                )
+
+            with col_c2:
+                # Subcategoría: filtrada por la categoría seleccionada arriba
+                id_cat_nueva = mapa_cat_nombre_a_id.get(nueva_cat)
+                subcats_disponibles = []
+                if id_cat_nueva is not None and not df_subcategorias.empty:
+                    subcats_disponibles = sorted(
+                        df_subcategorias[df_subcategorias["id_cat"] == id_cat_nueva]["nombre"].dropna().unique().tolist()
+                    )
+
+                subcat_actual = prod.get("nombre_subcat", "")
+                # Si la subcategoría actual no está en la lista filtrada, mostrar placeholder
+                idx_subcat = subcats_disponibles.index(subcat_actual) if subcat_actual in subcats_disponibles else 0
+
+                nueva_subcat = st.selectbox(
+                    "Nueva Subcategoría:",
+                    subcats_disponibles if subcats_disponibles else ["— Sin subcategorías —"],
+                    index=idx_subcat if subcats_disponibles else 0
+                )
+
+            st.markdown("---")
+
+            # Otros campos editables
+            col_e1, col_e2, col_e3 = st.columns(3)
+            with col_e1:
+                edit_nombre = st.text_input("Nombre:", value=prod.get("nombre", ""))
+            with col_e2:
+                edit_marca = st.text_input("Marca:", value=prod.get("marca", "") or "")
+            with col_e3:
+                edit_codigo = st.text_input("Código de Barras:", value=prod.get("codigo_barras", "") or "")
+
+            col_e4, col_e5 = st.columns(2)
+            with col_e4:
+                edit_tamano = st.number_input("Tamaño:", value=float(prod.get("tamano", 0) or 0), step=0.01)
+            with col_e5:
+                edit_unidad = st.text_input("Unidad:", value=prod.get("unidad", "") or "")
+
+            col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+            with col_f1:
+                edit_fav = st.checkbox("⭐ Favorito", value=bool(prod.get("es_favorito", False)))
+            with col_f2:
+                edit_dem = st.checkbox("🔥 Alta Demanda", value=bool(prod.get("alta_demanda", False)))
+            with col_f3:
+                edit_est = st.checkbox("🎯 Estratégico", value=bool(prod.get("es_estrategico", False)))
+            with col_f4:
+                edit_verif = st.checkbox("✅ Cod. Verif.", value=bool(prod.get("cod_verif", False)))
+
+            st.markdown("---")
+            btn_guardar = st.form_submit_button("💾 Guardar Cambios en la Nube", type="primary", use_container_width=True)
+
+            if btn_guardar:
+                id_prod = int(prod["id_producto"])
+                campos_update = {}
+
+                # Reclasificación
+                id_cat_nueva_db = mapa_cat_nombre_a_id.get(nueva_cat)
+                id_subcat_nueva_db = mapa_subcat_nombre_a_id.get(nueva_subcat)
+
+                if id_cat_nueva_db is not None and prod.get("id_cat") != id_cat_nueva_db:
+                    campos_update["id_cat"] = int(id_cat_nueva_db)
+                if id_subcat_nueva_db is not None and prod.get("id_subcat") != id_subcat_nueva_db:
+                    campos_update["id_subcat"] = int(id_subcat_nueva_db)
+
+                # Otros campos
+                if edit_nombre != prod.get("nombre", ""):
+                    campos_update["nombre"] = edit_nombre.strip()
+                if edit_marca != (prod.get("marca") or ""):
+                    campos_update["marca"] = edit_marca.strip() if edit_marca else None
+                if edit_codigo != (prod.get("codigo_barras") or ""):
+                    campos_update["codigo_barras"] = edit_codigo.strip() if edit_codigo else None
+                if edit_tamano != float(prod.get("tamano") or 0):
+                    campos_update["tamano"] = edit_tamano
+                if edit_unidad != (prod.get("unidad") or ""):
+                    campos_update["unidad"] = edit_unidad.strip() if edit_unidad else None
+                if edit_fav != bool(prod.get("es_favorito", False)):
+                    campos_update["es_favorito"] = edit_fav
+                if edit_dem != bool(prod.get("alta_demanda", False)):
+                    campos_update["alta_demanda"] = edit_dem
+                if edit_est != bool(prod.get("es_estrategico", False)):
+                    campos_update["es_estrategico"] = edit_est
+                if edit_verif != bool(prod.get("cod_verif", False)):
+                    campos_update["cod_verif"] = edit_verif
+
+                if campos_update:
+                    try:
+                        supabase.table("productos").update(campos_update).eq("id_producto", id_prod).execute()
+                        st.success(f"✅ Producto ID {id_prod} actualizado correctamente.")
+                        cargar_productos.clear()
+                        firmar_url_imagen.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error al actualizar: {e}")
+                else:
+                    st.info("💡 No se detectaron cambios.")
+else:
+    st.info("No hay productos disponibles para reclasificar.")
+
+st.markdown("---")
+st.caption(f"🔒 Conexión segura a Supabase | Reclasificación dinámica | Imágenes firmadas | v{VERSION_PROGRAMA}")
