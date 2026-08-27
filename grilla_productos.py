@@ -1,10 +1,10 @@
 # ==============================================================================
-# PROGRAMA SATÉLITE: grilla_productos_v166.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 1.6.6
+# PROGRAMA SATÉLITE: grilla_productos_v168.py (BLOQUE ÚNICO COMPLETO)
+# VERSIÓN: 1.6.8
 # DESCRIPCIÓN: Grilla de catálogo con creación de productos, modificación de
-#              productos incluyendo actualización de imagen. Imágenes guardadas
-#              directamente en el bucket (sin subdirectorio) con formato de
-#              nombre: img_AAAAMMDD_HHMMSS.ext
+#              productos incluyendo actualización de imagen. Imágenes subidas
+#              al bucket "imagenes" con formato img_AAAAMMDD_HHMMSS.ext y URL
+#              completa guardada en base de datos (get_public_url).
 # REGLAS: Sin panel lateral | Versión en nombre de archivo | Sin filtros check
 #         | URLs firmadas solo filtradas | Subcategoría dependiente de categoría
 # ==============================================================================
@@ -18,7 +18,7 @@ from datetime import datetime
 # ------------------------------------------------------------------------------
 # CONSTANTES DE VERSIÓN Y CONFIGURACIÓN
 # ------------------------------------------------------------------------------
-VERSION_PROGRAMA = "1.6.6"
+VERSION_PROGRAMA = "1.6.8"
 NOMBRE_PROGRAMA = "Grilla de Productos"
 BUCKET_IMAGENES = "imagenes"
 
@@ -44,7 +44,7 @@ except Exception as e:
     st.stop()
 
 st.title(f"📦 {NOMBRE_PROGRAMA}")
-st.markdown(f"**Versión {VERSION_PROGRAMA}** — Imágenes directamente en bucket con formato img_AAAAMMDD_HHMMSS.ext.")
+st.markdown(f"**Versión {VERSION_PROGRAMA}** — Imágenes con URL completa desde bucket 'imagenes'.")
 st.markdown("---")
 
 # ------------------------------------------------------------------------------
@@ -99,7 +99,7 @@ def cargar_productos():
         st.error(f"❌ Error cargando productos: {e}")
     return pd.DataFrame()
 
-# 3.1 FUNCIÓN PARA FIRMAR URL DE IMAGEN DESDE BUCKET PRIVADO
+# 3.1 FUNCIÓN PARA FIRMAR URL DE IMAGEN (soporta URL completa o ruta relativa)
 @st.cache_data(ttl=3600)
 def firmar_url_imagen(url_imagen: str, duracion_segundos: int = 3600) -> str:
     if not url_imagen or pd.isna(url_imagen):
@@ -109,14 +109,17 @@ def firmar_url_imagen(url_imagen: str, duracion_segundos: int = 3600) -> str:
     bucket_name = BUCKET_IMAGENES
     file_path = ""
     try:
+        # CASO A: URL completa de Supabase Storage
         if supabase_url in url_str and "/storage/v1/object/public/" in url_str:
             partes = url_str.split("/storage/v1/object/public/")
             if len(partes) == 2:
                 bucket_y_path = partes[1]
                 bucket_name = bucket_y_path.split("/")[0]
                 file_path = "/".join(bucket_y_path.split("/")[1:])
+        # CASO B: Ruta relativa
         elif not url_str.startswith("http") and "." in url_str:
             file_path = url_str
+        # CASO C: URL externa u otro formato
         else:
             return url_str
         if not file_path:
@@ -131,6 +134,35 @@ def firmar_url_imagen(url_imagen: str, duracion_segundos: int = 3600) -> str:
     except Exception:
         pass
     return url_str
+
+# ------------------------------------------------------------------------------
+# FUNCIÓN: SUBIR IMAGEN A STORAGE Y RETORNAR URL COMPLETA
+# ------------------------------------------------------------------------------
+def subir_imagen_storage(archivo) -> str:
+    """
+    Sube una imagen al bucket 'imagenes' de Supabase Storage.
+    Retorna la URL completa (pública) del archivo subido.
+    Formato de nombre: img_AAAAMMDD_HHMMSS.ext
+    """
+    try:
+        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        ext = archivo.name.split(".")[-1].lower()
+        nombre_archivo = f"img_{timestamp_str}.{ext}"
+        file_bytes = archivo.getvalue()
+        mime_type = archivo.type
+
+        supabase.storage.from_(BUCKET_IMAGENES).upload(
+            path=nombre_archivo,
+            file=file_bytes,
+            file_options={"content-type": mime_type}
+        )
+
+        # Retornar URL completa (pública) del archivo
+        url_completa = str(supabase.storage.from_(BUCKET_IMAGENES).get_public_url(nombre_archivo))
+        return url_completa
+    except Exception as e:
+        st.error(f"❌ Error crítico en Supabase Storage: {e}")
+        return ""
 
 # 4. CARGA DE DATOS EN MEMORIA
 df_categorias = cargar_categorias()
@@ -420,34 +452,16 @@ with st.expander("Desplegar formulario de creación", expanded=False):
 
                     if res_insert and hasattr(res_insert, 'data') and res_insert.data:
                         nuevo_id = res_insert.data[0]["id_producto"]
-                        ruta_imagen_guardada = None
+                        url_imagen_completa = None
 
                         if archivo_imagen is not None:
-                            try:
-                                ext = archivo_imagen.name.split(".")[-1].lower()
-                                # FORMATO v1.6.6: img_AAAAMMDD_HHMMSS.ext (directamente en bucket, sin subdirectorio)
-                                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                                file_path = f"img_{timestamp}.{ext}"
-                                file_bytes = archivo_imagen.getvalue()
-                                mime_type = archivo_imagen.type
-
-                                supabase.storage.from_(BUCKET_IMAGENES).upload(
-                                    file_path,
-                                    file_bytes,
-                                    {"content-type": mime_type, "upsert": "true"}
-                                )
-
-                                # Guardar solo la ruta relativa (directamente en bucket)
-                                ruta_imagen_guardada = file_path
-
-                                supabase.table("productos").update({"url_imagen": ruta_imagen_guardada}).eq("id_producto", nuevo_id).execute()
-
-                            except Exception as e_img:
-                                st.warning(f"⚠️ Producto creado (ID {nuevo_id}), pero falló la carga de imagen: {e_img}")
+                            url_imagen_completa = subir_imagen_storage(archivo_imagen)
+                            if url_imagen_completa:
+                                supabase.table("productos").update({"url_imagen": url_imagen_completa}).eq("id_producto", nuevo_id).execute()
 
                         st.success(f"✅ Producto '{new_nombre}' creado exitosamente con ID {nuevo_id}.")
-                        if ruta_imagen_guardada:
-                            st.info(f"🖼️ Imagen guardada en bucket: {BUCKET_IMAGENES}/{ruta_imagen_guardada}")
+                        if url_imagen_completa:
+                            st.info(f"🖼️ Imagen: {url_imagen_completa}")
 
                         cargar_productos.clear()
                         firmar_url_imagen.clear()
@@ -513,7 +527,7 @@ if not df_filtrado.empty:
             st.markdown(f"**{prod_nombre}** | Marca: {prod_marca or '—'} | Código: {prod_codigo or '—'}")
             st.markdown(f"📂 Actual: **{prod_cat or '—'}** → **{prod_subcat or '—'}**")
             if prod_url_imagen:
-                st.caption(f"🖼️ Archivo imagen: `{prod_url_imagen}`")
+                st.caption(f"🖼️ URL imagen: `{prod_url_imagen}`")
 
         st.markdown("---")
 
@@ -639,25 +653,11 @@ if not df_filtrado.empty:
 
                     # SUBIR NUEVA IMAGEN SI SE SELECCIONÓ
                     if nueva_imagen is not None:
-                        try:
-                            ext = nueva_imagen.name.split(".")[-1].lower()
-                            # FORMATO v1.6.6: img_AAAAMMDD_HHMMSS.ext (directamente en bucket)
-                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                            file_path = f"img_{timestamp}.{ext}"
-                            file_bytes = nueva_imagen.getvalue()
-                            mime_type = nueva_imagen.type
-
-                            supabase.storage.from_(BUCKET_IMAGENES).upload(
-                                file_path,
-                                file_bytes,
-                                {"content-type": mime_type, "upsert": "true"}
-                            )
-
-                            # Guardar solo la ruta relativa (directamente en bucket, sin subdirectorio)
-                            campos_update["url_imagen"] = file_path
-
-                        except Exception as e_img:
-                            st.warning(f"⚠️ Los datos del producto se guardaron, pero falló la carga de la nueva imagen: {e_img}")
+                        url_imagen_nueva = subir_imagen_storage(nueva_imagen)
+                        if url_imagen_nueva:
+                            campos_update["url_imagen"] = url_imagen_nueva
+                        else:
+                            st.warning("⚠️ Los datos del producto se guardaron, pero falló la carga de la nueva imagen.")
 
                     if campos_update:
                         try:
@@ -679,4 +679,4 @@ else:
     st.info("No hay productos disponibles para modificar.")
 
 st.markdown("---")
-st.caption(f"🔒 Conexión segura a Supabase | Creación + Modificación + Imágenes formato img_AAAAMMDD_HHMMSS.ext | v{VERSION_PROGRAMA}")
+st.caption(f"🔒 Conexión segura a Supabase | Creación + Modificación + URL completa de imagen | v{VERSION_PROGRAMA}")
