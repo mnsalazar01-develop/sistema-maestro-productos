@@ -18,7 +18,7 @@ from datetime import datetime
 # ------------------------------------------------------------------------------
 # CONSTANTES DE VERSIÓN Y CONFIGURACIÓN
 # ------------------------------------------------------------------------------
-VERSION_PROGRAMA = "1.6.8"
+VERSION_PROGRAMA = "1.6.9"
 NOMBRE_PROGRAMA = "Grilla de Productos"
 BUCKET_IMAGENES = "imagenes"
 
@@ -163,6 +163,46 @@ def subir_imagen_storage(archivo) -> str:
     except Exception as e:
         st.error(f"❌ Error crítico en Supabase Storage: {e}")
         return ""
+
+
+# -----------------------------------------------------------------------------
+# FUNCIÓN: ELIMINAR IMAGEN DE STORAGE DESDE URL COMPLETA
+# -----------------------------------------------------------------------------
+def eliminar_imagen_storage(url_imagen: str) -> bool:
+    """
+    Extrae el file_path desde una URL pública completa de Supabase Storage
+    y elimina el objeto del bucket. Retorna True si no hay imagen, si se
+    eliminó correctamente, o si ya no existía (not_found).
+    """
+    if not url_imagen or pd.isna(url_imagen):
+        return True
+    url_str = str(url_imagen).strip()
+    supabase_url = st.secrets["supabase"]["url"]
+    bucket_name = BUCKET_IMAGENES
+    file_path = ""
+    try:
+        # CASO A: URL completa de Supabase Storage
+        if supabase_url in url_str and "/storage/v1/object/public/" in url_str:
+            partes = url_str.split("/storage/v1/object/public/")
+            if len(partes) == 2:
+                bucket_y_path = partes[1]
+                bucket_name = bucket_y_path.split("/")[0]
+                file_path = "/".join(bucket_y_path.split("/")[1:])
+        # CASO B: Ruta relativa
+        elif not url_str.startswith("http") and "." in url_str:
+            file_path = url_str
+        else:
+            return True  # URL externa, no gestionada por este bucket
+        if not file_path:
+            return True
+        supabase.storage.from_(bucket_name).remove([file_path])
+        return True
+    except Exception as e:
+        err = str(e).lower()
+        if "not found" in err or "not_found" in err or "notfound" in err or "does not exist" in err:
+            return True  # Ya no existe, consideramos éxito
+        st.warning(f"⚠️ No se pudo eliminar la imagen del storage: {e}")
+        return False
 
 # 4. CARGA DE DATOS EN MEMORIA
 df_categorias = cargar_categorias()
@@ -675,8 +715,52 @@ if not df_filtrado.empty:
                             st.error(f"❌ Error al actualizar: {e}")
                     else:
                         st.info("💡 No se detectaron cambios.")
+
+        st.markdown("---")
+
+        # ==============================================================================
+        # 11.1 ZONA PELIGROSA — ELIMINACIÓN DE PRODUCTO
+        # ==============================================================================
+        st.markdown("### 🗑️ Eliminar Producto")
+        with st.expander("⚠️ Zona peligrosa — Eliminar permanentemente", expanded=False):
+            st.error(f"Estás a punto de eliminar el producto **'{prod_nombre}'** (ID `{id_prod}`). Esta acción no se puede deshacer.")
+            if prod_url_imagen:
+                st.info("🖼️ La imagen asociada también será eliminada del bucket de Storage.")
+            else:
+                st.info("ℹ️ Este producto no tiene imagen asociada en Storage.")
+
+            confirmar_elim = st.checkbox(
+                f"Sí, confirmo que deseo eliminar permanentemente el producto ID {id_prod}",
+                key=f"chk_del_{id_prod}"
+            )
+
+            btn_eliminar = st.button(
+                "🗑️ Eliminar Producto Permanentemente",
+                type="secondary",
+                disabled=not confirmar_elim,
+                key=f"btn_del_{id_prod}"
+            )
+
+            if btn_eliminar and confirmar_elim:
+                # Paso 1: Eliminar imagen de Storage (si existe)
+                imagen_ok = eliminar_imagen_storage(prod_url_imagen)
+
+                if not imagen_ok:
+                    st.error("❌ No se pudo limpiar la imagen del Storage. Eliminación abortada para evitar archivos huérfanos.")
+                else:
+                    # Paso 2: Eliminar registro de la base de datos
+                    try:
+                        supabase.table("productos").delete().eq("id_producto", id_prod).execute()
+                        st.success(f"✅ Producto ID {id_prod} eliminado correctamente.{' Imagen limpiada del Storage.' if prod_url_imagen else ''}")
+
+                        cargar_productos.clear()
+                        firmar_url_imagen.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error al eliminar el producto de la base de datos: {e}")
+
 else:
     st.info("No hay productos disponibles para modificar.")
 
 st.markdown("---")
-st.caption(f"🔒 Conexión segura a Supabase | Creación + Modificación + URL completa de imagen | v{VERSION_PROGRAMA}")
+st.caption(f"🔒 Conexión segura a Supabase | Crear + Modificar + Eliminar (con limpieza de Storage) | v{VERSION_PROGRAMA}")
