@@ -1,10 +1,11 @@
 # ==============================================================================
-# PROGRAMA SATÉLITE: grilla_productos.py (BLOQUE ÚNICO COMPLETO)
+# PROGRAMA SATÉLITE: grilla_productos_v140.py (BLOQUE ÚNICO COMPLETO)
 # VERSIÓN: 1.4.0
 # DESCRIPCIÓN: Grilla interactiva y editable de catálogo de productos con
 #              imágenes desde bucket privado (URLs firmadas), filtros en área
 #              principal, edición inline y persistencia a Supabase.
-# REGLAS: Sin panel lateral | Versión explícita | URLs firmadas para imágenes
+# REGLAS: Sin panel lateral | Versión en nombre de archivo | Sin filtros check
+#         | Optimización de firmas de imágenes (solo filtradas, cacheadas)
 # ==============================================================================
 
 import streamlit as st
@@ -77,40 +78,45 @@ def cargar_productos():
     return pd.DataFrame()
 
 # 3.1 FUNCIÓN PARA FIRMAR URL DE IMAGEN DESDE BUCKET PRIVADO
-@st.cache_data(ttl=300)
+# OPTIMIZACIÓN: Se firma solo cuando se necesita, con cache de 1 hora.
+# No se firma todo el catálogo al inicio, solo las filas filtradas.
+@st.cache_data(ttl=3600)
 def firmar_url_imagen(url_imagen: str, duracion_segundos: int = 3600) -> str:
     """
     Firma una URL de imagen almacenada en un bucket privado de Supabase Storage.
     Si la URL no pertenece al proyecto de Supabase, se retorna tal cual.
+    Cache TTL: 1 hora para evitar llamadas repetitivas.
     """
     if not url_imagen or pd.isna(url_imagen):
         return ""
 
     try:
-        # Detectar si la URL pertenece al storage de Supabase
         supabase_url = st.secrets["supabase"]["url"]
-        if supabase_url not in str(url_imagen):
-            return str(url_imagen)  # URL externa, no requiere firma
+        url_str = str(url_imagen).strip()
+
+        # Si es URL externa, retornar directamente
+        if supabase_url not in url_str:
+            return url_str
 
         # Extraer bucket y path de la URL pública de Supabase Storage
-        # Formato típico: https://<proyecto>.supabase.co/storage/v1/object/public/<bucket>/<path>
-        # Para buckets privados usamos create_signed_url
-        partes = str(url_imagen).split("/storage/v1/object/public/")
+        # Formato: https://<proyecto>.supabase.co/storage/v1/object/public/<bucket>/<path>
+        partes = url_str.split("/storage/v1/object/public/")
         if len(partes) == 2:
             bucket_y_path = partes[1]
             bucket_name = bucket_y_path.split("/")[0]
             file_path = "/".join(bucket_y_path.split("/")[1:])
 
+            if not bucket_name or not file_path:
+                return url_str
+
             res = supabase.storage.from_(bucket_name).create_signed_url(file_path, duracion_segundos)
             if res and "signedURL" in res:
-                # La signedURL puede ser relativa, construir URL completa
                 signed = res["signedURL"]
                 if signed.startswith("http"):
                     return signed
                 else:
                     return f"{supabase_url}{signed}"
-    except Exception as e:
-        # Si falla la firma, retornar la URL original como fallback
+    except Exception:
         pass
 
     return str(url_imagen)
@@ -124,12 +130,8 @@ if df_productos_raw.empty:
     st.warning("⚠️ No se encontraron productos en la base de datos o la tabla está vacía.")
     st.stop()
 
-# 5. ENRIQUECIMIENTO DEL DATASET (JOINS EN MEMORIA + URL FIRMADA)
+# 5. ENRIQUECIMIENTO DEL DATASET (JOINS EN MEMORIA)
 df = df_productos_raw.copy()
-
-# Firmar URLs de imágenes antes del merge
-if "url_imagen" in df.columns:
-    df["url_imagen"] = df["url_imagen"].apply(lambda x: firmar_url_imagen(x, 3600))
 
 # Merge con categorías
 if not df_categorias.empty:
@@ -155,10 +157,29 @@ if not df_subcategorias.empty:
 else:
     df["nombre_subcat"] = "—"
 
-# 6. FILTROS EN ÁREA PRINCIPAL (SIN PANEL LATERAL)
+# ------------------------------------------------------------------------------
+# 6. RESUMEN DEL CATÁLOGO (PRIMERO)
+# ------------------------------------------------------------------------------
+st.markdown("### 📊 Resumen del Catálogo")
+col_k1, col_k2, col_k3, col_k4, col_k5 = st.columns(5)
+col_k1.metric("Total Productos", len(df))
+# Placeholder para filtrados, se actualiza después de aplicar filtros
+col_k2.metric("Filtrados", len(df))
+col_k3.metric("Categorías", df_categorias["id_cat"].nunique() if not df_categorias.empty else 0)
+col_k4.metric("Subcategorías", df_subcategorias["id_subcat"].nunique() if not df_subcategorias.empty else 0)
+if "marca" in df.columns:
+    col_k5.metric("Marcas Únicas", df["marca"].nunique())
+else:
+    col_k5.metric("Marcas Únicas", 0)
+
+st.markdown("---")
+
+# ------------------------------------------------------------------------------
+# 7. FILTROS DE BÚSQUEDA (DESPUÉS DEL RESUMEN)
+# ------------------------------------------------------------------------------
 st.markdown("### 🔍 Filtros de Búsqueda")
 
-f1, f2, f3, f4 = st.columns([2.5, 1.5, 1.5, 2.5])
+f1, f2, f3 = st.columns([3, 2, 2])
 
 with f1:
     busqueda = st.text_input(
@@ -186,21 +207,9 @@ with f3:
             opciones_subcat = ["Todas"]
     filtro_subcat = st.selectbox("Subcategoría:", opciones_subcat, label_visibility="collapsed")
 
-with f4:
-    st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-    b1, b2, b3, b4 = st.columns(4)
-    with b1:
-        filtro_favorito = st.checkbox("⭐ Fav", value=False)
-    with b2:
-        filtro_estrategico = st.checkbox("🎯 Est", value=False)
-    with b3:
-        filtro_alta_demanda = st.checkbox("🔥 Dem", value=False)
-    with b4:
-        filtro_cod_verif = st.checkbox("✅ Verif", value=False)
-
 st.markdown("---")
 
-# 7. APLICACIÓN DE FILTROS
+# 8. APLICACIÓN DE FILTROS
 mask = pd.Series([True] * len(df))
 
 if busqueda:
@@ -216,37 +225,30 @@ if filtro_cat != "Todas" and "nombre_cat" in df.columns:
 if filtro_subcat != "Todas" and "nombre_subcat" in df.columns:
     mask &= (df["nombre_subcat"] == filtro_subcat)
 
-if filtro_favorito and "es_favorito" in df.columns:
-    mask &= (df["es_favorito"] == True)
-if filtro_estrategico and "es_estrategico" in df.columns:
-    mask &= (df["es_estrategico"] == True)
-if filtro_alta_demanda and "alta_demanda" in df.columns:
-    mask &= (df["alta_demanda"] == True)
-if filtro_cod_verif and "cod_verif" in df.columns:
-    mask &= (df["cod_verif"] == True)
-
 df_filtrado = df[mask].copy()
 
-# 8. KPIs SUPERIORES
-st.markdown("### 📊 Resumen del Catálogo")
-col_k1, col_k2, col_k3, col_k4, col_k5 = st.columns(5)
-col_k1.metric("Total Productos", len(df))
-col_k2.metric("Filtrados", len(df_filtrado))
-col_k3.metric("Categorías", df_categorias["id_cat"].nunique() if not df_categorias.empty else 0)
-col_k4.metric("Subcategorías", df_subcategorias["id_subcat"].nunique() if not df_subcategorias.empty else 0)
-if "marca" in df.columns:
-    col_k5.metric("Marcas Únicas", df["marca"].nunique())
-else:
-    col_k5.metric("Marcas Únicas", 0)
+# Actualizar métrica de filtrados (usando placeholder del resumen)
+# Streamlit no permite actualizar métricas después de renderizar, 
+# así que recalculamos y mostramos un resumen dinámico debajo de los filtros
+if len(df_filtrado) != len(df):
+    st.info(f"📌 Mostrando **{len(df_filtrado)}** de **{len(df)}** productos según filtros aplicados.")
 
-st.markdown("---")
-
-# 9. GRILLA EDITABLE CON IMÁGENES FIRMADAS
-st.markdown(f"### 📋 Resultados: `{len(df_filtrado)}` productos — Edita directamente y guarda")
+# ------------------------------------------------------------------------------
+# 9. GRILLA EDITABLE CON IMÁGENES FIRMADAS (SOLO FILTRADAS)
+# ------------------------------------------------------------------------------
+st.markdown(f"### 📋 Catálogo de Productos — `{len(df_filtrado)}` registros")
 
 if df_filtrado.empty:
     st.info("💡 No hay productos que coincidan con los filtros seleccionados.")
 else:
+    # OPTIMIZACIÓN DE IMÁGENES:
+    # Solo firmamos las URLs de las filas que realmente se van a mostrar.
+    # Esto evita firmar miles de imágenes del catálogo completo.
+    if "url_imagen" in df_filtrado.columns:
+        df_filtrado["url_imagen"] = df_filtrado["url_imagen"].apply(
+            lambda x: firmar_url_imagen(x, 3600)
+        )
+
     # Columnas que se mostrarán en el editor
     columnas_editor = [
         "url_imagen",
