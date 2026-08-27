@@ -1,11 +1,11 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: grilla_productos_v160.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 1.6.0
+# VERSIÓN: 1.6.1
 # DESCRIPCIÓN: Grilla de catálogo con reclasificación dinámica. La subcategoría
-#              se filtra según la categoría seleccionada en el registro activo.
+#              se filtra en tiempo real según la categoría seleccionada.
 #              Imágenes firmadas, filtros en área principal, persistencia Supabase.
 # REGLAS: Sin panel lateral | Versión en nombre de archivo | Sin filtros check
-#         | URLs firmadas | Subcategoría dependiente de categoría en edición
+#         | URLs firmadas solo filtradas | Subcategoría dependiente de categoría
 # ==============================================================================
 
 import streamlit as st
@@ -15,7 +15,7 @@ from supabase import create_client, Client
 # ------------------------------------------------------------------------------
 # CONSTANTES DE VERSIÓN
 # ------------------------------------------------------------------------------
-VERSION_PROGRAMA = "1.6.0"
+VERSION_PROGRAMA = "1.6.1"
 NOMBRE_PROGRAMA = "Grilla de Productos"
 
 # 1. CONFIGURACIÓN CORPORATIVA DE LA VENTANA DE STREAMLIT
@@ -209,7 +209,7 @@ if len(df_filtrado) != len(df):
     st.info(f"📌 Mostrando **{len(df_filtrado)}** de **{len(df)}** productos según filtros aplicados.")
 
 # ------------------------------------------------------------------------------
-# 9. GRILLA DE VISUALIZACIÓN (SOLO LECTURA PARA CAT/SUBCAT)
+# 9. GRILLA DE VISUALIZACIÓN (SOLO LECTURA)
 # ------------------------------------------------------------------------------
 st.markdown(f"### 📋 Catálogo de Productos — `{len(df_filtrado)}` registros")
 
@@ -247,7 +247,6 @@ else:
     }
     df_display.rename(columns=renombres, inplace=True)
 
-    # Ordenar por ID
     if "ID" in df_display.columns:
         df_display = df_display.sort_values(by="ID", ascending=True).reset_index(drop=True)
 
@@ -273,7 +272,6 @@ else:
         hide_index=True
     )
 
-    # Botón descarga CSV
     csv = df_display.to_csv(index=False).encode("utf-8")
     st.download_button(
         label="📥 Descargar CSV",
@@ -285,12 +283,11 @@ else:
 st.markdown("---")
 
 # ------------------------------------------------------------------------------
-# 10. PANEL DE RECLASIFICACIÓN DINÁMICA
+# 10. PANEL DE RECLASIFICACIÓN DINÁMICA (CORREGIDO v1.6.1)
 # ------------------------------------------------------------------------------
 st.markdown("### ✏️ Reclasificar Producto")
 st.markdown("Selecciona un producto de la grilla superior para editar su categoría y subcategoría. La lista de subcategorías se filtra automáticamente según la categoría elegida.")
 
-# Preparar lista de productos para el selectbox
 if not df_filtrado.empty:
     opciones_producto = {
         f"ID {row['id_producto']} — {row['nombre']} ({row.get('marca','')})": row
@@ -301,7 +298,8 @@ if not df_filtrado.empty:
         "Seleccionar producto a reclasificar:",
         list(opciones_producto.keys()),
         index=None,
-        placeholder="Elige un producto..."
+        placeholder="Elige un producto...",
+        key="sel_producto"
     )
 
     if producto_sel_key:
@@ -320,38 +318,50 @@ if not df_filtrado.empty:
 
         st.markdown("---")
 
-        # FORMULARIO DE RECLASIFICACIÓN
-        with st.form("form_reclasificar"):
-            st.markdown("#### Nueva Clasificación")
+        # ----------------------------------------------------------------------
+        # CATEGORÍA FUERA DEL FORMULARIO (para que Streamlit recalcule subcats)
+        # ----------------------------------------------------------------------
+        st.markdown("#### Nueva Clasificación")
 
+        cat_actual = prod.get("nombre_cat", lista_categorias[0] if lista_categorias else "")
+        nueva_cat = st.selectbox(
+            "Nueva Categoría:",
+            lista_categorias,
+            index=lista_categorias.index(cat_actual) if cat_actual in lista_categorias else 0,
+            key="sel_nueva_cat"
+        )
+
+        # Calcular subcategorías disponibles según la categoría seleccionada
+        id_cat_nueva = mapa_cat_nombre_a_id.get(nueva_cat)
+        subcats_disponibles = []
+        if id_cat_nueva is not None and not df_subcategorias.empty:
+            subcats_disponibles = sorted(
+                df_subcategorias[df_subcategorias["id_cat"] == id_cat_nueva]["nombre"].dropna().unique().tolist()
+            )
+
+        # Si no hay subcategorías para esta categoría, mostrar advertencia
+        if not subcats_disponibles:
+            st.warning(f"⚠️ La categoría '{nueva_cat}' no tiene subcategorías registradas.")
+
+        # ----------------------------------------------------------------------
+        # FORMULARIO CON SUBCATEGORÍA YA FILTRADA
+        # ----------------------------------------------------------------------
+        with st.form("form_reclasificar", clear_on_submit=False):
             col_c1, col_c2 = st.columns(2)
 
             with col_c1:
-                # Categoría: todas las disponibles
-                cat_actual = prod.get("nombre_cat", lista_categorias[0] if lista_categorias else "")
-                nueva_cat = st.selectbox(
-                    "Nueva Categoría:",
-                    lista_categorias,
-                    index=lista_categorias.index(cat_actual) if cat_actual in lista_categorias else 0
-                )
+                st.markdown(f"**Categoría:** {nueva_cat}")
 
             with col_c2:
-                # Subcategoría: filtrada por la categoría seleccionada arriba
-                id_cat_nueva = mapa_cat_nombre_a_id.get(nueva_cat)
-                subcats_disponibles = []
-                if id_cat_nueva is not None and not df_subcategorias.empty:
-                    subcats_disponibles = sorted(
-                        df_subcategorias[df_subcategorias["id_cat"] == id_cat_nueva]["nombre"].dropna().unique().tolist()
-                    )
-
                 subcat_actual = prod.get("nombre_subcat", "")
-                # Si la subcategoría actual no está en la lista filtrada, mostrar placeholder
+                # Si la subcategoría actual no está en la lista filtrada, seleccionar la primera
                 idx_subcat = subcats_disponibles.index(subcat_actual) if subcat_actual in subcats_disponibles else 0
 
                 nueva_subcat = st.selectbox(
                     "Nueva Subcategoría:",
                     subcats_disponibles if subcats_disponibles else ["— Sin subcategorías —"],
-                    index=idx_subcat if subcats_disponibles else 0
+                    index=idx_subcat if subcats_disponibles else 0,
+                    disabled=not subcats_disponibles
                 )
 
             st.markdown("---")
@@ -385,51 +395,54 @@ if not df_filtrado.empty:
             btn_guardar = st.form_submit_button("💾 Guardar Cambios en la Nube", type="primary", use_container_width=True)
 
             if btn_guardar:
-                id_prod = int(prod["id_producto"])
-                campos_update = {}
-
-                # Reclasificación
-                id_cat_nueva_db = mapa_cat_nombre_a_id.get(nueva_cat)
-                id_subcat_nueva_db = mapa_subcat_nombre_a_id.get(nueva_subcat)
-
-                if id_cat_nueva_db is not None and prod.get("id_cat") != id_cat_nueva_db:
-                    campos_update["id_cat"] = int(id_cat_nueva_db)
-                if id_subcat_nueva_db is not None and prod.get("id_subcat") != id_subcat_nueva_db:
-                    campos_update["id_subcat"] = int(id_subcat_nueva_db)
-
-                # Otros campos
-                if edit_nombre != prod.get("nombre", ""):
-                    campos_update["nombre"] = edit_nombre.strip()
-                if edit_marca != (prod.get("marca") or ""):
-                    campos_update["marca"] = edit_marca.strip() if edit_marca else None
-                if edit_codigo != (prod.get("codigo_barras") or ""):
-                    campos_update["codigo_barras"] = edit_codigo.strip() if edit_codigo else None
-                if edit_tamano != float(prod.get("tamano") or 0):
-                    campos_update["tamano"] = edit_tamano
-                if edit_unidad != (prod.get("unidad") or ""):
-                    campos_update["unidad"] = edit_unidad.strip() if edit_unidad else None
-                if edit_fav != bool(prod.get("es_favorito", False)):
-                    campos_update["es_favorito"] = edit_fav
-                if edit_dem != bool(prod.get("alta_demanda", False)):
-                    campos_update["alta_demanda"] = edit_dem
-                if edit_est != bool(prod.get("es_estrategico", False)):
-                    campos_update["es_estrategico"] = edit_est
-                if edit_verif != bool(prod.get("cod_verif", False)):
-                    campos_update["cod_verif"] = edit_verif
-
-                if campos_update:
-                    try:
-                        supabase.table("productos").update(campos_update).eq("id_producto", id_prod).execute()
-                        st.success(f"✅ Producto ID {id_prod} actualizado correctamente.")
-                        cargar_productos.clear()
-                        firmar_url_imagen.clear()
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Error al actualizar: {e}")
+                if not subcats_disponibles:
+                    st.error("❌ No se puede guardar: la categoría seleccionada no tiene subcategorías.")
                 else:
-                    st.info("💡 No se detectaron cambios.")
+                    id_prod = int(prod["id_producto"])
+                    campos_update = {}
+
+                    # Reclasificación
+                    id_cat_nueva_db = mapa_cat_nombre_a_id.get(nueva_cat)
+                    id_subcat_nueva_db = mapa_subcat_nombre_a_id.get(nueva_subcat)
+
+                    if id_cat_nueva_db is not None and prod.get("id_cat") != id_cat_nueva_db:
+                        campos_update["id_cat"] = int(id_cat_nueva_db)
+                    if id_subcat_nueva_db is not None and prod.get("id_subcat") != id_subcat_nueva_db:
+                        campos_update["id_subcat"] = int(id_subcat_nueva_db)
+
+                    # Otros campos
+                    if edit_nombre != prod.get("nombre", ""):
+                        campos_update["nombre"] = edit_nombre.strip()
+                    if edit_marca != (prod.get("marca") or ""):
+                        campos_update["marca"] = edit_marca.strip() if edit_marca else None
+                    if edit_codigo != (prod.get("codigo_barras") or ""):
+                        campos_update["codigo_barras"] = edit_codigo.strip() if edit_codigo else None
+                    if edit_tamano != float(prod.get("tamano") or 0):
+                        campos_update["tamano"] = edit_tamano
+                    if edit_unidad != (prod.get("unidad") or ""):
+                        campos_update["unidad"] = edit_unidad.strip() if edit_unidad else None
+                    if edit_fav != bool(prod.get("es_favorito", False)):
+                        campos_update["es_favorito"] = edit_fav
+                    if edit_dem != bool(prod.get("alta_demanda", False)):
+                        campos_update["alta_demanda"] = edit_dem
+                    if edit_est != bool(prod.get("es_estrategico", False)):
+                        campos_update["es_estrategico"] = edit_est
+                    if edit_verif != bool(prod.get("cod_verif", False)):
+                        campos_update["cod_verif"] = edit_verif
+
+                    if campos_update:
+                        try:
+                            supabase.table("productos").update(campos_update).eq("id_producto", id_prod).execute()
+                            st.success(f"✅ Producto ID {id_prod} actualizado correctamente.")
+                            cargar_productos.clear()
+                            firmar_url_imagen.clear()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Error al actualizar: {e}")
+                    else:
+                        st.info("💡 No se detectaron cambios.")
 else:
     st.info("No hay productos disponibles para reclasificar.")
 
 st.markdown("---")
-st.caption(f"🔒 Conexión segura a Supabase | Reclasificación dinámica | Imágenes firmadas | v{VERSION_PROGRAMA}")
+st.caption(f"🔒 Conexión segura a Supabase | Reclasificación dinámica corregida | Imágenes firmadas | v{VERSION_PROGRAMA}")
