@@ -1,21 +1,22 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: grilla_productos_v160.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 1.6.1
-# DESCRIPCIÓN: Grilla de catálogo con reclasificación dinámica. La subcategoría
-#              se filtra en tiempo real según la categoría seleccionada.
-#              Imágenes firmadas, filtros en área principal, persistencia Supabase.
+# VERSIÓN: 1.6.2
+# DESCRIPCIÓN: Grilla de catálogo con reclasificación dinámica. Corrección de
+#              manejo de valores NULL (np.nan → None/""). La subcategoría se
+#              filtra en tiempo real según la categoría seleccionada.
 # REGLAS: Sin panel lateral | Versión en nombre de archivo | Sin filtros check
 #         | URLs firmadas solo filtradas | Subcategoría dependiente de categoría
 # ==============================================================================
 
 import streamlit as st
 import pandas as pd
+import numpy as np
 from supabase import create_client, Client
 
 # ------------------------------------------------------------------------------
 # CONSTANTES DE VERSIÓN
 # ------------------------------------------------------------------------------
-VERSION_PROGRAMA = "1.6.1"
+VERSION_PROGRAMA = "1.6.2"
 NOMBRE_PROGRAMA = "Grilla de Productos"
 
 # 1. CONFIGURACIÓN CORPORATIVA DE LA VENTANA DE STREAMLIT
@@ -40,8 +41,32 @@ except Exception as e:
     st.stop()
 
 st.title(f"📦 {NOMBRE_PROGRAMA}")
-st.markdown(f"**Versión {VERSION_PROGRAMA}** — Reclasificación dinámica: subcategoría filtrada por categoría seleccionada.")
+st.markdown(f"**Versión {VERSION_PROGRAMA}** — Reclasificación dinámica con manejo seguro de valores nulos.")
 st.markdown("---")
+
+# ------------------------------------------------------------------------------
+# FUNCIÓN AUXILIAR: Normalizar valores pandas (np.nan → None/valor por defecto)
+# ------------------------------------------------------------------------------
+def safe_str(val, default=""):
+    """Convierte np.nan/None a string vacío o al valor string."""
+    if val is None or (isinstance(val, float) and np.isnan(val)):
+        return default
+    return str(val) if val != default else default
+
+def safe_float(val, default=0.0):
+    """Convierte np.nan/None a float por defecto."""
+    if val is None or (isinstance(val, float) and np.isnan(val)):
+        return default
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return default
+
+def safe_bool(val, default=False):
+    """Convierte np.nan/None a bool por defecto."""
+    if val is None or (isinstance(val, float) and np.isnan(val)):
+        return default
+    return bool(val)
 
 # 3. FUNCIONES AUXILIARES DE CARGA DE DATOS MAESTROS
 @st.cache_data(ttl=60)
@@ -283,14 +308,14 @@ else:
 st.markdown("---")
 
 # ------------------------------------------------------------------------------
-# 10. PANEL DE RECLASIFICACIÓN DINÁMICA (CORREGIDO v1.6.1)
+# 10. PANEL DE RECLASIFICACIÓN DINÁMICA (CORREGIDO v1.6.2)
 # ------------------------------------------------------------------------------
 st.markdown("### ✏️ Reclasificar Producto")
 st.markdown("Selecciona un producto de la grilla superior para editar su categoría y subcategoría. La lista de subcategorías se filtra automáticamente según la categoría elegida.")
 
 if not df_filtrado.empty:
     opciones_producto = {
-        f"ID {row['id_producto']} — {row['nombre']} ({row.get('marca','')})": row
+        f"ID {row['id_producto']} — {row['nombre']} ({safe_str(row.get('marca'), '')})": row
         for _, row in df_filtrado.iterrows()
     }
 
@@ -305,29 +330,44 @@ if not df_filtrado.empty:
     if producto_sel_key:
         prod = opciones_producto[producto_sel_key]
 
+        # Normalizar valores del producto seleccionado (np.nan → valores seguros)
+        prod_nombre = safe_str(prod.get("nombre"), "")
+        prod_marca = safe_str(prod.get("marca"), "")
+        prod_codigo = safe_str(prod.get("codigo_barras"), "")
+        prod_tamano = safe_float(prod.get("tamano"), 0.0)
+        prod_unidad = safe_str(prod.get("unidad"), "")
+        prod_fav = safe_bool(prod.get("es_favorito"), False)
+        prod_dem = safe_bool(prod.get("alta_demanda"), False)
+        prod_est = safe_bool(prod.get("es_estrategico"), False)
+        prod_verif = safe_bool(prod.get("cod_verif"), False)
+        prod_cat = safe_str(prod.get("nombre_cat"), lista_categorias[0] if lista_categorias else "")
+        prod_subcat = safe_str(prod.get("nombre_subcat"), "")
+        prod_id_cat = prod.get("id_cat")
+        prod_id_subcat = prod.get("id_subcat")
+
         # Mostrar datos actuales
         col_img, col_info = st.columns([1, 4])
         with col_img:
-            if prod.get("url_imagen"):
-                st.image(firmar_url_imagen(prod["url_imagen"], 3600), width=120)
+            img_url = safe_str(prod.get("url_imagen"), "")
+            if img_url:
+                st.image(firmar_url_imagen(img_url, 3600), width=120)
             else:
                 st.markdown("🖼️ *Sin imagen*")
         with col_info:
-            st.markdown(f"**{prod['nombre']}** | Marca: {prod.get('marca','—')} | Código: {prod.get('codigo_barras','—')}")
-            st.markdown(f"📂 Actual: **{prod.get('nombre_cat','—')}** → **{prod.get('nombre_subcat','—')}**")
+            st.markdown(f"**{prod_nombre}** | Marca: {prod_marca or '—'} | Código: {prod_codigo or '—'}")
+            st.markdown(f"📂 Actual: **{prod_cat or '—'}** → **{prod_subcat or '—'}**")
 
         st.markdown("---")
 
         # ----------------------------------------------------------------------
-        # CATEGORÍA FUERA DEL FORMULARIO (para que Streamlit recalcule subcats)
+        # CATEGORÍA FUERA DEL FORMULARIO (recálculo dinámico de subcategorías)
         # ----------------------------------------------------------------------
         st.markdown("#### Nueva Clasificación")
 
-        cat_actual = prod.get("nombre_cat", lista_categorias[0] if lista_categorias else "")
         nueva_cat = st.selectbox(
             "Nueva Categoría:",
             lista_categorias,
-            index=lista_categorias.index(cat_actual) if cat_actual in lista_categorias else 0,
+            index=lista_categorias.index(prod_cat) if prod_cat in lista_categorias else 0,
             key="sel_nueva_cat"
         )
 
@@ -339,7 +379,6 @@ if not df_filtrado.empty:
                 df_subcategorias[df_subcategorias["id_cat"] == id_cat_nueva]["nombre"].dropna().unique().tolist()
             )
 
-        # Si no hay subcategorías para esta categoría, mostrar advertencia
         if not subcats_disponibles:
             st.warning(f"⚠️ La categoría '{nueva_cat}' no tiene subcategorías registradas.")
 
@@ -353,10 +392,7 @@ if not df_filtrado.empty:
                 st.markdown(f"**Categoría:** {nueva_cat}")
 
             with col_c2:
-                subcat_actual = prod.get("nombre_subcat", "")
-                # Si la subcategoría actual no está en la lista filtrada, seleccionar la primera
-                idx_subcat = subcats_disponibles.index(subcat_actual) if subcat_actual in subcats_disponibles else 0
-
+                idx_subcat = subcats_disponibles.index(prod_subcat) if prod_subcat in subcats_disponibles else 0
                 nueva_subcat = st.selectbox(
                     "Nueva Subcategoría:",
                     subcats_disponibles if subcats_disponibles else ["— Sin subcategorías —"],
@@ -366,30 +402,30 @@ if not df_filtrado.empty:
 
             st.markdown("---")
 
-            # Otros campos editables
+            # Otros campos editables (valores normalizados, sin np.nan)
             col_e1, col_e2, col_e3 = st.columns(3)
             with col_e1:
-                edit_nombre = st.text_input("Nombre:", value=prod.get("nombre", ""))
+                edit_nombre = st.text_input("Nombre:", value=prod_nombre)
             with col_e2:
-                edit_marca = st.text_input("Marca:", value=prod.get("marca", "") or "")
+                edit_marca = st.text_input("Marca:", value=prod_marca)
             with col_e3:
-                edit_codigo = st.text_input("Código de Barras:", value=prod.get("codigo_barras", "") or "")
+                edit_codigo = st.text_input("Código de Barras:", value=prod_codigo)
 
             col_e4, col_e5 = st.columns(2)
             with col_e4:
-                edit_tamano = st.number_input("Tamaño:", value=float(prod.get("tamano", 0) or 0), step=0.01)
+                edit_tamano = st.number_input("Tamaño:", value=prod_tamano, step=0.01)
             with col_e5:
-                edit_unidad = st.text_input("Unidad:", value=prod.get("unidad", "") or "")
+                edit_unidad = st.text_input("Unidad:", value=prod_unidad)
 
             col_f1, col_f2, col_f3, col_f4 = st.columns(4)
             with col_f1:
-                edit_fav = st.checkbox("⭐ Favorito", value=bool(prod.get("es_favorito", False)))
+                edit_fav = st.checkbox("⭐ Favorito", value=prod_fav)
             with col_f2:
-                edit_dem = st.checkbox("🔥 Alta Demanda", value=bool(prod.get("alta_demanda", False)))
+                edit_dem = st.checkbox("🔥 Alta Demanda", value=prod_dem)
             with col_f3:
-                edit_est = st.checkbox("🎯 Estratégico", value=bool(prod.get("es_estrategico", False)))
+                edit_est = st.checkbox("🎯 Estratégico", value=prod_est)
             with col_f4:
-                edit_verif = st.checkbox("✅ Cod. Verif.", value=bool(prod.get("cod_verif", False)))
+                edit_verif = st.checkbox("✅ Cod. Verif.", value=prod_verif)
 
             st.markdown("---")
             btn_guardar = st.form_submit_button("💾 Guardar Cambios en la Nube", type="primary", use_container_width=True)
@@ -401,33 +437,37 @@ if not df_filtrado.empty:
                     id_prod = int(prod["id_producto"])
                     campos_update = {}
 
-                    # Reclasificación
+                    # Reclasificación (comparar IDs, no nombres)
                     id_cat_nueva_db = mapa_cat_nombre_a_id.get(nueva_cat)
                     id_subcat_nueva_db = mapa_subcat_nombre_a_id.get(nueva_subcat)
 
-                    if id_cat_nueva_db is not None and prod.get("id_cat") != id_cat_nueva_db:
+                    # Normalizar IDs del producto original (np.nan → None)
+                    prod_id_cat_norm = None if (prod_id_cat is None or (isinstance(prod_id_cat, float) and np.isnan(prod_id_cat))) else int(prod_id_cat)
+                    prod_id_subcat_norm = None if (prod_id_subcat is None or (isinstance(prod_id_subcat, float) and np.isnan(prod_id_subcat))) else int(prod_id_subcat)
+
+                    if id_cat_nueva_db is not None and prod_id_cat_norm != id_cat_nueva_db:
                         campos_update["id_cat"] = int(id_cat_nueva_db)
-                    if id_subcat_nueva_db is not None and prod.get("id_subcat") != id_subcat_nueva_db:
+                    if id_subcat_nueva_db is not None and prod_id_subcat_norm != id_subcat_nueva_db:
                         campos_update["id_subcat"] = int(id_subcat_nueva_db)
 
-                    # Otros campos
-                    if edit_nombre != prod.get("nombre", ""):
+                    # Otros campos (comparar valores normalizados)
+                    if edit_nombre.strip() != prod_nombre:
                         campos_update["nombre"] = edit_nombre.strip()
-                    if edit_marca != (prod.get("marca") or ""):
-                        campos_update["marca"] = edit_marca.strip() if edit_marca else None
-                    if edit_codigo != (prod.get("codigo_barras") or ""):
-                        campos_update["codigo_barras"] = edit_codigo.strip() if edit_codigo else None
-                    if edit_tamano != float(prod.get("tamano") or 0):
+                    if edit_marca.strip() != prod_marca:
+                        campos_update["marca"] = edit_marca.strip() if edit_marca.strip() else None
+                    if edit_codigo.strip() != prod_codigo:
+                        campos_update["codigo_barras"] = edit_codigo.strip() if edit_codigo.strip() else None
+                    if edit_tamano != prod_tamano:
                         campos_update["tamano"] = edit_tamano
-                    if edit_unidad != (prod.get("unidad") or ""):
-                        campos_update["unidad"] = edit_unidad.strip() if edit_unidad else None
-                    if edit_fav != bool(prod.get("es_favorito", False)):
+                    if edit_unidad.strip() != prod_unidad:
+                        campos_update["unidad"] = edit_unidad.strip() if edit_unidad.strip() else None
+                    if edit_fav != prod_fav:
                         campos_update["es_favorito"] = edit_fav
-                    if edit_dem != bool(prod.get("alta_demanda", False)):
+                    if edit_dem != prod_dem:
                         campos_update["alta_demanda"] = edit_dem
-                    if edit_est != bool(prod.get("es_estrategico", False)):
+                    if edit_est != prod_est:
                         campos_update["es_estrategico"] = edit_est
-                    if edit_verif != bool(prod.get("cod_verif", False)):
+                    if edit_verif != prod_verif:
                         campos_update["cod_verif"] = edit_verif
 
                     if campos_update:
