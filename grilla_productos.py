@@ -1,9 +1,9 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: grilla_productos_v160.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 1.6.2
-# DESCRIPCIÓN: Grilla de catálogo con reclasificación dinámica. Corrección de
-#              manejo de valores NULL (np.nan → None/""). La subcategoría se
-#              filtra en tiempo real según la categoría seleccionada.
+# VERSIÓN: 1.6.3
+# DESCRIPCIÓN: Grilla de catálogo con reclasificación dinámica, creación de
+#              nuevos productos y carga de imágenes a Supabase Storage bucket
+#              privado "imagenes". Corrección de manejo de valores NULL.
 # REGLAS: Sin panel lateral | Versión en nombre de archivo | Sin filtros check
 #         | URLs firmadas solo filtradas | Subcategoría dependiente de categoría
 # ==============================================================================
@@ -12,12 +12,14 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from supabase import create_client, Client
+from datetime import datetime
 
 # ------------------------------------------------------------------------------
-# CONSTANTES DE VERSIÓN
+# CONSTANTES DE VERSIÓN Y CONFIGURACIÓN
 # ------------------------------------------------------------------------------
-VERSION_PROGRAMA = "1.6.2"
+VERSION_PROGRAMA = "1.6.3"
 NOMBRE_PROGRAMA = "Grilla de Productos"
+BUCKET_IMAGENES = "imagenes"
 
 # 1. CONFIGURACIÓN CORPORATIVA DE LA VENTANA DE STREAMLIT
 st.set_page_config(
@@ -41,20 +43,18 @@ except Exception as e:
     st.stop()
 
 st.title(f"📦 {NOMBRE_PROGRAMA}")
-st.markdown(f"**Versión {VERSION_PROGRAMA}** — Reclasificación dinámica con manejo seguro de valores nulos.")
+st.markdown(f"**Versión {VERSION_PROGRAMA}** — Creación de productos, carga de imágenes y reclasificación dinámica.")
 st.markdown("---")
 
 # ------------------------------------------------------------------------------
 # FUNCIÓN AUXILIAR: Normalizar valores pandas (np.nan → None/valor por defecto)
 # ------------------------------------------------------------------------------
 def safe_str(val, default=""):
-    """Convierte np.nan/None a string vacío o al valor string."""
     if val is None or (isinstance(val, float) and np.isnan(val)):
         return default
     return str(val) if val != default else default
 
 def safe_float(val, default=0.0):
-    """Convierte np.nan/None a float por defecto."""
     if val is None or (isinstance(val, float) and np.isnan(val)):
         return default
     try:
@@ -63,7 +63,6 @@ def safe_float(val, default=0.0):
         return default
 
 def safe_bool(val, default=False):
-    """Convierte np.nan/None a bool por defecto."""
     if val is None or (isinstance(val, float) and np.isnan(val)):
         return default
     return bool(val)
@@ -161,7 +160,7 @@ if not df_subcategorias.empty:
 else:
     df["nombre_subcat"] = "—"
 
-# MAPEOS PARA RECLASIFICACIÓN
+# MAPEOS PARA RECLASIFICACIÓN Y CREACIÓN
 lista_categorias = sorted(df_categorias["nombre"].dropna().unique().tolist()) if not df_categorias.empty else []
 mapa_cat_nombre_a_id = dict(zip(df_categorias["nombre"], df_categorias["id_cat"])) if not df_categorias.empty else {}
 mapa_subcat_nombre_a_id = dict(zip(df_subcategorias["nombre"], df_subcategorias["id_subcat"])) if not df_subcategorias.empty else {}
@@ -241,7 +240,6 @@ st.markdown(f"### 📋 Catálogo de Productos — `{len(df_filtrado)}` registros
 if df_filtrado.empty:
     st.info("💡 No hay productos que coincidan con los filtros seleccionados.")
 else:
-    # Firmar imágenes solo de filas filtradas
     if "url_imagen" in df_filtrado.columns:
         df_filtrado["url_imagen"] = df_filtrado["url_imagen"].apply(
             lambda x: firmar_url_imagen(x, 3600)
@@ -307,10 +305,171 @@ else:
 
 st.markdown("---")
 
-# ------------------------------------------------------------------------------
-# 10. PANEL DE RECLASIFICACIÓN DINÁMICA (CORREGIDO v1.6.2)
-# ------------------------------------------------------------------------------
-st.markdown("### ✏️ Reclasificar Producto")
+# ==============================================================================
+# 10. PANEL DE CREACIÓN DE NUEVO PRODUCTO (v1.6.3)
+# ==============================================================================
+st.markdown("### ➕ Crear Nuevo Producto")
+
+with st.expander("Desplegar formulario de creación", expanded=False):
+
+    # CATEGORÍA FUERA DEL FORMULARIO (para recalcular subcategorías dinámicamente)
+    nueva_cat_crear = st.selectbox(
+        "Categoría del nuevo producto:",
+        lista_categorias,
+        index=0,
+        key="sel_cat_crear"
+    )
+
+    id_cat_crear = mapa_cat_nombre_a_id.get(nueva_cat_crear)
+    subcats_crear = []
+    if id_cat_crear is not None and not df_subcategorias.empty:
+        subcats_crear = sorted(
+            df_subcategorias[df_subcategorias["id_cat"] == id_cat_crear]["nombre"].dropna().unique().tolist()
+        )
+
+    if not subcats_crear:
+        st.warning(f"⚠️ La categoría '{nueva_cat_crear}' no tiene subcategorías registradas.")
+
+    # FORMULARIO DE CREACIÓN
+    with st.form("form_crear_producto", clear_on_submit=True):
+        st.markdown(f"**Categoría seleccionada:** {nueva_cat_crear}")
+
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+            nueva_subcat_crear = st.selectbox(
+                "Subcategoría:",
+                subcats_crear if subcats_crear else ["— Sin subcategorías —"],
+                disabled=not subcats_crear,
+                key="sel_subcat_crear"
+            )
+
+        st.markdown("---")
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            new_nombre = st.text_input("Nombre del Producto *", placeholder="Ej: Leche Entera 1L")
+        with col2:
+            new_marca = st.text_input("Marca", placeholder="Ej: Colun")
+        with col3:
+            new_codigo = st.text_input("Código de Barras", placeholder="Ej: 7800000001")
+
+        col4, col5 = st.columns(2)
+        with col4:
+            new_tamano = st.number_input("Tamaño:", min_value=0.0, step=0.01, value=0.0)
+        with col5:
+            new_unidad = st.text_input("Unidad:", placeholder="Ej: L, g, ml, kg")
+
+        col6, col7, col8, col9 = st.columns(4)
+        with col6:
+            new_fav = st.checkbox("⭐ Favorito", value=False)
+        with col7:
+            new_dem = st.checkbox("🔥 Alta Demanda", value=False)
+        with col8:
+            new_est = st.checkbox("🎯 Estratégico", value=False)
+        with col9:
+            new_verif = st.checkbox("✅ Cod. Verif.", value=False)
+
+        st.markdown("---")
+
+        # CARGA DE IMAGEN
+        col_img_up, col_img_prev = st.columns([2, 1])
+        with col_img_up:
+            archivo_imagen = st.file_uploader(
+                "📎 Subir imagen del producto:",
+                type=["png", "jpg", "jpeg", "webp", "gif"],
+                help="Formatos soportados: PNG, JPG, JPEG, WEBP, GIF. Máx. 5MB recomendado."
+            )
+        with col_img_prev:
+            if archivo_imagen is not None:
+                st.image(archivo_imagen, caption="Vista previa", width=150)
+            else:
+                st.markdown("<div style='height:100px;display:flex;align-items:center;justify-content:center;color:#888;'>Sin imagen</div>", unsafe_allow_html=True)
+
+        st.markdown("---")
+        btn_crear = st.form_submit_button("💾 Guardar Nuevo Producto en la Nube", type="primary", use_container_width=True)
+
+        if btn_crear:
+            # Validaciones
+            if not new_nombre.strip():
+                st.error("❌ El nombre del producto es obligatorio.")
+            elif not subcats_crear:
+                st.error("❌ Debe seleccionar una categoría con subcategorías disponibles.")
+            elif nueva_subcat_crear == "— Sin subcategorías —":
+                st.error("❌ Debe seleccionar una subcategoría válida.")
+            else:
+                id_subcat_crear = mapa_subcat_nombre_a_id.get(nueva_subcat_crear)
+
+                # 1. INSERTAR PRODUCTO (sin imagen, para obtener id_producto serial)
+                payload_insert = {
+                    "nombre": new_nombre.strip(),
+                    "id_cat": int(id_cat_crear),
+                    "id_subcat": int(id_subcat_crear),
+                    "marca": new_marca.strip() if new_marca.strip() else None,
+                    "codigo_barras": new_codigo.strip() if new_codigo.strip() else None,
+                    "tamano": new_tamano if new_tamano > 0 else None,
+                    "unidad": new_unidad.strip() if new_unidad.strip() else None,
+                    "es_favorito": new_fav,
+                    "alta_demanda": new_dem,
+                    "es_estrategico": new_est,
+                    "cod_verif": new_verif,
+                }
+
+                try:
+                    res_insert = supabase.table("productos").insert(payload_insert).execute()
+
+                    if res_insert and hasattr(res_insert, 'data') and res_insert.data:
+                        nuevo_id = res_insert.data[0]["id_producto"]
+                        url_imagen_guardada = None
+
+                        # 2. SUBIR IMAGEN SI EXISTE
+                        if archivo_imagen is not None:
+                            try:
+                                ext = archivo_imagen.name.split(".")[-1].lower()
+                                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                                file_path = f"productos/producto_{nuevo_id}_{timestamp}.{ext}"
+                                file_bytes = archivo_imagen.getvalue()
+                                mime_type = archivo_imagen.type
+
+                                supabase.storage.from_(BUCKET_IMAGENES).upload(
+                                    file_path,
+                                    file_bytes,
+                                    {"content-type": mime_type, "upsert": "true"}
+                                )
+
+                                # Obtener URL pública (para referencia; se firma al mostrar)
+                                supabase_url = st.secrets["supabase"]["url"]
+                                url_imagen_guardada = f"{supabase_url}/storage/v1/object/public/{BUCKET_IMAGENES}/{file_path}"
+
+                                # 3. ACTUALIZAR PRODUCTO CON URL DE IMAGEN
+                                supabase.table("productos").update({"url_imagen": url_imagen_guardada}).eq("id_producto", nuevo_id).execute()
+
+                            except Exception as e_img:
+                                st.warning(f"⚠️ Producto creado (ID {nuevo_id}), pero falló la carga de imagen: {e_img}")
+
+                        st.success(f"✅ Producto '{new_nombre}' creado exitosamente con ID {nuevo_id}.")
+                        if url_imagen_guardada:
+                            st.info(f"🖼️ Imagen guardada en: {BUCKET_IMAGENES}/{file_path}")
+
+                        # Limpiar caché y recargar
+                        cargar_productos.clear()
+                        firmar_url_imagen.clear()
+                        st.rerun()
+                    else:
+                        st.error("❌ No se pudo obtener el ID del producto creado.")
+
+                except Exception as e:
+                    error_msg = str(e)
+                    if "duplicate key value violates unique constraint" in error_msg and "productos_codigo_barras_key" in error_msg:
+                        st.error(f"❌ El código de barras '{new_codigo}' ya existe en otro producto. Usa uno diferente.")
+                    else:
+                        st.error(f"❌ Error al crear producto: {e}")
+
+st.markdown("---")
+
+# ==============================================================================
+# 11. PANEL DE RECLASIFICACIÓN DINÁMICA
+# ==============================================================================
+st.markdown("### ✏️ Reclasificar Producto Existente")
 st.markdown("Selecciona un producto de la grilla superior para editar su categoría y subcategoría. La lista de subcategorías se filtra automáticamente según la categoría elegida.")
 
 if not df_filtrado.empty:
@@ -330,7 +489,6 @@ if not df_filtrado.empty:
     if producto_sel_key:
         prod = opciones_producto[producto_sel_key]
 
-        # Normalizar valores del producto seleccionado (np.nan → valores seguros)
         prod_nombre = safe_str(prod.get("nombre"), "")
         prod_marca = safe_str(prod.get("marca"), "")
         prod_codigo = safe_str(prod.get("codigo_barras"), "")
@@ -345,7 +503,6 @@ if not df_filtrado.empty:
         prod_id_cat = prod.get("id_cat")
         prod_id_subcat = prod.get("id_subcat")
 
-        # Mostrar datos actuales
         col_img, col_info = st.columns([1, 4])
         with col_img:
             img_url = safe_str(prod.get("url_imagen"), "")
@@ -359,9 +516,6 @@ if not df_filtrado.empty:
 
         st.markdown("---")
 
-        # ----------------------------------------------------------------------
-        # CATEGORÍA FUERA DEL FORMULARIO (recálculo dinámico de subcategorías)
-        # ----------------------------------------------------------------------
         st.markdown("#### Nueva Clasificación")
 
         nueva_cat = st.selectbox(
@@ -371,7 +525,6 @@ if not df_filtrado.empty:
             key="sel_nueva_cat"
         )
 
-        # Calcular subcategorías disponibles según la categoría seleccionada
         id_cat_nueva = mapa_cat_nombre_a_id.get(nueva_cat)
         subcats_disponibles = []
         if id_cat_nueva is not None and not df_subcategorias.empty:
@@ -382,15 +535,10 @@ if not df_filtrado.empty:
         if not subcats_disponibles:
             st.warning(f"⚠️ La categoría '{nueva_cat}' no tiene subcategorías registradas.")
 
-        # ----------------------------------------------------------------------
-        # FORMULARIO CON SUBCATEGORÍA YA FILTRADA
-        # ----------------------------------------------------------------------
         with st.form("form_reclasificar", clear_on_submit=False):
             col_c1, col_c2 = st.columns(2)
-
             with col_c1:
                 st.markdown(f"**Categoría:** {nueva_cat}")
-
             with col_c2:
                 idx_subcat = subcats_disponibles.index(prod_subcat) if prod_subcat in subcats_disponibles else 0
                 nueva_subcat = st.selectbox(
@@ -402,7 +550,6 @@ if not df_filtrado.empty:
 
             st.markdown("---")
 
-            # Otros campos editables (valores normalizados, sin np.nan)
             col_e1, col_e2, col_e3 = st.columns(3)
             with col_e1:
                 edit_nombre = st.text_input("Nombre:", value=prod_nombre)
@@ -437,11 +584,9 @@ if not df_filtrado.empty:
                     id_prod = int(prod["id_producto"])
                     campos_update = {}
 
-                    # Reclasificación (comparar IDs, no nombres)
                     id_cat_nueva_db = mapa_cat_nombre_a_id.get(nueva_cat)
                     id_subcat_nueva_db = mapa_subcat_nombre_a_id.get(nueva_subcat)
 
-                    # Normalizar IDs del producto original (np.nan → None)
                     prod_id_cat_norm = None if (prod_id_cat is None or (isinstance(prod_id_cat, float) and np.isnan(prod_id_cat))) else int(prod_id_cat)
                     prod_id_subcat_norm = None if (prod_id_subcat is None or (isinstance(prod_id_subcat, float) and np.isnan(prod_id_subcat))) else int(prod_id_subcat)
 
@@ -450,7 +595,6 @@ if not df_filtrado.empty:
                     if id_subcat_nueva_db is not None and prod_id_subcat_norm != id_subcat_nueva_db:
                         campos_update["id_subcat"] = int(id_subcat_nueva_db)
 
-                    # Otros campos (comparar valores normalizados)
                     if edit_nombre.strip() != prod_nombre:
                         campos_update["nombre"] = edit_nombre.strip()
                     if edit_marca.strip() != prod_marca:
@@ -485,4 +629,4 @@ else:
     st.info("No hay productos disponibles para reclasificar.")
 
 st.markdown("---")
-st.caption(f"🔒 Conexión segura a Supabase | Reclasificación dinámica corregida | Imágenes firmadas | v{VERSION_PROGRAMA}")
+st.caption(f"🔒 Conexión segura a Supabase | Creación + Reclasificación + Imágenes firmadas | v{VERSION_PROGRAMA}")
