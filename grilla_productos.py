@@ -1,9 +1,9 @@
 # ==============================================================================
-# PROGRAMA SATÉLITE: grilla_productos_v160.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 1.6.3
-# DESCRIPCIÓN: Grilla de catálogo con reclasificación dinámica, creación de
-#              nuevos productos y carga de imágenes a Supabase Storage bucket
-#              privado "imagenes". Corrección de manejo de valores NULL.
+# PROGRAMA SATÉLITE: grilla_productos_v164.py (BLOQUE ÚNICO COMPLETO)
+# VERSIÓN: 1.6.4
+# DESCRIPCIÓN: Grilla de catálogo con creación de productos, modificación de
+#              productos incluyendo actualización de imagen, y carga de imágenes
+#              a Supabase Storage bucket privado "imagenes".
 # REGLAS: Sin panel lateral | Versión en nombre de archivo | Sin filtros check
 #         | URLs firmadas solo filtradas | Subcategoría dependiente de categoría
 # ==============================================================================
@@ -17,7 +17,7 @@ from datetime import datetime
 # ------------------------------------------------------------------------------
 # CONSTANTES DE VERSIÓN Y CONFIGURACIÓN
 # ------------------------------------------------------------------------------
-VERSION_PROGRAMA = "1.6.3"
+VERSION_PROGRAMA = "1.6.4"
 NOMBRE_PROGRAMA = "Grilla de Productos"
 BUCKET_IMAGENES = "imagenes"
 
@@ -43,7 +43,7 @@ except Exception as e:
     st.stop()
 
 st.title(f"📦 {NOMBRE_PROGRAMA}")
-st.markdown(f"**Versión {VERSION_PROGRAMA}** — Creación de productos, carga de imágenes y reclasificación dinámica.")
+st.markdown(f"**Versión {VERSION_PROGRAMA}** — Creación, modificación y actualización de imágenes de productos.")
 st.markdown("---")
 
 # ------------------------------------------------------------------------------
@@ -306,13 +306,12 @@ else:
 st.markdown("---")
 
 # ==============================================================================
-# 10. PANEL DE CREACIÓN DE NUEVO PRODUCTO (v1.6.3)
+# 10. PANEL DE CREACIÓN DE NUEVO PRODUCTO
 # ==============================================================================
 st.markdown("### ➕ Crear Nuevo Producto")
 
 with st.expander("Desplegar formulario de creación", expanded=False):
 
-    # CATEGORÍA FUERA DEL FORMULARIO (para recalcular subcategorías dinámicamente)
     nueva_cat_crear = st.selectbox(
         "Categoría del nuevo producto:",
         lista_categorias,
@@ -330,7 +329,6 @@ with st.expander("Desplegar formulario de creación", expanded=False):
     if not subcats_crear:
         st.warning(f"⚠️ La categoría '{nueva_cat_crear}' no tiene subcategorías registradas.")
 
-    # FORMULARIO DE CREACIÓN
     with st.form("form_crear_producto", clear_on_submit=True):
         st.markdown(f"**Categoría seleccionada:** {nueva_cat_crear}")
 
@@ -371,7 +369,6 @@ with st.expander("Desplegar formulario de creación", expanded=False):
 
         st.markdown("---")
 
-        # CARGA DE IMAGEN
         col_img_up, col_img_prev = st.columns([2, 1])
         with col_img_up:
             archivo_imagen = st.file_uploader(
@@ -389,7 +386,6 @@ with st.expander("Desplegar formulario de creación", expanded=False):
         btn_crear = st.form_submit_button("💾 Guardar Nuevo Producto en la Nube", type="primary", use_container_width=True)
 
         if btn_crear:
-            # Validaciones
             if not new_nombre.strip():
                 st.error("❌ El nombre del producto es obligatorio.")
             elif not subcats_crear:
@@ -399,7 +395,6 @@ with st.expander("Desplegar formulario de creación", expanded=False):
             else:
                 id_subcat_crear = mapa_subcat_nombre_a_id.get(nueva_subcat_crear)
 
-                # 1. INSERTAR PRODUCTO (sin imagen, para obtener id_producto serial)
                 payload_insert = {
                     "nombre": new_nombre.strip(),
                     "id_cat": int(id_cat_crear),
@@ -421,7 +416,6 @@ with st.expander("Desplegar formulario de creación", expanded=False):
                         nuevo_id = res_insert.data[0]["id_producto"]
                         url_imagen_guardada = None
 
-                        # 2. SUBIR IMAGEN SI EXISTE
                         if archivo_imagen is not None:
                             try:
                                 ext = archivo_imagen.name.split(".")[-1].lower()
@@ -436,11 +430,9 @@ with st.expander("Desplegar formulario de creación", expanded=False):
                                     {"content-type": mime_type, "upsert": "true"}
                                 )
 
-                                # Obtener URL pública (para referencia; se firma al mostrar)
                                 supabase_url = st.secrets["supabase"]["url"]
                                 url_imagen_guardada = f"{supabase_url}/storage/v1/object/public/{BUCKET_IMAGENES}/{file_path}"
 
-                                # 3. ACTUALIZAR PRODUCTO CON URL DE IMAGEN
                                 supabase.table("productos").update({"url_imagen": url_imagen_guardada}).eq("id_producto", nuevo_id).execute()
 
                             except Exception as e_img:
@@ -450,7 +442,6 @@ with st.expander("Desplegar formulario de creación", expanded=False):
                         if url_imagen_guardada:
                             st.info(f"🖼️ Imagen guardada en: {BUCKET_IMAGENES}/{file_path}")
 
-                        # Limpiar caché y recargar
                         cargar_productos.clear()
                         firmar_url_imagen.clear()
                         st.rerun()
@@ -467,10 +458,10 @@ with st.expander("Desplegar formulario de creación", expanded=False):
 st.markdown("---")
 
 # ==============================================================================
-# 11. PANEL DE RECLASIFICACIÓN DINÁMICA
+# 11. PANEL DE MODIFICACIÓN DE PRODUCTOS (v1.6.4)
 # ==============================================================================
-st.markdown("### ✏️ Reclasificar Producto Existente")
-st.markdown("Selecciona un producto de la grilla superior para editar su categoría y subcategoría. La lista de subcategorías se filtra automáticamente según la categoría elegida.")
+st.markdown("### ✏️ Modificación de Productos")
+st.markdown("Selecciona un producto de la grilla superior para editar sus datos, reclasificarlo o actualizar su imagen.")
 
 if not df_filtrado.empty:
     opciones_producto = {
@@ -479,7 +470,7 @@ if not df_filtrado.empty:
     }
 
     producto_sel_key = st.selectbox(
-        "Seleccionar producto a reclasificar:",
+        "Seleccionar producto a modificar:",
         list(opciones_producto.keys()),
         index=None,
         placeholder="Elige un producto...",
@@ -502,12 +493,13 @@ if not df_filtrado.empty:
         prod_subcat = safe_str(prod.get("nombre_subcat"), "")
         prod_id_cat = prod.get("id_cat")
         prod_id_subcat = prod.get("id_subcat")
+        prod_url_imagen = safe_str(prod.get("url_imagen"), "")
 
+        # Mostrar imagen actual firmada
         col_img, col_info = st.columns([1, 4])
         with col_img:
-            img_url = safe_str(prod.get("url_imagen"), "")
-            if img_url:
-                st.image(firmar_url_imagen(img_url, 3600), width=120)
+            if prod_url_imagen:
+                st.image(firmar_url_imagen(prod_url_imagen, 3600), width=120)
             else:
                 st.markdown("🖼️ *Sin imagen*")
         with col_info:
@@ -516,6 +508,7 @@ if not df_filtrado.empty:
 
         st.markdown("---")
 
+        # CATEGORÍA FUERA DEL FORMULARIO
         st.markdown("#### Nueva Clasificación")
 
         nueva_cat = st.selectbox(
@@ -535,7 +528,8 @@ if not df_filtrado.empty:
         if not subcats_disponibles:
             st.warning(f"⚠️ La categoría '{nueva_cat}' no tiene subcategorías registradas.")
 
-        with st.form("form_reclasificar", clear_on_submit=False):
+        # FORMULARIO DE MODIFICACIÓN CON ACTUALIZACIÓN DE IMAGEN
+        with st.form("form_modificar_producto", clear_on_submit=False):
             col_c1, col_c2 = st.columns(2)
             with col_c1:
                 st.markdown(f"**Categoría:** {nueva_cat}")
@@ -573,6 +567,26 @@ if not df_filtrado.empty:
                 edit_est = st.checkbox("🎯 Estratégico", value=prod_est)
             with col_f4:
                 edit_verif = st.checkbox("✅ Cod. Verif.", value=prod_verif)
+
+            st.markdown("---")
+
+            # ACTUALIZACIÓN DE IMAGEN
+            st.markdown("#### 🖼️ Actualizar Imagen del Producto")
+            col_img_up, col_img_prev = st.columns([2, 1])
+            with col_img_up:
+                nueva_imagen = st.file_uploader(
+                    "📎 Subir nueva imagen (dejar vacío para mantener la actual):",
+                    type=["png", "jpg", "jpeg", "webp", "gif"],
+                    help="Si seleccionas una imagen, reemplazará la actual. Deja vacío para conservar la imagen existente."
+                )
+            with col_img_prev:
+                if nueva_imagen is not None:
+                    st.image(nueva_imagen, caption="Nueva imagen", width=150)
+                else:
+                    if prod_url_imagen:
+                        st.image(firmar_url_imagen(prod_url_imagen, 3600), caption="Imagen actual", width=150)
+                    else:
+                        st.markdown("<div style='height:100px;display:flex;align-items:center;justify-content:center;color:#888;'>Sin imagen</div>", unsafe_allow_html=True)
 
             st.markdown("---")
             btn_guardar = st.form_submit_button("💾 Guardar Cambios en la Nube", type="primary", use_container_width=True)
@@ -614,10 +628,37 @@ if not df_filtrado.empty:
                     if edit_verif != prod_verif:
                         campos_update["cod_verif"] = edit_verif
 
+                    # SUBIR NUEVA IMAGEN SI SE SELECCIONÓ
+                    if nueva_imagen is not None:
+                        try:
+                            ext = nueva_imagen.name.split(".")[-1].lower()
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            file_path = f"productos/producto_{id_prod}_{timestamp}.{ext}"
+                            file_bytes = nueva_imagen.getvalue()
+                            mime_type = nueva_imagen.type
+
+                            supabase.storage.from_(BUCKET_IMAGENES).upload(
+                                file_path,
+                                file_bytes,
+                                {"content-type": mime_type, "upsert": "true"}
+                            )
+
+                            supabase_url = st.secrets["supabase"]["url"]
+                            url_imagen_nueva = f"{supabase_url}/storage/v1/object/public/{BUCKET_IMAGENES}/{file_path}"
+                            campos_update["url_imagen"] = url_imagen_nueva
+
+                        except Exception as e_img:
+                            st.warning(f"⚠️ Los datos del producto se guardaron, pero falló la carga de la nueva imagen: {e_img}")
+
                     if campos_update:
                         try:
                             supabase.table("productos").update(campos_update).eq("id_producto", id_prod).execute()
-                            st.success(f"✅ Producto ID {id_prod} actualizado correctamente.")
+
+                            msg_exito = f"✅ Producto ID {id_prod} actualizado correctamente."
+                            if "url_imagen" in campos_update:
+                                msg_exito += " 🖼️ Imagen actualizada."
+                            st.success(msg_exito)
+
                             cargar_productos.clear()
                             firmar_url_imagen.clear()
                             st.rerun()
@@ -626,7 +667,7 @@ if not df_filtrado.empty:
                     else:
                         st.info("💡 No se detectaron cambios.")
 else:
-    st.info("No hay productos disponibles para reclasificar.")
+    st.info("No hay productos disponibles para modificar.")
 
 st.markdown("---")
-st.caption(f"🔒 Conexión segura a Supabase | Creación + Reclasificación + Imágenes firmadas | v{VERSION_PROGRAMA}")
+st.caption(f"🔒 Conexión segura a Supabase | Creación + Modificación + Imágenes firmadas | v{VERSION_PROGRAMA}")
