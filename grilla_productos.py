@@ -1,9 +1,9 @@
 # ==============================================================================
 # PROGRAMA SATÉLITE: grilla_productos.py (BLOQUE ÚNICO COMPLETO)
-# VERSIÓN: 1.2.0 (FILTROS EN ÁREA PRINCIPAL + GRILLA EDITABLE)
-# DESCRIPCIÓN: Grilla interactiva y editable de catálogo de productos.
-#              Filtros en el área principal. Edición inline con persistencia
-#              a Supabase.
+# VERSIÓN: 1.3.0 (FILTROS PRINCIPALES + GRILLA EDITABLE + IMÁGENES)
+# DESCRIPCIÓN: Grilla interactiva y editable de catálogo de productos con
+#              vista previa de imágenes, filtros en área principal y
+#              persistencia a Supabase.
 # ==============================================================================
 
 import streamlit as st
@@ -32,7 +32,7 @@ except Exception as e:
     st.stop()
 
 st.title("📦 Grilla de Catálogo de Productos")
-st.markdown("Vista unificada del inventario retail. Edita los valores directamente en la grilla y guarda los cambios en la nube.")
+st.markdown("Vista unificada del inventario retail con imágenes, edición inline y filtros dinámicos.")
 st.markdown("---")
 
 # 3. FUNCIONES AUXILIARES DE CARGA DE DATOS MAESTROS
@@ -105,7 +105,7 @@ else:
 # 6. FILTROS EN ÁREA PRINCIPAL (SIN SIDEBAR)
 st.markdown("### 🔍 Filtros de Búsqueda")
 
-f1, f2, f3, f4 = st.columns([2, 1.5, 1.5, 2])
+f1, f2, f3, f4 = st.columns([2.5, 1.5, 1.5, 2.5])
 
 with f1:
     busqueda = st.text_input(
@@ -188,14 +188,15 @@ else:
 
 st.markdown("---")
 
-# 9. GRILLA EDITABLE
-st.markdown(f"### 📋 Resultados: `{len(df_filtrado)}` productos — Edita directamente y luego guarda")
+# 9. GRILLA EDITABLE CON IMÁGENES
+st.markdown(f"### 📋 Resultados: `{len(df_filtrado)}` productos — Edita directamente y guarda")
 
 if df_filtrado.empty:
     st.info("💡 No hay productos que coincidan con los filtros seleccionados.")
 else:
-    # Columnas que se mostrarán en el editor
+    # Columnas que se mostrarán en el editor (URL de imagen incluida al inicio)
     columnas_editor = [
+        "url_imagen",
         "id_producto",
         "codigo_barras",
         "nombre",
@@ -214,6 +215,7 @@ else:
 
     # Renombrar para presentación
     renombres = {
+        "url_imagen": "Imagen",
         "id_producto": "ID",
         "codigo_barras": "Código de Barras",
         "nombre": "Nombre del Producto",
@@ -235,6 +237,11 @@ else:
 
     # Configuración de columnas para el data_editor
     column_config = {
+        "Imagen": st.column_config.ImageColumn(
+            "Imagen",
+            help="Vista previa del producto",
+            width="small"
+        ),
         "ID": st.column_config.NumberColumn("ID", disabled=True, width="small"),
         "Código de Barras": st.column_config.TextColumn("Código de Barras", disabled=True, width="medium"),
         "Nombre del Producto": st.column_config.TextColumn("Nombre del Producto", width="large"),
@@ -271,11 +278,9 @@ else:
             cambios_realizados = 0
             errores = []
 
-            # Comparar fila por fila con el original
             df_original = st.session_state.df_original
-
-            # Asegurar que ambos tengan el mismo índice y columnas comparables
-            cols_comparables = [c for c in df_editado.columns if c not in ["Categoría", "Subcategoría"]]
+            # Columnas comparables (excluir Categoría, Subcategoría e Imagen que son de solo lectura)
+            cols_comparables = [c for c in df_editado.columns if c not in ["Categoría", "Subcategoría", "Imagen"]]
 
             for idx in df_editado.index:
                 fila_nueva = df_editado.loc[idx]
@@ -284,13 +289,11 @@ else:
                 if fila_original is None:
                     continue
 
-                # Detectar cambios en columnas editables
                 campos_cambiados = {}
                 for col in cols_comparables:
                     if col == "ID":
                         continue
                     if col in df_original.columns and fila_nueva[col] != fila_original[col]:
-                        # Mapear nombres de vuelta a la base de datos
                         mapeo_inverso = {v: k for k, v in renombres.items()}
                         campo_db = mapeo_inverso.get(col, col)
                         campos_cambiados[campo_db] = fila_nueva[col]
@@ -305,7 +308,6 @@ else:
 
             if cambios_realizados > 0:
                 st.success(f"✅ {cambios_realizados} producto(s) actualizado(s) correctamente en Supabase.")
-                # Limpiar caché para recargar datos frescos
                 cargar_productos.clear()
                 st.session_state.df_original = df_editado.copy()
                 st.rerun()
@@ -325,4 +327,4 @@ else:
         )
 
 st.markdown("---")
-st.caption("🔒 Conexión segura a Supabase | Datos editables en vivo | v1.2.0")
+st.caption("🔒 Conexión segura a Supabase | Datos editables en vivo con imágenes | v1.3.0")
