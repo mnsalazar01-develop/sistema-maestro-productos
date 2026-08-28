@@ -303,8 +303,8 @@ if filtro_subcat != "Todas" and "nombre_subcat" in df.columns:
 
 df_filtrado = df[mask].copy()
 
-if len(df_filtrado) != len(df):
-    st.info(f"📌 Mostrando **{len(df_filtrado)}** de **{len(df)}** productos según filtros aplicados.")
+#if len(df_filtrado) != len(df):
+    #st.info(f"📌 Mostrando **{len(df_filtrado)}** de **{len(df)}** productos según filtros aplicados.")
 
 # ------------------------------------------------------------------------------
 # 9. GRILLA DE VISUALIZACIÓN (SOLO LECTURA)
