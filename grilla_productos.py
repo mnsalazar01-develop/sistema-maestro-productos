@@ -18,7 +18,7 @@ from datetime import datetime
 # ------------------------------------------------------------------------------
 # CONSTANTES DE VERSIÓN Y CONFIGURACIÓN
 # ------------------------------------------------------------------------------
-VERSION_PROGRAMA = "1.6.9"
+VERSION_PROGRAMA = "1.6.9.3"
 NOMBRE_PROGRAMA = "Grilla de Productos"
 BUCKET_IMAGENES = "imagenes"
 
@@ -390,34 +390,32 @@ st.markdown("### ➕ Crear Nuevo Producto")
 
 with st.expander("Desplegar formulario de creación", expanded=False):
 
-    nueva_cat_crear = st.selectbox(
-        "Categoría del nuevo producto:",
-        lista_categorias,
-        index=0,
-        key="sel_cat_crear"
-    )
-
-    id_cat_crear = mapa_cat_nombre_a_id.get(nueva_cat_crear)
-    subcats_crear = []
-    if id_cat_crear is not None and not df_subcategorias.empty:
-        subcats_crear = sorted(
-            df_subcategorias[df_subcategorias["id_cat"] == id_cat_crear]["nombre"].dropna().unique().tolist()
+    col_cat_crear, col_subcat_crear = st.columns(2)
+    with col_cat_crear:
+        nueva_cat_crear = st.selectbox(
+            "Categoría del nuevo producto:",
+            lista_categorias,
+            index=0,
+            key="sel_cat_crear"
+        )
+    with col_subcat_crear:
+        id_cat_crear = mapa_cat_nombre_a_id.get(nueva_cat_crear)
+        subcats_crear = []
+        if id_cat_crear is not None and not df_subcategorias.empty:
+            subcats_crear = sorted(
+                df_subcategorias[df_subcategorias["id_cat"] == id_cat_crear]["nombre"].dropna().unique().tolist()
+            )
+        if not subcats_crear:
+            st.warning(f"⚠️ La categoría '{nueva_cat_crear}' no tiene subcategorías.")
+        nueva_subcat_crear = st.selectbox(
+            "Subcategoría:",
+            subcats_crear if subcats_crear else ["— Sin subcategorías —"],
+            disabled=not subcats_crear,
+            key="sel_subcat_crear"
         )
 
-    if not subcats_crear:
-        st.warning(f"⚠️ La categoría '{nueva_cat_crear}' no tiene subcategorías registradas.")
-
     with st.form("form_crear_producto", clear_on_submit=True):
-        st.markdown(f"**Categoría seleccionada:** {nueva_cat_crear}")
-
-        col_c1, col_c2 = st.columns(2)
-        with col_c1:
-            nueva_subcat_crear = st.selectbox(
-                "Subcategoría:",
-                subcats_crear if subcats_crear else ["— Sin subcategorías —"],
-                disabled=not subcats_crear,
-                key="sel_subcat_crear"
-            )
+        st.markdown(f"**Categoría seleccionada:** {nueva_cat_crear} → **{nueva_subcat_crear if subcats_crear else '—'}**")
 
         st.markdown("---")
 
@@ -433,7 +431,12 @@ with st.expander("Desplegar formulario de creación", expanded=False):
         with col4:
             new_tamano = st.number_input("Tamaño:", min_value=0.0, step=0.01, value=0.0)
         with col5:
-            new_unidad = st.text_input("Unidad:", placeholder="Ej: L, g, ml, kg")
+            new_unidad = st.selectbox(
+                "Unidad de medida:",
+                ['gr', 'kg', 'ml', 'lt', 'unidad'],
+                index=0,
+                key="sel_unidad_crear"
+            )
 
         col6, col7, col8, col9 = st.columns(4)
         with col6:
@@ -572,39 +575,38 @@ if not df_filtrado.empty:
 
         st.markdown("---")
 
-        # CATEGORÍA FUERA DEL FORMULARIO
+        # CATEGORÍA Y SUBCATEGORÍA FUERA DEL FORMULARIO (mismo nivel)
         st.markdown("#### Nueva Clasificación")
 
-        nueva_cat = st.selectbox(
-            "Nueva Categoría:",
-            lista_categorias,
-            index=lista_categorias.index(prod_cat) if prod_cat in lista_categorias else 0,
-            key="sel_nueva_cat"
-        )
-
-        id_cat_nueva = mapa_cat_nombre_a_id.get(nueva_cat)
-        subcats_disponibles = []
-        if id_cat_nueva is not None and not df_subcategorias.empty:
-            subcats_disponibles = sorted(
-                df_subcategorias[df_subcategorias["id_cat"] == id_cat_nueva]["nombre"].dropna().unique().tolist()
+        col_cat_mod, col_subcat_mod = st.columns(2)
+        with col_cat_mod:
+            nueva_cat = st.selectbox(
+                "Nueva Categoría:",
+                lista_categorias,
+                index=lista_categorias.index(prod_cat) if prod_cat in lista_categorias else 0,
+                key="sel_nueva_cat"
             )
-
-        if not subcats_disponibles:
-            st.warning(f"⚠️ La categoría '{nueva_cat}' no tiene subcategorías registradas.")
+        with col_subcat_mod:
+            id_cat_nueva = mapa_cat_nombre_a_id.get(nueva_cat)
+            subcats_disponibles = []
+            if id_cat_nueva is not None and not df_subcategorias.empty:
+                subcats_disponibles = sorted(
+                    df_subcategorias[df_subcategorias["id_cat"] == id_cat_nueva]["nombre"].dropna().unique().tolist()
+                )
+            if not subcats_disponibles:
+                st.warning(f"⚠️ Sin subcategorías.")
+            idx_subcat = subcats_disponibles.index(prod_subcat) if prod_subcat in subcats_disponibles else 0
+            nueva_subcat = st.selectbox(
+                "Nueva Subcategoría:",
+                subcats_disponibles if subcats_disponibles else ["— Sin subcategorías —"],
+                index=idx_subcat if subcats_disponibles else 0,
+                disabled=not subcats_disponibles,
+                key="sel_nueva_subcat"
+            )
 
         # FORMULARIO DE MODIFICACIÓN CON ACTUALIZACIÓN DE IMAGEN
         with st.form("form_modificar_producto", clear_on_submit=False):
-            col_c1, col_c2 = st.columns(2)
-            with col_c1:
-                st.markdown(f"**Categoría:** {nueva_cat}")
-            with col_c2:
-                idx_subcat = subcats_disponibles.index(prod_subcat) if prod_subcat in subcats_disponibles else 0
-                nueva_subcat = st.selectbox(
-                    "Nueva Subcategoría:",
-                    subcats_disponibles if subcats_disponibles else ["— Sin subcategorías —"],
-                    index=idx_subcat if subcats_disponibles else 0,
-                    disabled=not subcats_disponibles
-                )
+            st.markdown(f"**Clasificación seleccionada:** {nueva_cat} → **{nueva_subcat if subcats_disponibles else '—'}**")
 
             st.markdown("---")
 
@@ -620,7 +622,13 @@ if not df_filtrado.empty:
             with col_e4:
                 edit_tamano = st.number_input("Tamaño:", value=prod_tamano, step=0.01)
             with col_e5:
-                edit_unidad = st.text_input("Unidad:", value=prod_unidad)
+                idx_unidad = ['gr', 'kg', 'ml', 'lt', 'unidad'].index(prod_unidad) if prod_unidad in ['gr', 'kg', 'ml', 'lt', 'unidad'] else 0
+            edit_unidad = st.selectbox(
+                "Unidad de medida:",
+                ['gr', 'kg', 'ml', 'lt', 'unidad'],
+                index=idx_unidad,
+                key="sel_unidad_mod"
+            )
 
             col_f1, col_f2, col_f3, col_f4 = st.columns(4)
             with col_f1:
