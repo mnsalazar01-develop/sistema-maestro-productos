@@ -454,7 +454,6 @@ with st.expander("Desplegar formulario de creación", expanded=False):
             else:
                 st.markdown("<div style='height:100px;display:flex;align-items:center;justify-content:center;color:#888;'>Sin imagen</div>", unsafe_allow_html=True)
 
-        st.markdown("---")
         btn_crear = st.form_submit_button("💾 Guardar Nuevo Producto en la Nube", type="primary", use_container_width=True)
 
         if btn_crear:
@@ -509,8 +508,6 @@ with st.expander("Desplegar formulario de creación", expanded=False):
                         st.error(f"❌ El código de barras '{new_codigo}' ya existe en otro producto. Usa uno diferente.")
                     else:
                         st.error(f"❌ Error al crear producto: {e}")
-
-st.markdown("---")
 
 # ==============================================================================
 # 11. PANEL DE MODIFICACIÓN DE PRODUCTOS
