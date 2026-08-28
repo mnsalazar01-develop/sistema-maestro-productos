@@ -388,7 +388,7 @@ with st.expander("Desplegar formulario de creación", expanded=False):
     col_cat_crear, col_subcat_crear = st.columns(2)
     with col_cat_crear:
         nueva_cat_crear = st.selectbox(
-            "Categoría del nuevo producto:",
+            "Categoría:",
             lista_categorias,
             index=0,
             key="sel_cat_crear"
@@ -410,7 +410,7 @@ with st.expander("Desplegar formulario de creación", expanded=False):
         )
 
     with st.form("form_crear_producto", clear_on_submit=True):
-        st.markdown(f"**Categoría seleccionada:** {nueva_cat_crear} → **{nueva_subcat_crear if subcats_crear else '—'}**")
+        #st.markdown(f"**Categoría seleccionada:** {nueva_cat_crear} → **{nueva_subcat_crear if subcats_crear else '—'}**")
 
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -440,8 +440,6 @@ with st.expander("Desplegar formulario de creación", expanded=False):
             new_est = st.checkbox("🎯 Estratégico", value=False)
         with col9:
             new_verif = st.checkbox("✅ Cod. Verif.", value=False)
-
-        st.markdown("---")
 
         col_img_up, col_img_prev = st.columns([2, 1])
         with col_img_up:
