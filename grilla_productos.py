@@ -555,6 +555,7 @@ if not df_filtrado.empty:
         prod_id_cat = prod.get("id_cat")
         prod_id_subcat = prod.get("id_subcat")
         prod_url_imagen = safe_str(prod.get("url_imagen"), "")
+        id_prod = int(prod["id_producto"])
 
         # Mostrar imagen actual firmada
         col_img, col_info = st.columns([1, 4])
