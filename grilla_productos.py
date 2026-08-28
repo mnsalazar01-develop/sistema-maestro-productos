@@ -258,8 +258,6 @@ if "marca" in df.columns:
 else:
     col_k5.metric("Marcas Únicas", 0)
 
-st.markdown("---")
-
 # ------------------------------------------------------------------------------
 # 7. FILTROS DE BÚSQUEDA
 # ------------------------------------------------------------------------------
@@ -286,8 +284,6 @@ with f3:
     else:
         opciones_subcat = ["Todas"] + (sorted(df_subcategorias["nombre"].dropna().unique().tolist()) if not df_subcategorias.empty else [])
     filtro_subcat = st.selectbox("Subcategoría:", opciones_subcat, label_visibility="collapsed")
-
-st.markdown("---")
 
 # 8. APLICACIÓN DE FILTROS
 mask = pd.Series([True] * len(df))
@@ -381,7 +377,6 @@ else:
         mime="text/csv"
     )
 
-st.markdown("---")
 
 # ==============================================================================
 # 10. PANEL DE CREACIÓN DE NUEVO PRODUCTO
@@ -416,8 +411,6 @@ with st.expander("Desplegar formulario de creación", expanded=False):
 
     with st.form("form_crear_producto", clear_on_submit=True):
         st.markdown(f"**Categoría seleccionada:** {nueva_cat_crear} → **{nueva_subcat_crear if subcats_crear else '—'}**")
-
-        st.markdown("---")
 
         col1, col2, col3 = st.columns(3)
         with col1:
