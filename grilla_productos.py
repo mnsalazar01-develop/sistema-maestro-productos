@@ -45,7 +45,7 @@ except Exception as e:
 
 st.title(f"📦 {NOMBRE_PROGRAMA}")
 st.markdown(f"**Versión {VERSION_PROGRAMA}** — Imágenes con URL completa desde bucket 'imagenes'.")
-st.markdown("---")
+#st.markdown("---")
 
 # ------------------------------------------------------------------------------
 # FUNCIÓN AUXILIAR: Normalizar valores pandas (np.nan → None/valor por defecto)
