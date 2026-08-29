@@ -319,7 +319,7 @@ else:
         )
 
     columnas_display = [
-        "url_imagen", "id_producto", "codigo_barras", "nombre", "marca",
+        "url_imagen", "id_producto", "nombre", "marca",
         "tamano", "unidad", "nombre_cat", "nombre_subcat",
         "es_favorito", "alta_demanda", "es_estrategico", "cod_verif",
     ]
@@ -329,7 +329,6 @@ else:
     renombres = {
         "url_imagen": "Imagen",
         "id_producto": "ID",
-        "codigo_barras": "Código de Barras",
         "nombre": "Nombre del Producto",
         "marca": "Marca",
         "tamano": "Tamaño",
