@@ -22,6 +22,19 @@ st.sidebar.header("⚙️ Configuración de Campaña")
 id_campana = st.sidebar.number_input("ID de Campaña Target", min_value=1, value=100, step=1)
 paginas_totales = st.sidebar.slider("Total de Páginas del Folleto", min_value=1, max_value=64, value=8)
 
+# 2. CONEXIÓN SEGURA HEREDADA CON LAS LLAVES DE SUPABASE
+@st.cache_resource
+def init_supabase_local() -> Client:
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
+
+try:
+    supabase = init_supabase_local()
+except Exception as e:
+    st.error(f"❌ Error de Conexión Base: {e}")
+    st.stop()
+
 # Simulación de Datos Iniciales (Base de Datos)
 @st.cache_data
 def generar_datos_simulados(campana_id, num_paginas):
@@ -193,6 +206,109 @@ with tab2:
             cols_ui = st.columns(max_columnas)
             for c in range(1, max_columnas + 1):
                 with cols_ui[c-1]:
+
                     # Buscar si hay un producto asignado a esta celda exacta
                     prod_celda = df_visual[(df_visual['numero_fila'] == f) & (df_visual['numero_columna'] == c)]
+                    
+                    if not prod_celda.empty:
+                        row = prod_celda.iloc[0]
+                        # Determinar emojis de alineación para enriquecer el layout visual
+                        align_emoji = "⬅️" if row['alineacion'] == 'I' else "🔼" if row['alineacion'] == 'C' else "➡️"
+                        
+                        st.markdown(f"""
+                        <div style="
+                            border: 2px solid #4CAF50; 
+                            border-radius: 8px; 
+                            padding: 12px; 
+                            background-color: #e8f5e9; 
+                            margin-bottom: 10px;
+                            color: #1b5e20;
+                        ">
+                            <span style="font-size: 0.8rem; font-weight: bold; color: #2e7d32;">
+                                Slot {int(row['posicion_slot']) if pd.notna(row['posicion_slot']) else 'N/A'}
+                            </span>
+                            <h4 style="margin: 4px 0; color: #000;">{row['nombre_producto']}</h4>
+                            <p style="margin: 0; font-weight: bold; font-size: 1.1rem; color: #d32f2f;">
+                                ${row['precio_oferta']}
+                            </p>
+                            <hr style="margin: 8px 0; border: 0; border-top: 1px solid #c8e6c9;">
+                            <p style="margin: 0; font-size: 0.8rem;">Estilo: <i>{row['sub_molde_estilo']}</i></p>
+                            <p style="margin: 0; font-size: 0.8rem; font-weight: 500;">
+                                Alin: {row['alineacion']} {align_emoji} | Mix: {row['posicion_mix']}
+                            </p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div style="
+                            border: 2px dashed #ccc; 
+                            border-radius: 8px; 
+                            padding: 12px; 
+                            background-color: #fafafa; 
+                            margin-bottom: 10px; 
+                            text-align: center;
+                            min-height: 140px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        ">
+                            <span style="color: #9e9e9e; font-style: italic; font-size: 0.9rem;">
+                                Celda Vacía<br>[Fila {f}, Col {c}]
+                            </span>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+# --- TAB 3: EXPORTAR Y SQL ---
+with tab3:
+    st.header("💾 Sincronización y Procesamiento de Datos")
+    
+    st.subheader("1. Generador de Scripts SQL UPDATE para PostgreSQL")
+    st.write("Utiliza este script para aplicar todos los cambios realizados en el frontend directo en tu base de datos relacional.")
+    
+    # Generación dinámica del script SQL estructurado
+    sql_lines = []
+    sql_lines.append(f"-- Cambios de distribución de layout para id_campana = {id_campana}")
+    sql_lines.append("BEGIN;")
+    
+    for _, r in df_ofertas.iterrows():
+        if pd.notna(r['numero_pagina']):
+            pag = int(r['numero_pagina'])
+            slot = int(r['posicion_slot']) if pd.notna(r['posicion_slot']) else "NULL"
+            alin = f"'{r['alineacion']}'" if pd.notna(r['alineacion']) else "NULL"
+            mix = f"'{r['posicion_mix']}'" if pd.notna(r['posicion_mix']) else "NULL"
+            estilo = f"'{r['sub_molde_estilo']}'" if pd.notna(r['sub_molde_estilo']) else "NULL"
+            fila = int(r['numero_fila']) if pd.notna(r['numero_fila']) else "NULL"
+            col = int(r['numero_columna']) if pd.notna(r['numero_columna']) else "NULL"
+            
+            query = (f"UPDATE public.ofertas SET "
+                     f"numero_pagina = {pag}, posicion_slot = {slot}, alineacion = {alin}, "
+                     f"posicion_mix = {mix}, sub_molde_estilo = {estilo}, numero_fila = {fila}, numero_columna = {col} "
+                     f"WHERE id_oferta = {r['id_oferta']};")
+            sql_lines.append(query)
+            
+    sql_lines.append("COMMIT;")
+    sql_script = "\n".join(sql_lines)
+    
+    st.code(sql_script, language="sql")
+    
+    # Botones para descargar archivos
+    st.subheader("2. Descarga de Archivos de Respaldo")
+    col_dl1, col_dl2 = st.columns(2)
+    
+    with col_dl1:
+        st.download_button(
+            label="📥 Descargar Script SQL (.sql)",
+            data=sql_script,
+            file_name=f"update_layout_campana_{id_campana}.sql",
+            mime="text/plain"
+        )
+        
+    with col_dl2:
+        csv_buffer = df_ofertas.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Descargar Layout Actual (CSV)",
+            data=csv_buffer,
+            file_name=f"layout_campana_{id_campana}.csv",
+            mime="text/csv"
+        )
                     
