@@ -48,10 +48,10 @@ except Exception as e:
     st.error(f"❌ Error al filtrar campañas con valores: {str(e)}")
     st.stop()
 
-# 3. PANEL DE SELECCIÓN DE CAMPAÑA FILTRADA (Filtro Superior Principal)
+# 3. PANEL DE SELECCIÓN DE CAMPAÑA FILTRADA (Filtro Superior Principal - Corregido)
 st.markdown("### 🔍 Selección de Campaña de Trabajo")
 with st.container(border=True):
-    col_campana, col_info = st.columns(2, vertical_alignment="center")
+    col_campana, col_info = st.columns(2)
     with col_campana:
         campana_seleccionada_label = st.selectbox(
             "Campañas con ofertas disponibles:",
@@ -60,7 +60,8 @@ with st.container(border=True):
         )
         id_campana_activa = dict_campanas_opciones[campana_seleccionada_label]
     with col_info:
-        st.success(f"🟢 Surtido validado. Desplegando ofertas activas de la Campaña ID: {id_campana_activa}")
+        st.write("")  # Espaciador visual para simular la alineación céntrica
+        st.success(f"🟢 Surtido validado. Desplegando ofertas de la Campaña ID: {id_campana_activa}")
 
 # 4. CONSULTA INMUNE AL ERROR 404 (Ofertas + Productos vinculados)
 try:
@@ -89,10 +90,10 @@ except Exception as e:
     st.error(f"Error al procesar el banco de datos en Supabase: {str(e)}")
     st.session_state.ofertas =
 
-# 5. CONTROLES DE LA PÁGINA SELECCIONADA (Navegación Dinámica por Clic)
+# 5. CONTROLES DE LA PÁGINA SELECCIONADA (Navegación Dinámica por Clic - Corregido)
 st.markdown("### 🛠️ Configuración de la Hoja del Folleto")
 with st.container(border=True):
-    nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns(6, vertical_alignment="center")
+    nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns(6)
     
     with nav_col1:
         if st.button("◀ Anterior", use_container_width=True) and st.session_state.pagina_actual > 1:
