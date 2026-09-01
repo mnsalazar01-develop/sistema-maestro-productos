@@ -87,7 +87,7 @@ try:
     
 except Exception as e:
     st.error(f"Error al procesar el banco de datos en Supabase: {str(e)}")
-    st.session_state.ofertas =
+    st.session_state.ofertas = []
 
 # 5. CONTROLES DE LA PÁGINA SELECCIONADA (Navegación Dinámica por Clic)
 st.markdown("### 🛠️ Configuración de la Hoja del Folleto")
