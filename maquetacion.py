@@ -89,7 +89,20 @@ except Exception as e:
     st.error(f"Error al procesar el banco de datos en Supabase: {str(e)}")
     st.session_state.ofertas = []
 
-# 5. CONTROLES DE LA PÁGINA SELECCIONADA (Cálculo dinámico basado en ofertas existentes)
+# =====================================================================
+# FUNCTION DECLARATION (Definida primero para evitar NameError)
+# =====================================================================
+def calcular_layout_grid(num_slots):
+    if num_slots == 1: return "1fr", "1fr"
+    if num_slots == 2: return "repeat(2, 1fr)", "1fr"
+    if num_slots in (3, 4): return "repeat(2, 1fr)", "repeat(2, 1fr)"
+    if num_slots in (5, 6): return "repeat(2, 1fr)", "repeat(3, 1fr)"
+    return "repeat(2, 1fr)", "repeat(4, 1fr)"
+
+
+# =====================================================================
+# 5. CONTROLES DE LA PÁGINA SELECCIONADA
+# =====================================================================
 st.markdown("### 🛠️ Configuración de la Hoja del Folleto")
 
 pag_act = st.session_state.pagina_actual
@@ -152,6 +165,7 @@ with st.container(border=True):
         sub_estilo = st.selectbox("Estilo (`sub_molde_estilo`):", ["Estándar", "Destacado", "Compacto"], index=["Estándar", "Destacado", "Compacto"].index(cfg["estilo"]))
         st.session_state.config_paginas[pag_act]["estilo"] = sub_estilo
 
+# AHORA SÍ SE EJECUTA SIN ERRORES EN LA LÍNEA 155
 columnas_css, filas_css = calcular_layout_grid(slots_deseados)
 
 # 6. CONSTRUCTOR DEL COMPONENTE HTML VISUAL (Soporta agregar y devolver ofertas)
