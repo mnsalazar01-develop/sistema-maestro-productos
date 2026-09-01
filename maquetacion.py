@@ -3,13 +3,13 @@ import streamlit.components.v1 as components
 import json
 from supabase import create_client, Client
 
-# 1. CONFIGURACIÓN DE LA PÁGINA Y CONEXIÓN A SUPABASE
+# Configuración de la página en modo ancho completo sin barra lateral
 st.set_page_config(layout="wide", page_title="Maquetador Profesional de Ofertas")
-st.title("🎨 Maquetador Drag & Drop con Sincronización a Supabase")
+st.title("🎨 Maquetador Drag & Drop — Filtro por Campaña")
 
-# Inicialización del cliente de Supabase (Sustituye con tus credenciales seguras de st.secrets)
+# 1. CONEXIÓN Y CONFIGURACIÓN DE SUPABASE
 SUPABASE_URL = st.secrets.get("SUPABASE_URL", "https://supabase.co")
-SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "tu-anon-key-de-supabase")
+SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "tu-key-de-supabase")
 
 @st.cache_resource
 def inicializar_supabase() -> Client:
@@ -17,32 +17,52 @@ def inicializar_supabase() -> Client:
 
 supabase = inicializar_supabase()
 
-# 2. ESTADO GLOBAL DE LA SESIÓN (Navegación y Memoria Volátil)
+# Inicialización de estados de navegación en session_state
 if "pagina_actual" not in st.session_state:
     st.session_state.pagina_actual = 1
 
 if "config_paginas" not in st.session_state:
     st.session_state.config_paginas = {}
 
-# Carga inicial de ofertas desde Supabase (Si la sesión está vacía)
-if "ofertas" not in st.session_state:
-    # En producción usarás: 
-    # respuesta = supabase.table("ofertas").select("*").execute()
-    # st.session_state.ofertas = respuesta.data
-    st.session_state.ofertas = [
-        {"id_oferta": 101, "id_producto": 501, "nombre": "Champú Anticaspa", "precio_oferta": 4.99, "id_campana": 12, "numero_pagina": None, "posicion_slot": None, "img": "https://picsum.photos"},
-        {"id_oferta": 102, "id_producto": 502, "nombre": "Detergente Líquido", "precio_oferta": 12.50, "id_campana": 12, "numero_pagina": None, "posicion_slot": None, "img": "https://picsum.photos"},
-        {"id_oferta": 103, "id_producto": 503, "nombre": "Café Molido 500g", "precio_oferta": 3.20, "id_campana": 12, "numero_pagina": None, "posicion_slot": None, "img": "https://picsum.photos"},
-        {"id_oferta": 104, "id_producto": 504, "nombre": "Leche Entera 1L", "precio_oferta": 1.10, "id_campana": 12, "numero_pagina": None, "posicion_slot": None, "img": "https://picsum.photos"},
-        {"id_oferta": 105, "id_producto": 505, "nombre": "Aceite de Oliva", "precio_oferta": 8.95, "id_campana": 12, "numero_pagina": None, "posicion_slot": None, "img": "https://picsum.photos"},
-        {"id_oferta": 106, "id_producto": 506, "nombre": "Arroz Integral 1kg", "precio_oferta": 1.80, "id_campana": 12, "numero_pagina": None, "posicion_slot": None, "img": "https://picsum.photos"},
-    ]
-
-# 3. CONTROLES SUPERIORES DE NAVEGACIÓN Y PLANTILLAS
-st.markdown("### 🛠️ Panel de Control y Configuración de Plantillas")
+# 2. PANEL DE SELECCIÓN DE CAMPAÑA (Filtro Principal)
+st.markdown("### 🔍 Selección de Campaña de Trabajo")
 with st.container(border=True):
-    # Añadimos los botones de paginación para cambiar con un clic
-    nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns([1, 1, 1, 2, 2, 2], vertical_alignment="center")
+    col_campana, col_info = st.columns([1, 3], vertical_alignment="center")
+    with col_campana:
+        id_campana_activa = st.number_input(
+            "Ingrese el ID de la Campaña:", 
+            min_value=1, 
+            value=12, 
+            key="input_id_campana"
+        )
+    with col_info:
+        st.caption("⚠️ Al cambiar el ID de la campaña se descargará el surtido real de ofertas y productos vinculados directamente desde Supabase.")
+
+# 3. CONSULTA RELACIONAL EN TIEMPO REAL (Armado del Banco de Datos)
+try:
+    # Traemos las ofertas de la campaña seleccionada realizando el JOIN implícito con la tabla productos
+    respuesta = supabase.table("ofertas").select("*, productos(nombre, url_imagen)").eq("id_campana", id_campana_activa).execute()
+    ofertas_campana = respuesta.data
+    
+    # Procesamos el mapeo de datos para alimentar de forma correcta el componente gráfico
+    for o in ofertas_campana:
+        if o.get("productos"):
+            o["nombre"] = o["productos"].get("nombre") or f"Prod #{o['id_producto']}"
+            o["img"] = o["productos"].get("url_imagen") or "https://picsum.photos"
+        else:
+            o["nombre"] = f"Oferta sin producto (#{o['id_oferta']})"
+            o["img"] = "https://picsum.photos"
+            
+    st.session_state.ofertas = ofertas_campana
+    
+except Exception as e:
+    st.error(f"Error al consultar datos relacionales en Supabase: {str(e)}")
+    st.session_state.ofertas = []
+
+# 4. CONTROLES DE LA PÁGINA SELECCIONADA (Navegación por Clic)
+st.markdown("### 🛠️ Configuración de la Hoja del Folleto")
+with st.container(border=True):
+    nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns([1.5, 1, 1.5, 3, 3, 3], vertical_alignment="center")
     
     with nav_col1:
         if st.button("◀ Anterior", use_container_width=True) and st.session_state.pagina_actual > 1:
@@ -50,14 +70,13 @@ with st.container(border=True):
             st.rerun()
             
     with nav_col2:
-        st.markdown(f"<h3 style='text-align: center; margin:0;'>Pág. {st.session_state.pagina_actual}</h3>", unsafe_allow_html=True)
+        st.markdown(f"<h3 style='text-align: center; margin:0; color:#0d6efd;'>Pág. {st.session_state.pagina_actual}</h3>", unsafe_allow_html=True)
         
     with nav_col3:
         if st.button("Siguiente ▶", use_container_width=True):
             st.session_state.pagina_actual += 1
             st.rerun()
 
-    # Recuperación de la página activa
     pag_act = st.session_state.pagina_actual
     if pag_act not in st.session_state.config_paginas:
         st.session_state.config_paginas[pag_act] = {"slots": 4, "distribucion": "Equilibrado", "estilo": "Estándar"}
@@ -83,7 +102,6 @@ with st.container(border=True):
         )
         st.session_state.config_paginas[pag_act]["estilo"] = sub_estilo
 
-# Definición automática de la rejilla CSS Grid
 def calcular_layout_grid(num_slots):
     if num_slots == 1: return "1fr", "1fr"
     if num_slots == 2: return "repeat(2, 1fr)", "1fr"
@@ -93,7 +111,7 @@ def calcular_layout_grid(num_slots):
 
 columnas_css, filas_css = calcular_layout_grid(slots_deseados)
 
-# 4. GENERADOR DEL COMPONENTE INTERACTIVO DRAG & DROP
+# 5. CONSTRUCTOR DEL COMPONENTE HTML VISUAL
 def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     banco_html = ""
     slots_ocupados = {}
@@ -110,7 +128,7 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
         '''
         if o['numero_pagina'] == pagina and o['posicion_slot']:
             slots_ocupados[int(o['posicion_slot'])] = card_html
-        elif o['numero_pagina'] is None:
+        elif o['numero_pagina'] is None or o['numero_pagina'] == "":
             banco_html += card_html
 
     slots_html = ""
@@ -140,8 +158,8 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     </head>
     <body>
         <div class="sidebar">
-            <h4 style="margin:0; font-size:14px; color:#475569; border-bottom:1px solid #e2e8f0; padding-bottom:5px;">📦 Banco de Ofertas</h4>
-            <div id="banco">{banco_html}</div>
+            <h4 style="margin:0; font-size:14px; color:#475569; border-bottom:1px solid #e2e8f0; padding-bottom:5px;">📦 Banco de la Campaña</h4>
+            <div id="banco" style="display:flex; flex-direction:column; gap:8px;">{banco_html}</div>
         </div>
         <div class="canvas">
             <h4 style="margin:0 0 10px 0; font-size:14px; color:#475569;">📖 Cuadrante de Diseño — Página {pagina}</h4>
@@ -151,7 +169,7 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
             let draggedNode = null;
             document.querySelectorAll('.product-card').forEach(card => {{
                 card.addEventListener('dragstart', () => {{ draggedNode = card; card.style.opacity = '0.4'; }});
-                card.addEventListener('dragend', () => {{ draggedNode = card; card.style.opacity = '1'; }});
+                card.addEventListener('dragend', () => {{ draggedNode = null; card.style.opacity = '1'; }});
             }});
             document.querySelectorAll('.slot').forEach(slot => {{
                 slot.addEventListener('dragover', (e) => {{ e.preventDefault(); slot.classList.add('drag-over'); }});
@@ -173,8 +191,7 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     </body>
     </html>
     """
-
-# 5. RENDERIZADO DE LA UI DRAG & DROP Y CAPTURA DE EVENTOS
+# 6. RENDERIZADO DE LA UI DRAG & DROP Y CAPTURA DE EVENTOS
 html_renderizado = generar_canvas_ofertas(st.session_state.ofertas, pag_act, slots_deseados, columnas_css, filas_css)
 evento_drag_drop = components.html(html_renderizado, height=520, scrolling=False)
 
@@ -188,26 +205,26 @@ if evento_drag_drop:
     except Exception:
         pass
 
-# 6. CÁLCULO MATEMÁTICO DE FILAS / COLUMNAS E INYECCIÓN DE OUTPUT
+# 7. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA (Fila y Columna)
 st.markdown(f"### 📊 Registros Procesados de la Página {pag_act}")
 
-# Generación blindada en una línea compacta para evitar fallos del formateador
-filas_tabla_ofertas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": 12, "numero_pagina": o["numero_pagina"], "posicion_slot": o["posicion_slot"], "precio_oferta": o["precio_oferta"], "posicion_mix": tipo_distribucion, "sub_molde_estilo": sub_estilo, "numero_fila": ((int(o["posicion_slot"]) - 1) // 2) + 1, "numero_columna": ((int(o["posicion_slot"]) - 1) % 2) + 1} for o in st.session_state.ofertas if o["numero_pagina"] == pag_act]
+# Generación en una sola línea compacta para garantizar la resiliencia del compilador frente a sangrías
+filas_tabla_ofertas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": id_campana_activa, "numero_pagina": o["numero_pagina"], "posicion_slot": o["posicion_slot"], "precio_oferta": o["precio_oferta"], "posicion_mix": tipo_distribucion, "sub_molde_estilo": sub_estilo, "numero_fila": ((int(o["posicion_slot"]) - 1) // 2) + 1, "numero_columna": ((int(o["posicion_slot"]) - 1) % 2) + 1} for o in st.session_state.ofertas if o["numero_pagina"] == pag_act]
 
 if filas_tabla_ofertas:
     st.dataframe(filas_tabla_ofertas, use_container_width=True)
 else:
-    st.info("Ninguna oferta asignada en esta hoja todavía. Arrastra ítems para poblar la rejilla.")
+    st.info("Ninguna oferta asignada en esta hoja todavía. Arrastra elementos desde el banco de la campaña.")
 
-# 7. BOTÓN DE SINCRONIZACIÓN DIRECTA (UPSERT MASIVO)
-if st.button("💾 Ejecutar UPSERT Masivo en Supabase", type="primary", use_container_width=True):
+# 8. EJECUCIÓN DIRECTA DEL UPSERT EN SUPABASE
+if st.button("💾 Guardar Configuración y Distribución en Supabase", type="primary", use_container_width=True):
     if filas_tabla_ofertas:
         try:
-            # Ejecuta la sincronización contra tu tabla real 'ofertas' mapeando por clave primaria
+            # Enviamos los datos directamente a Postgresql mapeando sobre la PK id_oferta
             resultado = supabase.table("ofertas").upsert(filas_tabla_ofertas).execute()
-            st.success(f"¡Sincronización Exitosa! {len(resultado.data)} registros sincronizados en public.ofertas.")
-            st.toast("Base de datos actualizada con éxito", icon="⚡")
+            st.success(f"¡Sincronización Completada! {len(resultado.data)} registros guardados con éxito para el generador automático.")
+            st.toast("Base de datos en la nube actualizada", icon="⚡")
         except Exception as e:
-            st.error(f"Error al conectar con Supabase: {str(e)}")
+            st.error(f"Error al impactar la tabla ofertas en Supabase: {str(e)}")
     else:
-        st.warning("No hay registros asignados para guardar en esta página.")
+        st.warning("La maqueta actual no cuenta con elementos asignados para persistir.")
