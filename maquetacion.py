@@ -130,7 +130,7 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
             let draggedNode = null;
             document.querySelectorAll('.product-card').forEach(card => {{
                 card.addEventListener('dragstart', () => {{ draggedNode = card; card.style.opacity = '0.4'; }});
-                card.addEventListener('dragend', () => {{ card.style.opacity = '1'; }});
+                card.addEventListener('dragend', () => {{ draggedNode = card; card.style.opacity = '1'; }});
             }});
             document.querySelectorAll('.slot').forEach(slot => {{
                 slot.addEventListener('dragover', (e) => {{ e.preventDefault(); slot.classList.add('drag-over'); }});
@@ -178,12 +178,6 @@ st.markdown(f"### 📊 Vista de Registros a Guardar — Página {pagina_actual}"
 filas_tabla_ofertas = []
 for ofer in st.session_state.ofertas:
     if ofer["numero_pagina"] == pagina_actual:
-# 5. PREPARACIÓN E INYECCIÓN DE LA TABLA FINAL DE OUTPUT
-st.markdown(f"### 📊 Vista de Registros a Guardar — Página {pagina_actual}")
-
-filas_tabla_ofertas = []
-for ofer in st.session_state.ofertas:
-    if ofer["numero_pagina"] == pagina_actual:
         filas_tabla_ofertas.append({
             "id_oferta": ofer["id_oferta"],
             "id_producto": ofer["id_producto"],
@@ -203,6 +197,6 @@ else:
 # 6. BOTÓN DE PROCESAMIENTO BASE DE DATOS
 st.sidebar.markdown("---")
 if st.sidebar.button("💾 Guardar Todo en Base de Datos", type="primary"):
-    # Aquí es donde tu backend ejecutará el comando .upsert() o st.connection hacia Supabase
+    # Aquí es donde tu backend ejecutará el comando .upsert() hacia Supabase
     st.success(f"¡Configuración y Distribución de la Página {pagina_actual} sincronizadas!")
     st.toast(f"Página {pagina_actual} guardada correctamente", icon="💾")
