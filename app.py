@@ -77,6 +77,7 @@ pagina_maqueta = st.Page("maquetacion.py", title="⏳ Maquetación", icon="⏳")
 pagina_qt_local = st.Page("clasificar_web_drag.py", title="Clasificador Drag & Drop", icon="🖱️")
 pagina_folletos = st.Page("app_folletos.py", title="Pagina Folletos", icon="🖱️")
 pagina_nativo = st.Page("clasificador_nativo.py", title="Pagina Nativo", icon="🖱️")
+pagina_conexion = st.Page("probar_conexion.py", title="Conexion", icon="⚙️")
 # 4. CONSTRUCCIÓN AUTOMÁTICA DEL MOTOR DE NAVEGACIÓN EN LA BARRA LATERAL
 enrutador_global = st.navigation([
     pagina_inicio,
@@ -90,7 +91,8 @@ enrutador_global = st.navigation([
     pagina_qt_local,
     pagina_folletos,
     pagina_nativo,
-    pagina_maqueta
+    pagina_maqueta,
+    pagina_conexion
 ])
 
 # Componentes fijos de control e identidad comercial en la barra de la izquierda
