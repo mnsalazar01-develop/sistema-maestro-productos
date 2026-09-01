@@ -178,3 +178,31 @@ st.markdown(f"### 📊 Vista de Registros a Guardar — Página {pagina_actual}"
 filas_tabla_ofertas = []
 for ofer in st.session_state.ofertas:
     if ofer["numero_pagina"] == pagina_actual:
+# 5. PREPARACIÓN E INYECCIÓN DE LA TABLA FINAL DE OUTPUT
+st.markdown(f"### 📊 Vista de Registros a Guardar — Página {pagina_actual}")
+
+filas_tabla_ofertas = []
+for ofer in st.session_state.ofertas:
+    if ofer["numero_pagina"] == pagina_actual:
+        filas_tabla_ofertas.append({
+            "id_oferta": ofer["id_oferta"],
+            "id_producto": ofer["id_producto"],
+            "id_campana": id_campana_activa,
+            "numero_pagina": ofer["numero_pagina"],
+            "posicion_slot": ofer["posicion_slot"],
+            "precio_oferta": ofer["precio_oferta"],
+            "posicion_mix": tipo_distribucion,      # Guarda el tipo de distribución escogida
+            "sub_molde_estilo": sub_estilo          # Guarda el estilo del molde visual
+        })
+
+if filas_tabla_ofertas:
+    st.dataframe(filas_tabla_ofertas, use_container_width=True)
+else:
+    st.info("Esta página no tiene ofertas asignadas todavía. Arrastra ítems desde el banco para poblar la tabla.")
+
+# 6. BOTÓN DE PROCESAMIENTO BASE DE DATOS
+st.sidebar.markdown("---")
+if st.sidebar.button("💾 Guardar Todo en Base de Datos", type="primary"):
+    # Aquí es donde tu backend ejecutará el comando .upsert() o st.connection hacia Supabase
+    st.success(f"¡Configuración y Distribución de la Página {pagina_actual} sincronizadas!")
+    st.toast(f"Página {pagina_actual} guardada correctamente", icon="💾")
