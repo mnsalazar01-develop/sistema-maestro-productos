@@ -51,7 +51,7 @@ except Exception as e:
 # 3. PANEL DE SELECCIÓN DE CAMPAÑA FILTRADA (Filtro Superior Principal)
 st.markdown("### 🔍 Selección de Campaña de Trabajo")
 with st.container(border=True):
-    col_campana, col_info = st.columns([2, 3], vertical_alignment="center")
+    col_campana, col_info = st.columns([2, 4], vertical_alignment="center")
     with col_campana:
         campana_seleccionada_label = st.selectbox(
             "Campañas con ofertas disponibles:",
@@ -92,7 +92,7 @@ except Exception as e:
 # 5. CONTROLES DE LA PÁGINA SELECCIONADA (Navegación Dinámica por Clic)
 st.markdown("### 🛠️ Configuración de la Hoja del Folleto")
 with st.container(border=True):
-    nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns([1, 1, 1, 2, 2, 2], vertical_alignment="center")
+    nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns(6, vertical_alignment="center")
     
     with nav_col1:
         if st.button("◀ Anterior", use_container_width=True) and st.session_state.pagina_actual > 1:
@@ -182,7 +182,6 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
         </style>
     </head>
     <body>
-        <!-- El banco ahora escucha eventos drop para desasignar productos -->
         <div class="sidebar" id="banco-disponibles">
             <h4 style="margin:0; font-size:14px; color:#475569; border-bottom:1px solid #e2e8f0; padding-bottom:5px;">📦 Banco de la Campaña</h4>
             <div style="display:flex; flex-direction:column; gap:8px; min-height:400px;" id="banco-lista">{banco_html}</div>
@@ -199,7 +198,6 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
                 card.addEventListener('dragend', () => {{ draggedNode = null; card.style.opacity = '1'; }});
             }});
 
-            // Configurar los slots de las hojas
             document.querySelectorAll('.slot').forEach(slot => {{
                 slot.addEventListener('dragover', (e) => {{ e.preventDefault(); slot.classList.add('drag-over'); }});
                 slot.addEventListener('dragleave', () => {{ slot.classList.remove('drag-over'); }});
@@ -217,7 +215,6 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
                 }});
             }});
 
-            // Configurar la zona del banco para recibir devoluciones (Drop Zone de Limpieza)
             const bancoZone = document.getElementById('banco-disponibles');
             const bancoLista = document.getElementById('banco-lista');
             
@@ -227,7 +224,6 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
                 bancoZone.classList.remove('drag-over');
                 if(draggedNode) {{
                     bancoLista.appendChild(draggedNode);
-                    // Enviamos valores null para remover el producto de la maqueta
                     window.parent.postMessage({{
                         type: 'streamlit:setComponentValue',
                         value: JSON.stringify({{ id_oferta: parseInt(draggedNode.id), posicion_slot: null, numero_pagina: null }})
@@ -256,7 +252,6 @@ if evento_drag_drop:
 # 8. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA
 st.markdown(f"### 📊 Registros Procesados de la Página {pag_act}")
 
-# Generación en una sola línea de la lista de ofertas asignadas activamente a esta página
 filas_tabla_ofertas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": int(id_campana_activa), "numero_pagina": int(o["numero_pagina"]), "posicion_slot": int(o["posicion_slot"]), "precio_oferta": o.get("precio_oferta"), "posicion_mix": tipo_distribucion, "sub_molde_estilo": sub_estilo, "numero_fila": ((int(o["posicion_slot"]) - 1) // 2) + 1 if o.get("posicion_slot") else None, "numero_columna": ((int(o["posicion_slot"]) - 1) % 2) + 1 if o.get("posicion_slot") else None} for o in st.session_state.ofertas if o.get("numero_pagina") is not None and str(o["numero_pagina"]) != "null" and int(o["numero_pagina"]) == pag_act]
 
 if filas_tabla_ofertas:
@@ -264,13 +259,11 @@ if filas_tabla_ofertas:
 else:
     st.info("Ninguna oferta asignada en esta hoja todavía. Arrastra elementos desde el banco de la campaña.")
 
-# 9. DETECCIÓN DE ELEMENTOS DEVUELTOS (Para realizar el guardado de desasignación)
-# Construimos también una lista con los elementos que fueron devueltos al banco (valores en None) para que el botón de guardado también limpie esos registros en Supabase.
+# 9. DETECCIÓN DE ELEMENTOS DEVUELTOS
 filas_desasignadas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": int(id_campana_activa), "numero_pagina": None, "posicion_slot": None, "numero_fila": None, "numero_columna": None} for o in st.session_state.ofertas if o.get("numero_pagina") is None or str(o["numero_pagina"]) == "null"]
 
 # 10. EJECUCIÓN DIRECTA DEL UPSERT EN SUPABASE
 if st.button("💾 Guardar Configuración y Distribución en Supabase", type="primary", use_container_width=True):
-    # Unimos tanto los cambios de la página actual como las desasignaciones para que todo impacte en un solo viaje
     lote_sincronizacion = filas_tabla_ofertas + filas_desasignadas
     if lote_sincronizacion:
         try:
