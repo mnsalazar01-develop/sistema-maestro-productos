@@ -1,13 +1,34 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import json
+from supabase import create_client, Client
 
-# Configuración de la página en modo ancho completo sin barra lateral
+# 1. CONFIGURACIÓN DE LA PÁGINA Y CONEXIÓN A SUPABASE
 st.set_page_config(layout="wide", page_title="Maquetador Profesional de Ofertas")
-st.title("🎨 Configuración de Distribución y Maquetación de Folletos")
+st.title("🎨 Maquetador Drag & Drop con Sincronización a Supabase")
 
-# 1. ESTADO GLOBAL (Simulación de base de datos)
+# Inicialización del cliente de Supabase (Sustituye con tus credenciales seguras de st.secrets)
+SUPABASE_URL = st.secrets.get("SUPABASE_URL", "https://supabase.co")
+SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "tu-anon-key-de-supabase")
+
+@st.cache_resource
+def inicializar_supabase() -> Client:
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+supabase = inicializar_supabase()
+
+# 2. ESTADO GLOBAL DE LA SESIÓN (Navegación y Memoria Volátil)
+if "pagina_actual" not in st.session_state:
+    st.session_state.pagina_actual = 1
+
+if "config_paginas" not in st.session_state:
+    st.session_state.config_paginas = {}
+
+# Carga inicial de ofertas desde Supabase (Si la sesión está vacía)
 if "ofertas" not in st.session_state:
+    # En producción usarás: 
+    # respuesta = supabase.table("ofertas").select("*").execute()
+    # st.session_state.ofertas = respuesta.data
     st.session_state.ofertas = [
         {"id_oferta": 101, "id_producto": 501, "nombre": "Champú Anticaspa", "precio_oferta": 4.99, "id_campana": 12, "numero_pagina": None, "posicion_slot": None, "img": "https://picsum.photos"},
         {"id_oferta": 102, "id_producto": 502, "nombre": "Detergente Líquido", "precio_oferta": 12.50, "id_campana": 12, "numero_pagina": None, "posicion_slot": None, "img": "https://picsum.photos"},
@@ -15,55 +36,54 @@ if "ofertas" not in st.session_state:
         {"id_oferta": 104, "id_producto": 504, "nombre": "Leche Entera 1L", "precio_oferta": 1.10, "id_campana": 12, "numero_pagina": None, "posicion_slot": None, "img": "https://picsum.photos"},
         {"id_oferta": 105, "id_producto": 505, "nombre": "Aceite de Oliva", "precio_oferta": 8.95, "id_campana": 12, "numero_pagina": None, "posicion_slot": None, "img": "https://picsum.photos"},
         {"id_oferta": 106, "id_producto": 506, "nombre": "Arroz Integral 1kg", "precio_oferta": 1.80, "id_campana": 12, "numero_pagina": None, "posicion_slot": None, "img": "https://picsum.photos"},
-        {"id_oferta": 107, "id_producto": 507, "nombre": "Galletas de Avena", "precio_oferta": 2.15, "id_campana": 12, "numero_pagina": None, "posicion_slot": None, "img": "https://picsum.photos"},
-        {"id_oferta": 108, "id_producto": 508, "nombre": "Atún en Conserva", "precio_oferta": 1.45, "id_campana": 12, "numero_pagina": None, "posicion_slot": None, "img": "https://picsum.photos"},
     ]
 
-# Registro de la configuración estructural de cada página
-if "config_paginas" not in st.session_state:
-    st.session_state.config_paginas = {}
-
-# 2. PANEL DE CONFIGURACIÓN SUPERIOR (Sin barra lateral)
-st.markdown("### 🛠️ Panel de Control del Catálogo")
+# 3. CONTROLES SUPERIORES DE NAVEGACIÓN Y PLANTILLAS
+st.markdown("### 🛠️ Panel de Control y Configuración de Plantillas")
 with st.container(border=True):
-    col1, col2, col3, col4, col5 = st.columns([1.5, 1.5, 3, 2, 2], vertical_alignment="center")
+    # Añadimos los botones de paginación para cambiar con un clic
+    nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns([1, 1, 1, 2, 2, 2], vertical_alignment="center")
     
-    with col1:
-        id_campana_activa = st.number_input("ID Campaña (`id_campana`):", min_value=1, value=12)
+    with nav_col1:
+        if st.button("◀ Anterior", use_container_width=True) and st.session_state.pagina_actual > 1:
+            st.session_state.pagina_actual -= 1
+            st.rerun()
+            
+    with nav_col2:
+        st.markdown(f"<h3 style='text-align: center; margin:0;'>Pág. {st.session_state.pagina_actual}</h3>", unsafe_allow_html=True)
         
-    with col2:
-        pagina_actual = st.number_input("Seleccionar Página:", min_value=1, max_value=50, value=1)
+    with nav_col3:
+        if st.button("Siguiente ▶", use_container_width=True):
+            st.session_state.pagina_actual += 1
+            st.rerun()
+
+    # Recuperación de la página activa
+    pag_act = st.session_state.pagina_actual
+    if pag_act not in st.session_state.config_paginas:
+        st.session_state.config_paginas[pag_act] = {"slots": 4, "distribucion": "Equilibrado", "estilo": "Estándar"}
+    cfg = st.session_state.config_paginas[pag_act]
+
+    with nav_col4:
+        slots_deseados = st.slider("Slots asignados:", min_value=1, max_value=8, value=cfg["slots"])
+        st.session_state.config_paginas[pag_act]["slots"] = slots_deseados
         
-    # Inicializar datos por defecto de la página si es nueva
-    if pagina_actual not in st.session_state.config_paginas:
-        st.session_state.config_paginas[pagina_actual] = {
-            "slots": 4,
-            "distribucion": "Equilibrado",
-            "estilo": "Estándar"
-        }
-    cfg = st.session_state.config_paginas[pagina_actual]
-    
-    with col3:
-        slots_deseados = st.slider("Cantidad de slots:", min_value=1, max_value=8, value=cfg["slots"])
-        st.session_state.config_paginas[pagina_actual]["slots"] = slots_deseados
-        
-    with col4:
+    with nav_col5:
         tipo_distribucion = st.selectbox(
             "Distribución (`posicion_mix`):",
             ["Equilibrado", "Banner Superior", "Enfoque Central", "Asimétrico"],
             index=["Equilibrado", "Banner Superior", "Enfoque Central", "Asimétrico"].index(cfg["distribucion"])
         )
-        st.session_state.config_paginas[pagina_actual]["distribucion"] = tipo_distribucion
+        st.session_state.config_paginas[pag_act]["distribucion"] = tipo_distribucion
         
-    with col5:
+    with nav_col6:
         sub_estilo = st.selectbox(
             "Estilo (`sub_molde_estilo`):",
             ["Estándar", "Destacado", "Compacto"],
             index=["Estándar", "Destacado", "Compacto"].index(cfg["estilo"])
         )
-        st.session_state.config_paginas[pagina_actual]["estilo"] = sub_estilo
+        st.session_state.config_paginas[pag_act]["estilo"] = sub_estilo
 
-# Lógica de la rejilla CSS Grid
+# Definición automática de la rejilla CSS Grid
 def calcular_layout_grid(num_slots):
     if num_slots == 1: return "1fr", "1fr"
     if num_slots == 2: return "repeat(2, 1fr)", "1fr"
@@ -73,7 +93,7 @@ def calcular_layout_grid(num_slots):
 
 columnas_css, filas_css = calcular_layout_grid(slots_deseados)
 
-# 3. GENERADOR DEL COMPONENTE HTML VISUAL
+# 4. GENERADOR DEL COMPONENTE INTERACTIVO DRAG & DROP
 def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     banco_html = ""
     slots_ocupados = {}
@@ -103,7 +123,7 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     <html>
     <head>
         <style>
-            body {{ font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: #f8f9fa; display: flex; gap: 20px; padding: 10px; height: 520px; box-sizing: border-box; }}
+            body {{ font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: #f8f9fa; display: flex; gap: 20px; padding: 10px; height: 500px; box-sizing: border-box; }}
             .sidebar {{ width: 280px; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }}
             .canvas {{ flex: 1; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; }}
             .grid-folleto {{ display: grid; grid-template-columns: {cols}; grid-template-rows: {rows}; gap: 12px; flex: 1; }}
@@ -120,11 +140,11 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     </head>
     <body>
         <div class="sidebar">
-            <h4 style="margin:0; font-size:14px; color:#475569; border-bottom:1px solid #e2e8f0; padding-bottom:5px;">📦 Ofertas Disponibles</h4>
+            <h4 style="margin:0; font-size:14px; color:#475569; border-bottom:1px solid #e2e8f0; padding-bottom:5px;">📦 Banco de Ofertas</h4>
             <div id="banco">{banco_html}</div>
         </div>
         <div class="canvas">
-            <h4 style="margin:0 0 10px 0; font-size:14px; color:#475569;">📖 Distribución de Página: {pagina}</h4>
+            <h4 style="margin:0 0 10px 0; font-size:14px; color:#475569;">📖 Cuadrante de Diseño — Página {pagina}</h4>
             <div class="grid-folleto">{slots_html}</div>
         </div>
         <script>
@@ -142,14 +162,9 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
                         const ph = slot.querySelector('.placeholder');
                         if(ph) ph.remove();
                         slot.appendChild(draggedNode);
-                        
                         window.parent.postMessage({{
                             type: 'streamlit:setComponentValue',
-                            value: JSON.stringify({{ 
-                                id_oferta: parseInt(draggedNode.id), 
-                                posicion_slot: parseInt(slot.id), 
-                                numero_pagina: {pagina} 
-                            }})
+                            value: JSON.stringify({{ id_oferta: parseInt(draggedNode.id), posicion_slot: parseInt(slot.id), numero_pagina: {pagina} }})
                         }}, '*');
                     }}
                 }});
@@ -159,9 +174,9 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     </html>
     """
 
-# 4. CAPTURA DEL EVENTO DRAG & DROP
-html_renderizado = generar_canvas_ofertas(st.session_state.ofertas, pagina_actual, slots_deseados, columnas_css, filas_css)
-evento_drag_drop = components.html(html_renderizado, height=540, scrolling=False)
+# 5. RENDERIZADO DE LA UI DRAG & DROP Y CAPTURA DE EVENTOS
+html_renderizado = generar_canvas_ofertas(st.session_state.ofertas, pag_act, slots_deseados, columnas_css, filas_css)
+evento_drag_drop = components.html(html_renderizado, height=520, scrolling=False)
 
 if evento_drag_drop:
     try:
@@ -173,18 +188,26 @@ if evento_drag_drop:
     except Exception:
         pass
 
-# 5. PREPARACIÓN E INYECCIÓN DE LA TABLA FINAL DE OUTPUT
-st.markdown(f"### 📊 Vista de Registros a Guardar — Página {pagina_actual}")
+# 6. CÁLCULO MATEMÁTICO DE FILAS / COLUMNAS E INYECCIÓN DE OUTPUT
+st.markdown(f"### 📊 Registros Procesados de la Página {pag_act}")
 
-# Generación en una sola línea para blindar la sintaxis contra fallos de indentación
-filas_tabla_ofertas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": id_campana_activa, "numero_pagina": o["numero_pagina"], "posicion_slot": o["posicion_slot"], "precio_oferta": o["precio_oferta"], "posicion_mix": tipo_distribucion, "sub_molde_estilo": sub_estilo} for o in st.session_state.ofertas if o["numero_pagina"] == pagina_actual]
+# Generación blindada en una línea compacta para evitar fallos del formateador
+filas_tabla_ofertas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": 12, "numero_pagina": o["numero_pagina"], "posicion_slot": o["posicion_slot"], "precio_oferta": o["precio_oferta"], "posicion_mix": tipo_distribucion, "sub_molde_estilo": sub_estilo, "numero_fila": ((int(o["posicion_slot"]) - 1) // 2) + 1, "numero_columna": ((int(o["posicion_slot"]) - 1) % 2) + 1} for o in st.session_state.ofertas if o["numero_pagina"] == pag_act]
 
 if filas_tabla_ofertas:
     st.dataframe(filas_tabla_ofertas, use_container_width=True)
 else:
-    st.info("Esta página no tiene ofertas asignadas todavía. Arrastra ítems desde el banco para poblar la tabla.")
+    st.info("Ninguna oferta asignada en esta hoja todavía. Arrastra ítems para poblar la rejilla.")
 
-# 6. BOTÓN DE PROCESAMIENTO BASE DE DATOS
-if st.button("💾 Guardar Todo en Base de Datos", type="primary", use_container_width=True):
-    st.success(f"¡Configuración y Distribución de la Página {pagina_actual} sincronizadas con éxito!")
-    st.toast(f"Página {pagina_actual} guardada correctamente", icon="💾")
+# 7. BOTÓN DE SINCRONIZACIÓN DIRECTA (UPSERT MASIVO)
+if st.button("💾 Ejecutar UPSERT Masivo en Supabase", type="primary", use_container_width=True):
+    if filas_tabla_ofertas:
+        try:
+            # Ejecuta la sincronización contra tu tabla real 'ofertas' mapeando por clave primaria
+            resultado = supabase.table("ofertas").upsert(filas_tabla_ofertas).execute()
+            st.success(f"¡Sincronización Exitosa! {len(resultado.data)} registros sincronizados en public.ofertas.")
+            st.toast("Base de datos actualizada con éxito", icon="⚡")
+        except Exception as e:
+            st.error(f"Error al conectar con Supabase: {str(e)}")
+    else:
+        st.warning("No hay registros asignados para guardar en esta página.")
