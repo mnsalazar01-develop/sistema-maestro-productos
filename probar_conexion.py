@@ -16,11 +16,6 @@ except Exception as e:
     st.error(f"❌ Error de Conexión Base: {e}")
     st.stop()
 
-st.title(f"📦 {NOMBRE_PROGRAMA}")
-st.markdown(f"**Versión {VERSION_PROGRAMA}** — Imágenes con URL completa desde bucket 'imagenes'.")
-#st.markdown("---")
-
-
 if st.button("🔍 Escanear Tablas Disponibles"):
     try:
         st.info("Consultando el diccionario de datos de la API...")
