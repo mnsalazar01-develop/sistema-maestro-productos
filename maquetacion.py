@@ -2,6 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import json
 
+# Configuración de la página en modo ancho completo sin barra lateral
 st.set_page_config(layout="wide", page_title="Maquetador Profesional de Ofertas")
 st.title("🎨 Configuración de Distribución y Maquetación de Folletos")
 
@@ -22,47 +23,47 @@ if "ofertas" not in st.session_state:
 if "config_paginas" not in st.session_state:
     st.session_state.config_paginas = {}
 
-# 2. CONTROLES EN LA BARRA LATERAL
-st.sidebar.header("📋 Parámetros del Catálogo")
-id_campana_activa = st.sidebar.number_input("ID Campaña (`id_campana`):", min_value=1, value=12)
+# 2. PANEL DE CONFIGURACIÓN SUPERIOR (Sin barra lateral)
+st.markdown("### 🛠️ Panel de Control del Catálogo")
+with st.container(border=True):
+    col1, col2, col3, col4, col5 = st.columns([1.5, 1.5, 3, 2, 2], vertical_alignment="center")
+    
+    with col1:
+        id_campana_activa = st.number_input("ID Campaña (`id_campana`):", min_value=1, value=12)
+        
+    with col2:
+        pagina_actual = st.number_input("Seleccionar Página:", min_value=1, max_value=50, value=1)
+        
+    # Inicializar datos por defecto de la página si es nueva
+    if pagina_actual not in st.session_state.config_paginas:
+        st.session_state.config_paginas[pagina_actual] = {
+            "slots": 4,
+            "distribucion": "Equilibrado",
+            "estilo": "Estándar"
+        }
+    cfg = st.session_state.config_paginas[pagina_actual]
+    
+    with col3:
+        slots_deseados = st.slider("Cantidad de slots:", min_value=1, max_value=8, value=cfg["slots"])
+        st.session_state.config_paginas[pagina_actual]["slots"] = slots_deseados
+        
+    with col4:
+        tipo_distribucion = st.selectbox(
+            "Distribución (`posicion_mix`):",
+            ["Equilibrado", "Banner Superior", "Enfoque Central", "Asimétrico"],
+            index=["Equilibrado", "Banner Superior", "Enfoque Central", "Asimétrico"].index(cfg["distribucion"])
+        )
+        st.session_state.config_paginas[pagina_actual]["distribucion"] = tipo_distribucion
+        
+    with col5:
+        sub_estilo = st.selectbox(
+            "Estilo (`sub_molde_estilo`):",
+            ["Estándar", "Destacado", "Compacto"],
+            index=["Estándar", "Destacado", "Compacto"].index(cfg["estilo"])
+        )
+        st.session_state.config_paginas[pagina_actual]["estilo"] = sub_estilo
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("📄 Configuración de la Hoja")
-
-# Navegador de páginas
-pagina_actual = st.sidebar.number_input("Seleccionar Página:", min_value=1, max_value=50, value=1)
-
-# Inicializar datos por defecto si la página es nueva en la sesión
-if pagina_actual not in st.session_state.config_paginas:
-    st.session_state.config_paginas[pagina_actual] = {
-        "slots": 4,
-        "distribucion": "Equilibrado",
-        "estilo": "Estándar"
-    }
-
-cfg = st.session_state.config_paginas[pagina_actual]
-
-# Parámetro 1: Cantidad de slots
-slots_deseados = st.sidebar.slider("Cantidad de slots:", min_value=1, max_value=8, value=cfg["slots"])
-st.session_state.config_paginas[pagina_actual]["slots"] = slots_deseados
-
-# Parámetro 2: Tipo de Distribución (mapeado a posicion_mix)
-tipo_distribucion = st.sidebar.selectbox(
-    "Tipo de distribución (`posicion_mix`):",
-    ["Equilibrado", "Banner Superior", "Enfoque Central", "Asimétrico"],
-    index=["Equilibrado", "Banner Superior", "Enfoque Central", "Asimétrico"].index(cfg["distribucion"])
-)
-st.session_state.config_paginas[pagina_actual]["distribucion"] = tipo_distribucion
-
-# Parámetro 3: Sub Molde Estilo
-sub_estilo = st.sidebar.radio(
-    "Estilo visual (`sub_molde_estilo`):",
-    ["Estándar", "Destacado", "Compacto"],
-    index=["Estándar", "Destacado", "Compacto"].index(cfg["estilo"])
-)
-st.session_state.config_paginas[pagina_actual]["estilo"] = sub_estilo
-
-# Lógica del Grid CSS para el maquetador interactivo
+# Lógica de la rejilla CSS Grid
 def calcular_layout_grid(num_slots):
     if num_slots == 1: return "1fr", "1fr"
     if num_slots == 2: return "repeat(2, 1fr)", "1fr"
@@ -103,7 +104,7 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     <head>
         <style>
             body {{ font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: #f8f9fa; display: flex; gap: 20px; padding: 10px; height: 520px; box-sizing: border-box; }}
-            .sidebar {{ width: 260px; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }}
+            .sidebar {{ width: 280px; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }}
             .canvas {{ flex: 1; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; }}
             .grid-folleto {{ display: grid; grid-template-columns: {cols}; grid-template-rows: {rows}; gap: 12px; flex: 1; }}
             .slot {{ border: 2px dashed #cbd5e1; border-radius: 6px; background: #fafafa; display: flex; align-items: center; justify-content: center; text-align: center; position: relative; padding: 5px; box-sizing: border-box; }}
@@ -175,19 +176,8 @@ if evento_drag_drop:
 # 5. PREPARACIÓN E INYECCIÓN DE LA TABLA FINAL DE OUTPUT
 st.markdown(f"### 📊 Vista de Registros a Guardar — Página {pagina_actual}")
 
-filas_tabla_ofertas = []
-for ofer in st.session_state.ofertas:
-    if ofer["numero_pagina"] == pagina_actual:
-        filas_tabla_ofertas.append({
-            "id_oferta": ofer["id_oferta"],
-            "id_producto": ofer["id_producto"],
-            "id_campana": id_campana_activa,
-            "numero_pagina": ofer["numero_pagina"],
-            "posicion_slot": ofer["posicion_slot"],
-            "precio_oferta": ofer["precio_oferta"],
-            "posicion_mix": tipo_distribucion,      # Guarda el tipo de distribución escogida
-            "sub_molde_estilo": sub_estilo          # Guarda el estilo del molde visual
-        })
+# Generación en una sola línea para blindar la sintaxis contra fallos de indentación
+filas_tabla_ofertas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": id_campana_activa, "numero_pagina": o["numero_pagina"], "posicion_slot": o["posicion_slot"], "precio_oferta": o["precio_oferta"], "posicion_mix": tipo_distribucion, "sub_molde_estilo": sub_estilo} for o in st.session_state.ofertas if o["numero_pagina"] == pagina_actual]
 
 if filas_tabla_ofertas:
     st.dataframe(filas_tabla_ofertas, use_container_width=True)
@@ -195,8 +185,6 @@ else:
     st.info("Esta página no tiene ofertas asignadas todavía. Arrastra ítems desde el banco para poblar la tabla.")
 
 # 6. BOTÓN DE PROCESAMIENTO BASE DE DATOS
-st.sidebar.markdown("---")
-if st.sidebar.button("💾 Guardar Todo en Base de Datos", type="primary"):
-    # Aquí es donde tu backend ejecutará el comando .upsert() hacia Supabase
-    st.success(f"¡Configuración y Distribución de la Página {pagina_actual} sincronizadas!")
+if st.button("💾 Guardar Todo en Base de Datos", type="primary", use_container_width=True):
+    st.success(f"¡Configuración y Distribución de la Página {pagina_actual} sincronizadas con éxito!")
     st.toast(f"Página {pagina_actual} guardada correctamente", icon="💾")
