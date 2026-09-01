@@ -51,7 +51,7 @@ except Exception as e:
 # 3. PANEL DE SELECCIÓN DE CAMPAÑA FILTRADA (Filtro Superior Principal)
 st.markdown("### 🔍 Selección de Campaña de Trabajo")
 with st.container(border=True):
-    col_campana, col_info = st.columns([2, 4], vertical_alignment="center")
+    col_campana, col_info = st.columns(2, vertical_alignment="center")
     with col_campana:
         campana_seleccionada_label = st.selectbox(
             "Campañas con ofertas disponibles:",
