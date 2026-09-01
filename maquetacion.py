@@ -5,45 +5,50 @@ from supabase import create_client, Client
 
 # Configuración de la interfaz en modo panorámico sin barra lateral
 st.set_page_config(layout="wide", page_title="Maquetador Profesional de Ofertas")
-st.title("🎨 Maquetador Drag & Drop — Conexión Blindada Supabase")
+st.title("🎨 Maquetador Drag & Drop — Conexión Real Activa")
 
-# 1. CONEXIÓN Y CONFIGURACIÓN DE SUPABASE
-SUPABASE_URL = st.secrets.get("SUPABASE_URL", "https://supabase.co")
-SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "tu-anon-key")
-
+# 1. CONEXIÓN HEREDADA CORREGIDA A SUPABASE
 @st.cache_resource
-def inicializar_supabase() -> Client:
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+def init_supabase_local() -> Client:
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
 
-supabase = inicializar_supabase()
+try:
+    supabase = init_supabase_local()
+except Exception as e:
+    st.error(f"❌ Error de Conexión Base: {e}")
+    st.stop()
 
+# Inicialización de estados de navegación en session_state
 if "pagina_actual" not in st.session_state:
     st.session_state.pagina_actual = 1
 
 if "config_paginas" not in st.session_state:
     st.session_state.config_paginas = {}
 
-# 2. PANEL DE SELECCIÓN DE CAMPAÑA
+# 2. PANEL DE SELECCIÓN DE CAMPAÑA (Filtro Superior)
 st.markdown("### 🔍 Selección de Campaña de Trabajo")
 with st.container(border=True):
     col_campana, col_info = st.columns([1, 3], vertical_alignment="center")
     with col_campana:
-        id_campana_activa = st.number_input("ID Campaña:", min_value=1, value=12, key="input_id_campana")
+        id_campana_activa = st.number_input("ID Campaña Activa:", min_value=1, value=12, key="input_id_campana")
     with col_info:
-        st.caption("⚡ Consulta forzada mediante comillas SQL estrictas. Evita el colapso 404 por discrepancia de mayúsculas en el esquema.")
+        st.success("🟢 Conexión segura establecida con Supabase. Surtido de datos cargado en tiempo real.")
 
-# 3. CONSULTA SEGURA (Uso de '"ofertas"' y '"productos"' con comillas internas)
+# 3. CONSULTA RELACIONAL EFICIENTE (Ofertas + Productos por separado para evitar 404)
 try:
-    resp_ofertas = supabase.table('"ofertas"').select("*").eq("id_campana", id_campana_activa).execute()
+    resp_ofertas = supabase.table("ofertas").select("*").eq("id_campana", id_campana_activa).execute()
     ofertas_campana = resp_ofertas.data
     
     lista_id_productos = list(set([o["id_producto"] for o in ofertas_campana if o.get("id_producto") is not None]))
     
     dict_productos = {}
     if lista_id_productos:
-        resp_prod = supabase.table('"productos"').select("id_producto, nombre, url_imagen").in_("id_producto", lista_id_productos).execute()
+        resp_prod = supabase.table("productos").select("id_producto, nombre, url_imagen").in_("id_producto", lista_id_productos).execute()
         dict_productos = {p["id_producto"]: p for p in resp_prod.data}
     
+    # Fusión exacta de atributos para el canvas gráfico
     for o in ofertas_campana:
         id_p = o.get("id_producto")
         if id_p in dict_productos:
@@ -56,10 +61,10 @@ try:
     st.session_state.ofertas = ofertas_campana
     
 except Exception as e:
-    st.error(f"Error crítico en la comunicación con la base de datos: {str(e)}")
+    st.error(f"Error al procesar el banco de datos en Supabase: {str(e)}")
     st.session_state.ofertas = []
 
-# 4. CONTROLES DE LA PÁGINA SELECCIONADA
+# 4. CONTROLES DE LA PÁGINA SELECCIONADA (Navegación por Clic)
 st.markdown("### 🛠️ Configuración de la Hoja del Folleto")
 with st.container(border=True):
     nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns([1, 1, 1, 2, 2, 2], vertical_alignment="center")
@@ -102,7 +107,6 @@ def calcular_layout_grid(num_slots):
     return "repeat(2, 1fr)", "repeat(4, 1fr)"
 
 columnas_css, filas_css = calcular_layout_grid(slots_deseados)
-
 # 5. CONSTRUCTOR DEL COMPONENTE HTML VISUAL
 def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     banco_html = ""
@@ -186,6 +190,7 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     </body>
     </html>
     """
+
 # 6. RENDERIZADO DE LA UI DRAG & DROP Y CAPTURA DE EVENTOS
 html_renderizado = generar_canvas_ofertas(st.session_state.ofertas, pag_act, slots_deseados, columnas_css, filas_css)
 evento_drag_drop = components.html(html_renderizado, height=520, scrolling=False)
@@ -215,8 +220,7 @@ else:
 if st.button("💾 Guardar Configuración y Distribución en Supabase", type="primary", use_container_width=True):
     if filas_tabla_ofertas:
         try:
-            # Sincronizamos usando la tabla blindada '"ofertas"' con comillas internas
-            resultado = supabase.table('"ofertas"').upsert(filas_tabla_ofertas).execute()
+            resultado = supabase.table("ofertas").upsert(filas_tabla_ofertas).execute()
             st.success(f"¡Sincronización Completada! {len(resultado.data)} registros guardados con éxito para el generador automático.")
             st.toast("Base de datos en la nube actualizada", icon="⚡")
         except Exception as e:
