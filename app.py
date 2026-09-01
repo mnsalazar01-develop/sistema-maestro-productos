@@ -75,6 +75,7 @@ pagina_dashboard = st.Page("dashboard_catalogo.py", title="Dashboard Analítico"
 # Costura v4.6.0: Apuntamos directamente al archivo clasificar_web_drag.py para correr 100% en la nube
 pagina_qt_local = st.Page("clasificar_web_drag.py", title="Clasificador Drag & Drop", icon="🖱️")
 pagina_folletos = st.Page("app_folletos.py", title="Pagina Folletos", icon="🖱️")
+pagina_nativo = st.Page("clasificador_nativo.py", title="Pagina Nativo", icon="🖱️")
 # 4. CONSTRUCCIÓN AUTOMÁTICA DEL MOTOR DE NAVEGACIÓN EN LA BARRA LATERAL
 enrutador_global = st.navigation([
     pagina_inicio,
@@ -86,7 +87,8 @@ enrutador_global = st.navigation([
     pagina_saneamiento,
     pagina_dashboard,
     pagina_qt_local,
-    pagina_folletos
+    pagina_folletos,
+    pagina_nativo
 ])
 
 # Componentes fijos de control e identidad comercial en la barra de la izquierda
