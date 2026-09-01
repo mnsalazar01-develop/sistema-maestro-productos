@@ -5,9 +5,9 @@ from supabase import create_client, Client
 
 # Configuración de la interfaz en modo panorámico sin barra lateral
 st.set_page_config(layout="wide", page_title="Maquetador Profesional de Ofertas")
-st.title("🎨 Maquetador Drag & Drop — Conexión Real Activa")
+st.title("🎨 Maquetador Drag & Drop — Campañas Integradas Real-Time")
 
-# 1. CONEXIÓN HEREDADA CORREGIDA A SUPABASE
+# 1. CONEXIÓN HEREDADA A SUPABASE
 @st.cache_resource
 def init_supabase_local() -> Client:
     url = st.secrets["supabase"]["url"]
@@ -27,16 +27,37 @@ if "pagina_actual" not in st.session_state:
 if "config_paginas" not in st.session_state:
     st.session_state.config_paginas = {}
 
-# 2. PANEL DE SELECCIÓN DE CAMPAÑA (Filtro Superior)
+# 2. CARGA DINÁMICA DE CAMPAÑAS VÁLIDAS DESDE SUPABASE
+try:
+    resp_campanas = supabase.table("campanas").select("id_campana, nombre_campana").order("id_campana", ascending=False).execute()
+    lista_campanas = resp_campanas.data
+    
+    if not lista_campanas:
+        st.warning("⚠️ No se encontraron campañas registradas en la tabla public.campanas.")
+        st.stop()
+        
+    # Crear un diccionario para mapear la etiqueta visual al ID real de la campaña
+    dict_campanas_opciones = {f"{c['id_campana']} - {c['nombre_campana']}": c['id_campana'] for c in lista_campanas}
+except Exception as e:
+    st.error(f"❌ Error al consultar la tabla public.campanas: {str(e)}")
+    st.stop()
+
+# 3. PANEL DE SELECCIÓN DE CAMPAÑA VÁLIDA (Filtro Superior Principal)
 st.markdown("### 🔍 Selección de Campaña de Trabajo")
 with st.container(border=True):
-    col_campana, col_info = st.columns([1, 3], vertical_alignment="center")
+    col_campana, col_info = st.columns([1, 2], vertical_alignment="center")
     with col_campana:
-        id_campana_activa = st.number_input("ID Campaña Activa:", min_value=1, value=12, key="input_id_campana")
+        # Selector desplegable con nombres de campañas reales
+        campana_seleccionada_label = st.selectbox(
+            "Seleccione una campaña activa:",
+            options=list(dict_campanas_opciones.keys()),
+            key="selector_campana_activa"
+        )
+        id_campana_activa = dict_campanas_opciones[campana_seleccionada_label]
     with col_info:
-        st.success("🟢 Conexión segura establecida con Supabase. Surtido de datos cargado en tiempo real.")
+        st.success(f"🟢 Conectado con éxito. Cargando surtido de la Campaña ID: {id_campana_activa}")
 
-# 3. CONSULTA RELACIONAL EFICIENTE (Ofertas + Productos por separado para evitar 404)
+# 4. CONSULTA RELACIONAL INMUNE AL ERROR 404 (Ofertas + Productos vinculados)
 try:
     resp_ofertas = supabase.table("ofertas").select("*").eq("id_campana", id_campana_activa).execute()
     ofertas_campana = resp_ofertas.data
@@ -48,7 +69,6 @@ try:
         resp_prod = supabase.table("productos").select("id_producto, nombre, url_imagen").in_("id_producto", lista_id_productos).execute()
         dict_productos = {p["id_producto"]: p for p in resp_prod.data}
     
-    # Fusión exacta de atributos para el canvas gráfico
     for o in ofertas_campana:
         id_p = o.get("id_producto")
         if id_p in dict_productos:
@@ -64,8 +84,8 @@ except Exception as e:
     st.error(f"Error al procesar el banco de datos en Supabase: {str(e)}")
     st.session_state.ofertas = []
 
-# 4. CONTROLES DE LA PÁGINA SELECCIONADA (Navegación por Clic)
-st.markdown("### 🛠️ Configuración de la Hoja del Folleto")
+# 5. CONTROLES DE LA PÁGINA SELECCIONADA (Navegación Dinámica por Clic)
+st.markdown("### 🛠 silence Configuración de la Hoja del Folleto")
 with st.container(border=True):
     nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns([1, 1, 1, 2, 2, 2], vertical_alignment="center")
     
@@ -107,7 +127,7 @@ def calcular_layout_grid(num_slots):
     return "repeat(2, 1fr)", "repeat(4, 1fr)"
 
 columnas_css, filas_css = calcular_layout_grid(slots_deseados)
-# 5. CONSTRUCTOR DEL COMPONENTE HTML VISUAL
+# 6. CONSTRUCTOR DEL COMPONENTE HTML VISUAL
 def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     banco_html = ""
     slots_ocupados = {}
@@ -191,7 +211,7 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     </html>
     """
 
-# 6. RENDERIZADO DE LA UI DRAG & DROP Y CAPTURA DE EVENTOS
+# 7. RENDERIZADO DE LA UI DRAG & DROP Y CAPTURA DE EVENTOS
 html_renderizado = generar_canvas_ofertas(st.session_state.ofertas, pag_act, slots_deseados, columnas_css, filas_css)
 evento_drag_drop = components.html(html_renderizado, height=520, scrolling=False)
 
@@ -205,18 +225,17 @@ if evento_drag_drop:
     except Exception:
         pass
 
-# 7. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA (Fila y Columna)
+# 8. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA (Fila y Columna)
 st.markdown(f"### 📊 Registros Procesados de la Página {pag_act}")
 
-# Mapeo y cálculo inline blindado contra valores None para numero_fila y numero_columna
 filas_tabla_ofertas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": int(id_campana_activa), "numero_pagina": int(o["numero_pagina"]), "posicion_slot": int(o["posicion_slot"]), "precio_oferta": o.get("precio_oferta"), "posicion_mix": tipo_distribucion, "sub_molde_estilo": sub_estilo, "numero_fila": ((int(o["posicion_slot"]) - 1) // 2) + 1 if o.get("posicion_slot") else None, "numero_columna": ((int(o["posicion_slot"]) - 1) % 2) + 1 if o.get("posicion_slot") else None} for o in st.session_state.ofertas if o.get("numero_pagina") is not None and int(o["numero_pagina"]) == pag_act]
 
 if filas_tabla_ofertas:
     st.dataframe(filas_tabla_ofertas, use_container_width=True)
 else:
-    st.info("Ninguna oferta asignada en esta hoja todavía. Arrastra elementos desde el banco.")
+    st.info("Ninguna oferta asignada en esta hoja todavía. Arrastra elementos desde el banco de la campaña.")
 
-# 8. EJECUCIÓN DIRECTA DEL UPSERT EN SUPABASE
+# 9. EJECUCIÓN DIRECTA DEL UPSERT EN SUPABASE
 if st.button("💾 Guardar Configuración y Distribución en Supabase", type="primary", use_container_width=True):
     if filas_tabla_ofertas:
         try:
