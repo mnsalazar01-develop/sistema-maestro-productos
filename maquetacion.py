@@ -89,8 +89,35 @@ except Exception as e:
     st.error(f"Error al procesar el banco de datos en Supabase: {str(e)}")
     st.session_state.ofertas = []
 
-# 5. CONTROLES DE LA PÁGINA SELECCIONADA (Navegación Dinámica por Clic)
+# 5. CONTROLES DE LA PÁGINA SELECCIONADA (Cálculo dinámico basado en ofertas existentes)
 st.markdown("### 🛠️ Configuración de la Hoja del Folleto")
+
+pag_act = st.session_state.pagina_actual
+
+# 1. Calcular dinámicamente el slot más alto usado en esta página actualmente
+slots_usados_en_pagina = [
+    int(o["posicion_slot"]) 
+    for o in st.session_state.ofertas 
+    if o.get("numero_pagina") == pag_act and o.get("posicion_slot") is not None
+]
+
+# El mínimo por defecto es 4, pero si hay un slot mayor (ej. 6 o 8), tomamos ese valor máximo
+slot_maximo_detectado = max(slots_usados_en_pagina) if slots_usados_en_pagina else 4
+
+# 2. Inicializar o actualizar el session_state respetando lo que ya está guardado en la BD
+if pag_act not in st.session_state.config_paginas:
+    st.session_state.config_paginas[pag_act] = {
+        "slots": slot_maximo_detectado, 
+        "distribucion": "Equilibrado", 
+        "estilo": "Estándar"
+    }
+else:
+    # Si metieron un producto en un slot más alto del que recordaba la sesión, actualizamos
+    if slot_maximo_detectado > st.session_state.config_paginas[pag_act]["slots"]:
+        st.session_state.config_paginas[pag_act]["slots"] = slot_maximo_detectado
+
+cfg = st.session_state.config_paginas[pag_act]
+
 with st.container(border=True):
     nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns(6)
     
@@ -107,13 +134,14 @@ with st.container(border=True):
             st.session_state.pagina_actual += 1
             st.rerun()
 
-    pag_act = st.session_state.pagina_actual
-    if pag_act not in st.session_state.config_paginas:
-        st.session_state.config_paginas[pag_act] = {"slots": 4, "distribucion": "Equilibrado", "estilo": "Estándar"}
-    cfg = st.session_state.config_paginas[pag_act]
-
     with nav_col4:
-        slots_deseados = st.slider("Slots asignados:", min_value=1, max_value=8, value=cfg["slots"])
+        # El slider toma como valor inicial el máximo detectado en la base de datos
+        slots_deseados = st.slider(
+            "Slots asignados:", 
+            min_value=1, 
+            max_value=8, 
+            value=int(cfg["slots"])
+        )
         st.session_state.config_paginas[pag_act]["slots"] = slots_deseados
         
     with nav_col5:
@@ -124,14 +152,8 @@ with st.container(border=True):
         sub_estilo = st.selectbox("Estilo (`sub_molde_estilo`):", ["Estándar", "Destacado", "Compacto"], index=["Estándar", "Destacado", "Compacto"].index(cfg["estilo"]))
         st.session_state.config_paginas[pag_act]["estilo"] = sub_estilo
 
-def calcular_layout_grid(num_slots):
-    if num_slots == 1: return "1fr", "1fr"
-    if num_slots == 2: return "repeat(2, 1fr)", "1fr"
-    if num_slots in (3, 4): return "repeat(2, 1fr)", "repeat(2, 1fr)"
-    if num_slots in (5, 6): return "repeat(2, 1fr)", "repeat(3, 1fr)"
-    return "repeat(2, 1fr)", "repeat(4, 1fr)"
-
 columnas_css, filas_css = calcular_layout_grid(slots_deseados)
+
 # 6. CONSTRUCTOR DEL COMPONENTE HTML VISUAL (Soporta agregar y devolver ofertas)
 def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     banco_html = ""
