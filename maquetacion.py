@@ -5,7 +5,7 @@ from supabase import create_client, Client
 
 # Configuración de la interfaz en modo panorámico sin barra lateral
 st.set_page_config(layout="wide", page_title="Maquetador Profesional de Ofertas")
-st.title("🎨 Maquetador Drag & Drop — Campañas con Ofertas Activas")
+st.title("🎨 Maquetador Drag & Drop — Conexión Real y Desasignación")
 
 # 1. CONEXIÓN HEREDADA A SUPABASE
 @st.cache_resource
@@ -29,7 +29,6 @@ if "config_paginas" not in st.session_state:
 
 # 2. FILTRADO DE CAMPAÑAS VÁLIDAS CON VALORES EN OFERTAS
 try:
-    # Paso A: Traer los IDs únicos de campaña que existen en la tabla ofertas
     resp_ofertas_ids = supabase.table("ofertas").select("id_campana").execute()
     ids_campanas_con_ofertas = list(set([o["id_campana"] for o in resp_ofertas_ids.data if o.get("id_campana") is not None]))
 
@@ -37,7 +36,6 @@ try:
         st.warning("⚠️ No hay ninguna campaña con ofertas registradas actualmente en la base de datos.")
         st.stop()
 
-    # Paso B: Consultar los nombres de la tabla campanas filtrando solo por esos IDs válidos
     resp_campanas = supabase.table("campanas").select("id_campana, nombre_campana").in_("id_campana", ids_campanas_con_ofertas).order("id_campana", desc=True).execute()
     lista_campanas = resp_campanas.data
     
@@ -45,7 +43,6 @@ try:
         st.warning("⚠️ No se pudieron emparejar las ofertas con registros válidos en la tabla campanas.")
         st.stop()
         
-    # Crear diccionario para el mapeo del selector visual
     dict_campanas_opciones = {f"{c['id_campana']} - {c['nombre_campana']}": c['id_campana'] for c in lista_campanas}
 except Exception as e:
     st.error(f"❌ Error al filtrar campañas con valores: {str(e)}")
@@ -54,7 +51,7 @@ except Exception as e:
 # 3. PANEL DE SELECCIÓN DE CAMPAÑA FILTRADA (Filtro Superior Principal)
 st.markdown("### 🔍 Selección de Campaña de Trabajo")
 with st.container(border=True):
-    col_campana, col_info = st.columns([1, 2], vertical_alignment="center")
+    col_campana, col_info = st.columns([2, 3], vertical_alignment="center")
     with col_campana:
         campana_seleccionada_label = st.selectbox(
             "Campañas con ofertas disponibles:",
@@ -83,14 +80,14 @@ try:
             o["nombre"] = dict_productos[id_p].get("nombre") or f"Producto #{id_p}"
             o["img"] = dict_productos[id_p].get("url_imagen") or "https://picsum.photos"
         else:
-            o["nombre"] = f"Oferta sin producto asignado (# {o['id_oferta']})"
+            o["nombre"] = f"Oferta sin producto asignado (#{o['id_oferta']})"
             o["img"] = "https://picsum.photos"
             
     st.session_state.ofertas = ofertas_campana
     
 except Exception as e:
     st.error(f"Error al procesar el banco de datos en Supabase: {str(e)}")
-    st.session_state.ofertas = []
+    st.session_state.ofertas =
 
 # 5. CONTROLES DE LA PÁGINA SELECCIONADA (Navegación Dinámica por Clic)
 st.markdown("### 🛠️ Configuración de la Hoja del Folleto")
@@ -135,7 +132,7 @@ def calcular_layout_grid(num_slots):
     return "repeat(2, 1fr)", "repeat(4, 1fr)"
 
 columnas_css, filas_css = calcular_layout_grid(slots_deseados)
-# 6. CONSTRUCTOR DEL COMPONENTE HTML VISUAL
+# 6. CONSTRUCTOR DEL COMPONENTE HTML VISUAL (Soporta agregar y devolver ofertas)
 def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     banco_html = ""
     slots_ocupados = {}
@@ -150,12 +147,12 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
             </div>
         </div>
         '''
-        has_page = o.get('numero_pagina') is not None and o.get('numero_pagina') != ""
-        has_slot = o.get('posicion_slot') is not None and o.get('posicion_slot') != ""
+        has_page = o.get('numero_pagina') is not None and o.get('numero_pagina') != "" and o.get('numero_pagina') != "null"
+        has_slot = o.get('posicion_slot') is not None and o.get('posicion_slot') != "" and o.get('posicion_slot') != "null"
         
         if has_page and has_slot and int(o['numero_pagina']) == pagina:
             slots_ocupados[int(o['posicion_slot'])] = card_html
-        elif not has_page:
+        elif not has_page or o['numero_pagina'] == "null":
             banco_html += card_html
 
     slots_html = ""
@@ -170,6 +167,7 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
         <style>
             body {{ font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: #f8f9fa; display: flex; gap: 20px; padding: 10px; height: 500px; box-sizing: border-box; }}
             .sidebar {{ width: 280px; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }}
+            .sidebar.drag-over {{ background: #fff5f5; border: 2px dashed #dc3545; }}
             .canvas {{ flex: 1; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; }}
             .grid-folleto {{ display: grid; grid-template-columns: {cols}; grid-template-rows: {rows}; gap: 12px; flex: 1; }}
             .slot {{ border: 2px dashed #cbd5e1; border-radius: 6px; background: #fafafa; display: flex; align-items: center; justify-content: center; text-align: center; position: relative; padding: 5px; box-sizing: border-box; }}
@@ -179,15 +177,17 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
             .product-card .info {{ display: flex; flex-direction: column; font-size: 12px; overflow: hidden; }}
             .product-card .name {{ font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
             .product-card .price {{ color: #16a34a; font-weight: 700; margin-top: 2px; }}
-            .placeholder {{ color: #94a3b8; font-size: 13px; font-weight: 500; line-height: 1.3; }}
+            .placeholder {{ color: #94a3b8; font-size: 13px; font-weight: 500; line-height: 1.3; user-select:none; pointer-events:none; }}
             .placeholder span {{ font-size: 10px; color: #cbd5e1; }}
         </style>
     </head>
     <body>
-        <div class="sidebar">
+        <!-- El banco ahora escucha eventos drop para desasignar productos -->
+        <div class="sidebar" id="banco-disponibles">
             <h4 style="margin:0; font-size:14px; color:#475569; border-bottom:1px solid #e2e8f0; padding-bottom:5px;">📦 Banco de la Campaña</h4>
-            <div id="banco" style="display:flex; flex-direction:column; gap:8px;">{banco_html}</div>
+            <div style="display:flex; flex-direction:column; gap:8px; min-height:400px;" id="banco-lista">{banco_html}</div>
         </div>
+        
         <div class="canvas">
             <h4 style="margin:0 0 10px 0; font-size:14px; color:#475569;">📖 Cuadrante de Diseño — Página {pagina}</h4>
             <div class="grid-folleto">{slots_html}</div>
@@ -198,6 +198,8 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
                 card.addEventListener('dragstart', () => {{ draggedNode = card; card.style.opacity = '0.4'; }});
                 card.addEventListener('dragend', () => {{ draggedNode = null; card.style.opacity = '1'; }});
             }});
+
+            // Configurar los slots de las hojas
             document.querySelectorAll('.slot').forEach(slot => {{
                 slot.addEventListener('dragover', (e) => {{ e.preventDefault(); slot.classList.add('drag-over'); }});
                 slot.addEventListener('dragleave', () => {{ slot.classList.remove('drag-over'); }});
@@ -213,6 +215,24 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
                         }}, '*');
                     }}
                 }});
+            }});
+
+            // Configurar la zona del banco para recibir devoluciones (Drop Zone de Limpieza)
+            const bancoZone = document.getElementById('banco-disponibles');
+            const bancoLista = document.getElementById('banco-lista');
+            
+            bancoZone.addEventListener('dragover', (e) => {{ e.preventDefault(); bancoZone.classList.add('drag-over'); }});
+            bancoZone.addEventListener('dragleave', () => {{ bancoZone.classList.remove('drag-over'); }});
+            bancoZone.addEventListener('drop', () => {{
+                bancoZone.classList.remove('drag-over');
+                if(draggedNode) {{
+                    bancoLista.appendChild(draggedNode);
+                    // Enviamos valores null para remover el producto de la maqueta
+                    window.parent.postMessage({{
+                        type: 'streamlit:setComponentValue',
+                        value: JSON.stringify({{ id_oferta: parseInt(draggedNode.id), posicion_slot: null, numero_pagina: null }})
+                    }}, '*');
+                }}
             }});
         </script>
     </body>
@@ -233,22 +253,29 @@ if evento_drag_drop:
     except Exception:
         pass
 
-# 8. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA (Fila y Columna)
+# 8. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA
 st.markdown(f"### 📊 Registros Procesados de la Página {pag_act}")
 
-filas_tabla_ofertas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": int(id_campana_activa), "numero_pagina": int(o["numero_pagina"]), "posicion_slot": int(o["posicion_slot"]), "precio_oferta": o.get("precio_oferta"), "posicion_mix": tipo_distribucion, "sub_molde_estilo": sub_estilo, "numero_fila": ((int(o["posicion_slot"]) - 1) // 2) + 1 if o.get("posicion_slot") else None, "numero_columna": ((int(o["posicion_slot"]) - 1) % 2) + 1 if o.get("posicion_slot") else None} for o in st.session_state.ofertas if o.get("numero_pagina") is not None and int(o["numero_pagina"]) == pag_act]
+# Generación en una sola línea de la lista de ofertas asignadas activamente a esta página
+filas_tabla_ofertas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": int(id_campana_activa), "numero_pagina": int(o["numero_pagina"]), "posicion_slot": int(o["posicion_slot"]), "precio_oferta": o.get("precio_oferta"), "posicion_mix": tipo_distribucion, "sub_molde_estilo": sub_estilo, "numero_fila": ((int(o["posicion_slot"]) - 1) // 2) + 1 if o.get("posicion_slot") else None, "numero_columna": ((int(o["posicion_slot"]) - 1) % 2) + 1 if o.get("posicion_slot") else None} for o in st.session_state.ofertas if o.get("numero_pagina") is not None and str(o["numero_pagina"]) != "null" and int(o["numero_pagina"]) == pag_act]
 
 if filas_tabla_ofertas:
     st.dataframe(filas_tabla_ofertas, use_container_width=True)
 else:
     st.info("Ninguna oferta asignada en esta hoja todavía. Arrastra elementos desde el banco de la campaña.")
 
-# 9. EJECUCIÓN DIRECTA DEL UPSERT EN SUPABASE
+# 9. DETECCIÓN DE ELEMENTOS DEVUELTOS (Para realizar el guardado de desasignación)
+# Construimos también una lista con los elementos que fueron devueltos al banco (valores en None) para que el botón de guardado también limpie esos registros en Supabase.
+filas_desasignadas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": int(id_campana_activa), "numero_pagina": None, "posicion_slot": None, "numero_fila": None, "numero_columna": None} for o in st.session_state.ofertas if o.get("numero_pagina") is None or str(o["numero_pagina"]) == "null"]
+
+# 10. EJECUCIÓN DIRECTA DEL UPSERT EN SUPABASE
 if st.button("💾 Guardar Configuración y Distribución en Supabase", type="primary", use_container_width=True):
-    if filas_tabla_ofertas:
+    # Unimos tanto los cambios de la página actual como las desasignaciones para que todo impacte en un solo viaje
+    lote_sincronizacion = filas_tabla_ofertas + filas_desasignadas
+    if lote_sincronizacion:
         try:
-            resultado = supabase.table("ofertas").upsert(filas_tabla_ofertas).execute()
-            st.success(f"¡Sincronización Completada! {len(resultado.data)} registros guardados con éxito para el generador automático.")
+            resultado = supabase.table("ofertas").upsert(lote_sincronizacion).execute()
+            st.success(f"¡Sincronización Completada! {len(resultado.data)} registros sincronizados con éxito (maquetados y devueltos al banco).")
             st.toast("Base de datos en la nube actualizada", icon="⚡")
         except Exception as e:
             st.error(f"Error al impactar la tabla ofertas en Supabase: {str(e)}")
