@@ -3,10 +3,23 @@ from supabase import create_client
 
 st.title("🔬 Diagnóstico de Tablas en Supabase")
 
-# Credenciales de conexión
-SUPABASE_URL = st.secrets.get("SUPABASE_URL", "https://supabase.co")
-SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "tu-anon-key")
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+# 2. CONEXIÓN SEGURA HEREDADA CON LAS LLAVES DE SUPABASE
+@st.cache_resource
+def init_supabase_local() -> Client:
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
+
+try:
+    supabase = init_supabase_local()
+except Exception as e:
+    st.error(f"❌ Error de Conexión Base: {e}")
+    st.stop()
+
+st.title(f"📦 {NOMBRE_PROGRAMA}")
+st.markdown(f"**Versión {VERSION_PROGRAMA}** — Imágenes con URL completa desde bucket 'imagenes'.")
+#st.markdown("---")
+
 
 if st.button("🔍 Escanear Tablas Disponibles"):
     try:
