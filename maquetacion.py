@@ -48,7 +48,7 @@ except Exception as e:
     st.error(f"❌ Error al filtrar campañas con valores: {str(e)}")
     st.stop()
 
-# 3. PANEL DE SELECCIÓN DE CAMPAÑA FILTRADA (Filtro Superior Principal - Corregido sin comas huerfanas)
+# 3. PANEL DE SELECCIÓN DE CAMPAÑA FILTRADA (Corregido a st.columns(2))
 st.markdown("### 🔍 Selección de Campaña de Trabajo")
 with st.container(border=True):
     col_campana, col_info = st.columns(2)
