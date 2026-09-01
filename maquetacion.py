@@ -9,7 +9,7 @@ st.title("🎨 Maquetador Drag & Drop — Filtro por Campaña")
 
 # 1. CONEXIÓN Y CONFIGURACIÓN DE SUPABASE
 SUPABASE_URL = st.secrets.get("SUPABASE_URL", "https://supabase.co")
-SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "tu-key-de-supabase")
+SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "tu-anon-key-de-supabase")
 
 @st.cache_resource
 def inicializar_supabase() -> Client:
@@ -40,13 +40,11 @@ with st.container(border=True):
 
 # 3. CONSULTA RELACIONAL EN TIEMPO REAL (Armado del Banco de Datos)
 try:
-    # Traemos las ofertas de la campaña seleccionada realizando el JOIN implícito con la tabla productos
     respuesta = supabase.table("ofertas").select("*, productos(nombre, url_imagen)").eq("id_campana", id_campana_activa).execute()
     ofertas_campana = respuesta.data
     
-    # Procesamos el mapeo de datos para alimentar de forma correcta el componente gráfico
     for o in ofertas_campana:
-        if o.get("productos"):
+        if o.get("productos") and isinstance(o.get("productos"), dict):
             o["nombre"] = o["productos"].get("nombre") or f"Prod #{o['id_producto']}"
             o["img"] = o["productos"].get("url_imagen") or "https://picsum.photos"
         else:
@@ -62,7 +60,7 @@ except Exception as e:
 # 4. CONTROLES DE LA PÁGINA SELECCIONADA (Navegación por Clic)
 st.markdown("### 🛠️ Configuración de la Hoja del Folleto")
 with st.container(border=True):
-    nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns([1.5, 1, 1.5, 3, 3, 3], vertical_alignment="center")
+    nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns([1, 1, 1, 2, 2, 2], vertical_alignment="center")
     
     with nav_col1:
         if st.button("◀ Anterior", use_container_width=True) and st.session_state.pagina_actual > 1:
@@ -122,13 +120,16 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
             <img src="{o['img']}">
             <div class="info">
                 <span class="name">{o['nombre']}</span>
-                <span class="price">${o['precio_oferta']}</span>
+                <span class="price">${o.get('precio_oferta', 0.00)}</span>
             </div>
         </div>
         '''
-        if o['numero_pagina'] == pagina and o['posicion_slot']:
+        has_page = o.get('numero_pagina') is not None and o.get('numero_pagina') != ""
+        has_slot = o.get('posicion_slot') is not None and o.get('posicion_slot') != ""
+        
+        if has_page and has_slot and int(o['numero_pagina']) == pagina:
             slots_ocupados[int(o['posicion_slot'])] = card_html
-        elif o['numero_pagina'] is None or o['numero_pagina'] == "":
+        elif not has_page:
             banco_html += card_html
 
     slots_html = ""
@@ -205,11 +206,11 @@ if evento_drag_drop:
     except Exception:
         pass
 
-# 7. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA (Fila y Columna)
+# 7. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA
 st.markdown(f"### 📊 Registros Procesados de la Página {pag_act}")
 
-# Generación en una sola línea compacta para garantizar la resiliencia del compilador frente a sangrías
-filas_tabla_ofertas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": id_campana_activa, "numero_pagina": o["numero_pagina"], "posicion_slot": o["posicion_slot"], "precio_oferta": o["precio_oferta"], "posicion_mix": tipo_distribucion, "sub_molde_estilo": sub_estilo, "numero_fila": ((int(o["posicion_slot"]) - 1) // 2) + 1, "numero_columna": ((int(o["posicion_slot"]) - 1) % 2) + 1} for o in st.session_state.ofertas if o["numero_pagina"] == pag_act]
+# Mapeo y cálculo inline blindado contra valores None para numero_fila y numero_columna
+filas_tabla_ofertas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": int(id_campana_activa), "numero_pagina": int(o["numero_pagina"]), "posicion_slot": int(o["posicion_slot"]), "precio_oferta": o.get("precio_oferta"), "posicion_mix": tipo_distribucion, "sub_molde_estilo": sub_estilo, "numero_fila": ((int(o["posicion_slot"]) - 1) // 2) + 1 if o.get("posicion_slot") else None, "numero_columna": ((int(o["posicion_slot"]) - 1) % 2) + 1 if o.get("posicion_slot") else None} for o in st.session_state.ofertas if o.get("numero_pagina") is not None and int(o["numero_pagina"]) == pag_act]
 
 if filas_tabla_ofertas:
     st.dataframe(filas_tabla_ofertas, use_container_width=True)
@@ -220,7 +221,6 @@ else:
 if st.button("💾 Guardar Configuración y Distribución en Supabase", type="primary", use_container_width=True):
     if filas_tabla_ofertas:
         try:
-            # Enviamos los datos directamente a Postgresql mapeando sobre la PK id_oferta
             resultado = supabase.table("ofertas").upsert(filas_tabla_ofertas).execute()
             st.success(f"¡Sincronización Completada! {len(resultado.data)} registros guardados con éxito para el generador automático.")
             st.toast("Base de datos en la nube actualizada", icon="⚡")
