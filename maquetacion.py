@@ -29,7 +29,8 @@ if "config_paginas" not in st.session_state:
 
 # 2. CARGA DINÁMICA DE CAMPAÑAS VÁLIDAS DESDE SUPABASE
 try:
-    resp_campanas = supabase.table("campanas").select("id_campana, nombre_campana").order("id_campana", ascending=False).execute()
+    # Corrección: Cambiado 'ascending=False' por 'desc=True' según la API de Supabase Python
+    resp_campanas = supabase.table("campanas").select("id_campana, nombre_campana").order("id_campana", desc=True).execute()
     lista_campanas = resp_campanas.data
     
     if not lista_campanas:
@@ -85,7 +86,7 @@ except Exception as e:
     st.session_state.ofertas = []
 
 # 5. CONTROLES DE LA PÁGINA SELECCIONADA (Navegación Dinámica por Clic)
-st.markdown("### 🛠 silence Configuración de la Hoja del Folleto")
+st.markdown("### 🛠️ Configuración de la Hoja del Folleto")
 with st.container(border=True):
     nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns([1, 1, 1, 2, 2, 2], vertical_alignment="center")
     
