@@ -5,7 +5,7 @@ from supabase import create_client, Client
 
 # Configuración de la interfaz en modo panorámico sin barra lateral
 st.set_page_config(layout="wide", page_title="Maquetador Profesional de Ofertas")
-st.title("🎨 Maquetador Drag & Drop — Campañas Integradas Real-Time")
+st.title("🎨 Maquetador Drag & Drop — Campañas con Ofertas Activas")
 
 # 1. CONEXIÓN HEREDADA A SUPABASE
 @st.cache_resource
@@ -27,38 +27,45 @@ if "pagina_actual" not in st.session_state:
 if "config_paginas" not in st.session_state:
     st.session_state.config_paginas = {}
 
-# 2. CARGA DINÁMICA DE CAMPAÑAS VÁLIDAS DESDE SUPABASE
+# 2. FILTRADO DE CAMPAÑAS VÁLIDAS CON VALORES EN OFERTAS
 try:
-    # Corrección: Cambiado 'ascending=False' por 'desc=True' según la API de Supabase Python
-    resp_campanas = supabase.table("campanas").select("id_campana, nombre_campana").order("id_campana", desc=True).execute()
+    # Paso A: Traer los IDs únicos de campaña que existen en la tabla ofertas
+    resp_ofertas_ids = supabase.table("ofertas").select("id_campana").execute()
+    ids_campanas_con_ofertas = list(set([o["id_campana"] for o in resp_ofertas_ids.data if o.get("id_campana") is not None]))
+
+    if not ids_campanas_con_ofertas:
+        st.warning("⚠️ No hay ninguna campaña con ofertas registradas actualmente en la base de datos.")
+        st.stop()
+
+    # Paso B: Consultar los nombres de la tabla campanas filtrando solo por esos IDs válidos
+    resp_campanas = supabase.table("campanas").select("id_campana, nombre_campana").in_("id_campana", ids_campanas_con_ofertas).order("id_campana", desc=True).execute()
     lista_campanas = resp_campanas.data
     
     if not lista_campanas:
-        st.warning("⚠️ No se encontraron campañas registradas en la tabla public.campanas.")
+        st.warning("⚠️ No se pudieron emparejar las ofertas con registros válidos en la tabla campanas.")
         st.stop()
         
-    # Crear un diccionario para mapear la etiqueta visual al ID real de la campaña
+    # Crear diccionario para el mapeo del selector visual
     dict_campanas_opciones = {f"{c['id_campana']} - {c['nombre_campana']}": c['id_campana'] for c in lista_campanas}
 except Exception as e:
-    st.error(f"❌ Error al consultar la tabla public.campanas: {str(e)}")
+    st.error(f"❌ Error al filtrar campañas con valores: {str(e)}")
     st.stop()
 
-# 3. PANEL DE SELECCIÓN DE CAMPAÑA VÁLIDA (Filtro Superior Principal)
+# 3. PANEL DE SELECCIÓN DE CAMPAÑA FILTRADA (Filtro Superior Principal)
 st.markdown("### 🔍 Selección de Campaña de Trabajo")
 with st.container(border=True):
     col_campana, col_info = st.columns([1, 2], vertical_alignment="center")
     with col_campana:
-        # Selector desplegable con nombres de campañas reales
         campana_seleccionada_label = st.selectbox(
-            "Seleccione una campaña activa:",
+            "Campañas con ofertas disponibles:",
             options=list(dict_campanas_opciones.keys()),
             key="selector_campana_activa"
         )
         id_campana_activa = dict_campanas_opciones[campana_seleccionada_label]
     with col_info:
-        st.success(f"🟢 Conectado con éxito. Cargando surtido de la Campaña ID: {id_campana_activa}")
+        st.success(f"🟢 Surtido validado. Desplegando ofertas activas de la Campaña ID: {id_campana_activa}")
 
-# 4. CONSULTA RELACIONAL INMUNE AL ERROR 404 (Ofertas + Productos vinculados)
+# 4. CONSULTA INMUNE AL ERROR 404 (Ofertas + Productos vinculados)
 try:
     resp_ofertas = supabase.table("ofertas").select("*").eq("id_campana", id_campana_activa).execute()
     ofertas_campana = resp_ofertas.data
@@ -76,7 +83,7 @@ try:
             o["nombre"] = dict_productos[id_p].get("nombre") or f"Producto #{id_p}"
             o["img"] = dict_productos[id_p].get("url_imagen") or "https://picsum.photos"
         else:
-            o["nombre"] = f"Oferta sin producto asignado (#{o['id_oferta']})"
+            o["nombre"] = f"Oferta sin producto asignado (# {o['id_oferta']})"
             o["img"] = "https://picsum.photos"
             
     st.session_state.ofertas = ofertas_campana
