@@ -3,8 +3,9 @@ import streamlit.components.v1 as components
 import json
 from supabase import create_client, Client
 
+# Configuración de la interfaz en modo panorámico sin barra lateral
 st.set_page_config(layout="wide", page_title="Maquetador Profesional de Ofertas")
-st.title("🎨 Maquetador Drag & Drop — Filtro por Campaña")
+st.title("🎨 Maquetador Drag & Drop — Conexión Blindada Supabase")
 
 # 1. CONEXIÓN Y CONFIGURACIÓN DE SUPABASE
 SUPABASE_URL = st.secrets.get("SUPABASE_URL", "https://supabase.co")
@@ -29,36 +30,33 @@ with st.container(border=True):
     with col_campana:
         id_campana_activa = st.number_input("ID Campaña:", min_value=1, value=12, key="input_id_campana")
     with col_info:
-        st.caption("⚠️ Al cambiar el ID se descargará el surtido real de ofertas desde Supabase.")
+        st.caption("⚡ Consulta forzada mediante comillas SQL estrictas. Evita el colapso 404 por discrepancia de mayúsculas en el esquema.")
 
-# 3. CONSULTA SEPARADA PROTEGIDA (Solución al error 404 de Join relacional)
+# 3. CONSULTA SEGURA (Uso de '"ofertas"' y '"productos"' con comillas internas)
 try:
-    # Paso 1: Traer ofertas planas de la campaña
-    resp_ofertas = supabase.table("ofertas").select("*").eq("id_campana", id_campana_activa).execute()
+    resp_ofertas = supabase.table('"ofertas"').select("*").eq("id_campana", id_campana_activa).execute()
     ofertas_campana = resp_ofertas.data
     
-    # Paso 2: Mapear id_producto para traer nombres e imágenes de forma masiva
-    lista_id_productos = list(set([o["id_producto"] for o in ofertas_campana if o.get("id_producto")]))
+    lista_id_productos = list(set([o["id_producto"] for o in ofertas_campana if o.get("id_producto") is not None]))
     
     dict_productos = {}
     if lista_id_productos:
-        resp_prod = supabase.table("productos").select("id_producto, nombre, url_imagen").in_("id_producto", lista_id_productos).execute()
+        resp_prod = supabase.table('"productos"').select("id_producto, nombre, url_imagen").in_("id_producto", lista_id_productos).execute()
         dict_productos = {p["id_producto"]: p for p in resp_prod.data}
     
-    # Paso 3: Combinar los datos en memoria de Python
     for o in ofertas_campana:
         id_p = o.get("id_producto")
         if id_p in dict_productos:
-            o["nombre"] = dict_productos[id_p].get("nombre") or f"Prod #{id_p}"
+            o["nombre"] = dict_productos[id_p].get("nombre") or f"Producto #{id_p}"
             o["img"] = dict_productos[id_p].get("url_imagen") or "https://picsum.photos"
         else:
-            o["nombre"] = f"Oferta sin producto (#{o['id_oferta']})"
+            o["nombre"] = f"Oferta sin producto asignado (#{o['id_oferta']})"
             o["img"] = "https://picsum.photos"
             
     st.session_state.ofertas = ofertas_campana
     
 except Exception as e:
-    st.error(f"Error al consultar datos en Supabase: {str(e)}")
+    st.error(f"Error crítico en la comunicación con la base de datos: {str(e)}")
     st.session_state.ofertas = []
 
 # 4. CONTROLES DE LA PÁGINA SELECCIONADA
@@ -89,11 +87,11 @@ with st.container(border=True):
         st.session_state.config_paginas[pag_act]["slots"] = slots_deseados
         
     with nav_col5:
-        tipo_distribucion = st.selectbox("Distribución:", ["Equilibrado", "Banner Superior", "Enfoque Central", "Asimétrico"], index=["Equilibrado", "Banner Superior", "Enfoque Central", "Asimétrico"].index(cfg["distribucion"]))
+        tipo_distribucion = st.selectbox("Distribución (`posicion_mix`):", ["Equilibrado", "Banner Superior", "Enfoque Central", "Asimétrico"], index=["Equilibrado", "Banner Superior", "Enfoque Central", "Asimétrico"].index(cfg["distribucion"]))
         st.session_state.config_paginas[pag_act]["distribucion"] = tipo_distribucion
         
     with nav_col6:
-        sub_estilo = st.selectbox("Estilo:", ["Estándar", "Destacado", "Compacto"], index=["Estándar", "Destacado", "Compacto"].index(cfg["estilo"]))
+        sub_estilo = st.selectbox("Estilo (`sub_molde_estilo`):", ["Estándar", "Destacado", "Compacto"], index=["Estándar", "Destacado", "Compacto"].index(cfg["estilo"]))
         st.session_state.config_paginas[pag_act]["estilo"] = sub_estilo
 
 def calcular_layout_grid(num_slots):
@@ -202,9 +200,10 @@ if evento_drag_drop:
     except Exception:
         pass
 
-# 7. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA
+# 7. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA (Fila y Columna)
 st.markdown(f"### 📊 Registros Procesados de la Página {pag_act}")
 
+# Mapeo y cálculo inline blindado contra valores None para numero_fila y numero_columna
 filas_tabla_ofertas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": int(id_campana_activa), "numero_pagina": int(o["numero_pagina"]), "posicion_slot": int(o["posicion_slot"]), "precio_oferta": o.get("precio_oferta"), "posicion_mix": tipo_distribucion, "sub_molde_estilo": sub_estilo, "numero_fila": ((int(o["posicion_slot"]) - 1) // 2) + 1 if o.get("posicion_slot") else None, "numero_columna": ((int(o["posicion_slot"]) - 1) % 2) + 1 if o.get("posicion_slot") else None} for o in st.session_state.ofertas if o.get("numero_pagina") is not None and int(o["numero_pagina"]) == pag_act]
 
 if filas_tabla_ofertas:
@@ -216,82 +215,10 @@ else:
 if st.button("💾 Guardar Configuración y Distribución en Supabase", type="primary", use_container_width=True):
     if filas_tabla_ofertas:
         try:
-            # Enviamos los datos directamente a la tabla ofertas limpia, sin campos anidados
-            resultado = supabase.table("ofertas").upsert(filas_tabla_ofertas).execute()
-            st.success(f"¡Sincronización Completada! {len(resultado.data)} registros guardados con éxito.")
-            st.toast("Base de datos actualizada", icon="⚡")
-        except Exception as e:
-            st.error(f"Error al impactar la tabla ofertas en Supabase: {str(e)}")
-    else:
-        st.warning("La maqueta actual no cuenta con elementos asignados para persistir.")
-# 6. RENDERIZADO DE LA UI DRAG & DROP Y CAPTURA DE EVENTOS
-html_renderizado = generar_canvas_ofertas(st.session_state.ofertas, pag_act, slots_deseados, columnas_css, filas_css)
-evento_drag_drop = components.html(html_renderizado, height=520, scrolling=False)
-
-if evento_drag_drop:
-    try:
-        datos = json.loads(evento_drag_drop)
-        for ofer in st.session_state.ofertas:
-            if ofer["id_oferta"] == datos["id_oferta"]:
-                ofer["numero_pagina"] = datos["numero_pagina"]
-                ofer["posicion_slot"] = datos["posicion_slot"]
-    except Exception:
-        pass
-
-# 7. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA
-st.markdown(f"### 📊 Registros Procesados de la Página {pag_act}")
-
-filas_tabla_ofertas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": int(id_campana_activa), "numero_pagina": int(o["numero_pagina"]), "posicion_slot": int(o["posicion_slot"]), "precio_oferta": o.get("precio_oferta"), "posicion_mix": tipo_distribucion, "sub_molde_estilo": sub_estilo, "numero_fila": ((int(o["posicion_slot"]) - 1) // 2) + 1 if o.get("posicion_slot") else None, "numero_columna": ((int(o["posicion_slot"]) - 1) % 2) + 1 if o.get("posicion_slot") else None} for o in st.session_state.ofertas if o.get("numero_pagina") is not None and int(o["numero_pagina"]) == pag_act]
-
-if filas_tabla_ofertas:
-    st.dataframe(filas_tabla_ofertas, use_container_width=True)
-else:
-    st.info("Ninguna oferta asignada en esta hoja todavía. Arrastra elementos desde el banco.")
-
-# 8. EJECUCIÓN DIRECTA DEL UPSERT EN SUPABASE
-if st.button("💾 Guardar Configuración y Distribución en Supabase", type="primary", use_container_width=True):
-    if filas_tabla_ofertas:
-        try:
-            # Enviamos los datos directamente a la tabla ofertas limpia, sin campos anidados
-            resultado = supabase.table("ofertas").upsert(filas_tabla_ofertas).execute()
-            st.success(f"¡Sincronización Completada! {len(resultado.data)} registros guardados con éxito.")
-            st.toast("Base de datos actualizada", icon="⚡")
-        except Exception as e:
-            st.error(f"Error al impactar la tabla ofertas en Supabase: {str(e)}")
-    else:
-        st.warning("La maqueta actual no cuenta con elementos asignados para persistir.")
-# 6. RENDERIZADO DE LA UI DRAG & DROP Y CAPTURA DE EVENTOS
-html_renderizado = generar_canvas_ofertas(st.session_state.ofertas, pag_act, slots_deseados, columnas_css, filas_css)
-evento_drag_drop = components.html(html_renderizado, height=520, scrolling=False)
-
-if evento_drag_drop:
-    try:
-        datos = json.loads(evento_drag_drop)
-        for ofer in st.session_state.ofertas:
-            if ofer["id_oferta"] == datos["id_oferta"]:
-                ofer["numero_pagina"] = datos["numero_pagina"]
-                ofer["posicion_slot"] = datos["posicion_slot"]
-    except Exception:
-        pass
-
-# 7. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA
-st.markdown(f"### 📊 Registros Procesados de la Página {pag_act}")
-
-filas_tabla_ofertas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": int(id_campana_activa), "numero_pagina": int(o["numero_pagina"]), "posicion_slot": int(o["posicion_slot"]), "precio_oferta": o.get("precio_oferta"), "posicion_mix": tipo_distribucion, "sub_molde_estilo": sub_estilo, "numero_fila": ((int(o["posicion_slot"]) - 1) // 2) + 1 if o.get("posicion_slot") else None, "numero_columna": ((int(o["posicion_slot"]) - 1) % 2) + 1 if o.get("posicion_slot") else None} for o in st.session_state.ofertas if o.get("numero_pagina") is not None and int(o["numero_pagina"]) == pag_act]
-
-if filas_tabla_ofertas:
-    st.dataframe(filas_tabla_ofertas, use_container_width=True)
-else:
-    st.info("Ninguna oferta asignada en esta hoja todavía. Arrastra elementos desde el banco.")
-
-# 8. EJECUCIÓN DIRECTA DEL UPSERT EN SUPABASE
-if st.button("💾 Guardar Configuración y Distribución en Supabase", type="primary", use_container_width=True):
-    if filas_tabla_ofertas:
-        try:
-            # Enviamos los datos directamente a la tabla ofertas limpia, sin campos anidados
-            resultado = supabase.table("ofertas").upsert(filas_tabla_ofertas).execute()
-            st.success(f"¡Sincronización Completada! {len(resultado.data)} registros guardados con éxito.")
-            st.toast("Base de datos actualizada", icon="⚡")
+            # Sincronizamos usando la tabla blindada '"ofertas"' con comillas internas
+            resultado = supabase.table('"ofertas"').upsert(filas_tabla_ofertas).execute()
+            st.success(f"¡Sincronización Completada! {len(resultado.data)} registros guardados con éxito para el generador automático.")
+            st.toast("Base de datos en la nube actualizada", icon="⚡")
         except Exception as e:
             st.error(f"Error al impactar la tabla ofertas en Supabase: {str(e)}")
     else:
