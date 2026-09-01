@@ -1,51 +1,43 @@
 import streamlit as st
-import json
 from supabase import create_client
 
-st.title("🧪 Verificador de Conexión: Método Bypass")
+st.title("🔬 Diagnóstico de Tablas en Supabase")
 
-# 1. Credenciales seguras (Sustituye con tus variables o se leerán de .streamlit/secrets.toml)
+# Credenciales de conexión
 SUPABASE_URL = st.secrets.get("SUPABASE_URL", "https://supabase.co")
 SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "tu-anon-key")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# 2. Entrada de prueba
-id_campana_prueba = st.number_input("ID de Campaña para realizar la prueba:", min_value=1, value=12)
-
-if st.button("🚀 Ejecutar Consulta con Bypass"):
+if st.button("🔍 Escanear Tablas Disponibles"):
     try:
-        # PASO A: Traer ofertas planas asociadas a la campaña (Inmune a problemas de FK)
-        st.info("Paso A: Extrayendo registros desde public.ofertas...")
-        resp_ofertas = supabase.table("ofertas").select("*").eq("id_campana", id_campana_prueba).execute()
-        ofertas = resp_ofertas.data
+        st.info("Consultando el diccionario de datos de la API...")
         
-        st.write(f"✅ Se encontraron **{len(ofertas)}** ofertas para la campaña {id_campana_prueba}.")
+        # Le pedimos al catálogo de Postgres que nos diga qué tablas públicas son visibles para la API
+        respuesta = supabase.table('"_analytics_meta"' if False else 'information_schema.tables')\
+            .select("table_name")\
+            .eq("table_schema", "public")\
+            .execute()
         
-        # PASO B: Extraer los id_producto únicos implicados
-        lista_ids = list(set([o["id_producto"] for o in ofertas if o.get("id_producto") is not None]))
-        st.info(f"Paso B: Extrayendo {len(lista_ids)} IDs únicos de productos para la consulta indexada...")
+        tablas_visibles = [t["table_name"] for t in respuesta.data]
         
-        dict_productos = {}
-        if lista_ids:
-            # PASO C: Consultar los productos directamente por lote (Bulk In Query)
-            resp_prod = supabase.table("productos").select("id_producto, nombre, url_imagen").in_("id_producto", lista_ids).execute()
-            dict_productos = {p["id_producto"]: p for p in resp_prod.data}
-            st.write(f"✅ Se descargaron **{len(dict_productos)}** productos asociados desde la base de datos.")
+        st.success(f"🎉 ¡Conexión establecida! Tu API tiene acceso a {len(tablas_visibles)} tablas públicas.")
+        st.write("### 📝 Listado de Tablas que tu programa SÍ puede leer:")
+        st.write(tablas_visibles)
         
-        # PASO D: Fusionar los diccionarios en memoria de Python
-        st.info("Paso D: Fusionando registros y estructurando el banco de datos...")
-        for o in ofertas:
-            id_p = o.get("id_producto")
-            if id_p in dict_productos:
-                o["nombre_producto"] = dict_productos[id_p].get("nombre") or "Sin Nombre"
-                o["url_imagen_producto"] = dict_productos[id_p].get("url_imagen") or "https://picsum.photos"
-            else:
-                o["nombre_producto"] = "Producto no encontrado en inventario"
-                o["url_imagen_producto"] = "https://picsum.photos"
-        
-        # Mostrar el resultado final exitoso
-        st.success("🎉 ¡Método Bypass Exitoso! Los datos se cargaron y unieron correctamente sin errores 404.")
-        st.json(ofertas[:3]) # Mostramos los 3 primeros registros como muestra estructural
-        
+        # Verificación directa de nombres comunes
+        if "ofertas" in tablas_visibles:
+            st.write("🟢 La tabla 'ofertas' existe y es visible.")
+        else:
+            st.write("🔴 **¡ALERTA!** La tabla 'ofertas' NO es visible para la API. Verifica si se llama diferente (ej: 'Ofertas', 'ofertas_espejo', etc.).")
+
     except Exception as e:
-        st.error(f"❌ Falló el método de conexión alternativo. Detalles: {str(e)}")
+        st.write("⚠️ PostgREST bloqueó la lectura directa del catálogo. Probemos el Plan B...")
+        
+        # Intento de descarte rápido mesa por mesa
+        tablas_a_probar = ["ofertas", "Ofertas", "ofertas_espejo", "productos", "Productos"]
+        for tabla in tablas_a_probar:
+            try:
+                supabase.table(tabla).select("*").limit(1).execute()
+                st.write(f"🟢 Conexión EXITOSA con la tabla: `{tabla}`")
+            except Exception as err:
+                st.write(f"🔴 Fallo total al intentar leer la tabla `{tabla}` (Código 404 u otro error).")
