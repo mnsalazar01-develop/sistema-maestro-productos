@@ -404,6 +404,32 @@ if evento_drag_drop:
     except Exception:
         pass
 
+# =====================================================================
+# GRILLA NATIVA EN PYTHON (Para resúmenes, contadores o acciones)
+# =====================================================================
+
+# 1. Creamos una grilla de columnas en Python (ejemplo de 3 columnas iguales)
+col1, col2, col3 = st.columns(3)
+
+# 2. Inyectamos contenido en cada celda de la grilla de Python
+with col1:
+    total_banco = len(st.session_state.get("productos_banco", []))
+    st.metric(label="Productos en Banco", value=total_banco)
+
+with col2:
+    total_folleto = len(st.session_state.get("productos_folleto", []))
+    st.metric(label="Productos en Folleto", value=total_folleto)
+
+with col3:
+    # Espacio libre para un selector, indicador de estado o filtro rápido
+    st.markdown("**Estado del Maquetador**")
+    if total_folleto > 0:
+        st.success("Listo para guardar")
+    else:
+        st.warning("Folleto vacío")
+
+# Separador visual antes del botón final
+st.divider()
 
 
 # ==============================================================================
