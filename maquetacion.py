@@ -371,42 +371,37 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     </script></body></html>"""
 
 # ==============================================================================
-# 8. CONFIGURACIÓN DEL MOTOR DE RENDERIZADO INTERACTIVO (HTML + JS) INYECTADO
+# 8. CONFIGURACIÓN DEL MOTOR DE RENDERIZADO INTERACTIVO (HTML + JS) - CORREGIDO
 # ==============================================================================
 def generar_grilla_interactiva_html(lista_ofertas, pagina_actual, cols, rows):
-    """
-    Construye la grilla de distribución de campaña con soporte nativo de
-    Drag & Drop, procesando la bandera '0' para el banco de disponibles.
-    """
     import json
     total_slots = cols * rows
     style_cols = f"repeat({cols}, 1fr)"
     style_rows = f"repeat({rows}, 1fr)"
-    
-    # Convierte la lista de diccionarios de Python a un string JSON limpio
     ofertas_json = json.dumps(lista_ofertas)
 
-    html_code = f"""
+    # Código HTML puro en un string crudo (Sin f-string para evitar conflictos de llaves)
+    raw_html = """
     <!DOCTYPE html>
     <html lang="es">
     <head>
         <meta charset="UTF-8">
         <style>
-            body {{ font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; padding: 10px; color: #0f172a; }}
-            .layout-campana {{ display: flex; gap: 20px; height: 480px; }}
-            .seccion-banco {{ width: 280px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; }}
-            .contenedor-banco {{ flex: 1; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; background: #f1f5f9; padding: 10px; border-radius: 8px; border: 2px dashed #cbd5e1; }}
-            .seccion-folleto {{ flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; }}
-            .grilla-folleto-dinamica {{ display: grid; grid-template-columns: {style_cols}; grid-template-rows: {style_rows}; gap: 12px; flex: 1; background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 12px; }}
-            .slot-maqueta {{ background: white; border: 2px dashed #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px; position: relative; min-height: 100px; box-sizing: border-box; transition: all 0.2s; }}
-            .slot-info-coordenada {{ position: absolute; top: 4px; left: 4px; font-size: 9px; font-weight: 700; color: #94a3b8; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }}
-            .placeholder-vacio {{ color: #cbd5e1; font-size: 12px; font-weight: 500; user-select: none; }}
-            .tarjeta-producto {{ background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; display: flex; gap: 10px; width: 100%; height: 100%; align-items: center; box-sizing: border-box; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: grab; }}
-            .tarjeta-producto img {{ width: 45px; height: 45px; object-fit: cover; border-radius: 6px; pointer-events: none; }}
-            .meta-datos {{ display: flex; flex-direction: column; overflow: hidden; flex: 1; pointer-events: none; }}
-            .nombre {{ font-weight: 600; font-size: 12px; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
-            .sku {{ font-size: 10px; color: #64748b; margin: 1px 0; }}
-            .precio {{ color: #16a34a; font-weight: 700; font-size: 13px; }}
+            body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; padding: 10px; color: #0f172a; }
+            .layout-campana { display: flex; gap: 20px; height: 480px; }
+            .seccion-banco { width: 280px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; }
+            .contenedor-banco { flex: 1; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; background: #f1f5f9; padding: 10px; border-radius: 8px; border: 2px dashed #cbd5e1; }
+            .seccion-folleto { flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; }
+            .grilla-folleto-dinamica { display: grid; grid-template-columns: __STYLE_COLS__; grid-template-rows: __STYLE_ROWS__; gap: 12px; flex: 1; background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 12px; }
+            .slot-maqueta { background: white; border: 2px dashed #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px; position: relative; min-height: 100px; box-sizing: border-box; transition: all 0.2s; }
+            .slot-info-coordenada { position: absolute; top: 4px; left: 4px; font-size: 9px; font-weight: 700; color: #94a3b8; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }
+            .placeholder-vacio { color: #cbd5e1; font-size: 12px; font-weight: 500; user-select: none; }
+            .tarjeta-producto { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; display: flex; gap: 10px; width: 100%; height: 100%; align-items: center; box-sizing: border-box; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: grab; }
+            .tarjeta-producto img { width: 45px; height: 45px; object-fit: cover; border-radius: 6px; pointer-events: none; }
+            .meta-datos { display: flex; flex-direction: column; overflow: hidden; flex: 1; pointer-events: none; }
+            .nombre { font-weight: 600; font-size: 12px; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .sku { font-size: 10px; color: #64748b; margin: 1px 0; }
+            .precio { color: #16a34a; font-weight: 700; font-size: 13px; }
         </style>
     </head>
     <body>
@@ -418,69 +413,68 @@ def generar_grilla_interactiva_html(lista_ofertas, pagina_actual, cols, rows):
             </div>
 
             <div class="seccion-folleto">
-                <h4 style="margin:0 0 8px 0; font-size:14px; color:#1e293b;">Página {pagina_actual} — Distribución</h4>
+                <h4 style="margin:0 0 8px 0; font-size:14px; color:#1e293b;">Página __PAGINA_ACTUAL__ — Distribución</h4>
                 <div class="grilla-folleto-dinamica" id="grilla-render"></div>
             </div>
         </div>
 
         <script>
-            // Inyección limpia desde Python
-            const totalProductosCampana = {ofertas_json};
-            const PAGINA_ACTUAL = {pagina_actual};
-            const CONFIG_COLUMNAS = {cols};
-            const TOTAL_SLOTS = {total_slots};
+            const totalProductosCampana = __OFERTAS_JSON__;
+            const PAGINA_ACTUAL = __PAGINA_ACTUAL__;
+            const CONFIG_COLUMNAS = __COLS__;
+            const TOTAL_SLOTS = __TOTAL_SLOTS__;
             
             let elementoArrastrado = null;
 
-            function ejecutarDistribucionCampana() {{
+            function ejecutarDistribucionCampana() {
                 const bancoContenedor = document.getElementById('banco-disponibles');
                 const grillaContenedor = document.getElementById('grilla-render');
                 
                 bancoContenedor.innerHTML = '';
                 grillaContenedor.innerHTML = '';
 
-                const slotsMapeados = {{}};
-                for (let i = 1; i <= TOTAL_SLOTS; i++) {{ slotsMapeados[i] = null; }}
+                const slotsMapeados = {};
+                for (let i = 1; i <= TOTAL_SLOTS; i++) { slotsMapeados[i] = null; }
 
-                totalProductosCampana.forEach(producto => {{
+                totalProductosCampana.forEach(producto => {
                     const pag = parseInt(producto.numero_pagina) || 0;
                     const slot = parseInt(producto.posicion_slot) || 0;
 
-                    if (pag === PAGINA_ACTUAL && slot > 0 && slot <= TOTAL_SLOTS) {{
+                    if (pag === PAGINA_ACTUAL && slot > 0 && slot <= TOTAL_SLOTS) {
                         slotsMapeados[slot] = producto;
-                    }} else {{
+                    } else {
                         inyectarTarjeta(producto, bancoContenedor);
-                    }}
-                }});
+                    }
+                });
 
-                for (let slotId = 1; slotId <= TOTAL_SLOTS; slotId++) {{
+                for (let slotId = 1; slotId <= TOTAL_SLOTS; slotId++) {
                     const fila = Math.floor((slotId - 1) / CONFIG_COLUMNAS) + 1;
                     const columna = ((slotId - 1) % CONFIG_COLUMNAS) + 1;
 
                     const contenedorSlot = document.createElement('div');
                     contenedorSlot.className = 'slot-maqueta';
-                    contenedorSlot.id = `slot-${{slotId}}`;
+                    contenedorSlot.id = 'slot-' + slotId;
                     contenedorSlot.setAttribute('data-slot-num', slotId);
 
-                    contenedorSlot.innerHTML = `<span class="slot-info-coordenada">Slot ${{slotId}}</span>`;
+                    contenedorSlot.innerHTML = '<span class="slot-info-coordenada">Slot ' + slotId + '</span>';
 
                     const productoAsignado = slotsMapeados[slotId];
-                    if (productoAsignado) {{
+                    if (productoAsignado) {
                         inyectarTarjeta(productoAsignado, contenedorSlot);
-                    }} else {{
-                        contenedorSlot.innerHTML += `<span class="placeholder-vacio">Vacante</span>`;
-                    }}
+                    } else {
+                        contenedorSlot.innerHTML += '<span class="placeholder-vacio">Vacante</span>';
+                    }
 
                     configurarEventosSlot(contenedorSlot);
                     grillaContenedor.appendChild(contenedorSlot);
-                }}
+                }
                 configurarEventosBanco(bancoContenedor);
-            }}
+            }
 
-            function configurarEventosSlot(slot) {{
-                slot.addEventListener('dragover', (e) => {{ e.preventDefault(); slot.style.background = '#eff6ff'; }});
-                slot.addEventListener('dragleave', () => {{ slot.style.background = 'white'; }});
-                slot.addEventListener('drop', (e) => {{
+            function configurarEventosSlot(slot) {
+                slot.addEventListener('dragover', (e) => { e.preventDefault(); slot.style.background = '#eff6ff'; });
+                slot.addEventListener('dragleave', () => { slot.style.background = 'white'; });
+                slot.addEventListener('drop', (e) => {
                     e.preventDefault();
                     slot.style.background = 'white';
                     if (!elementoArrastrado) return;
@@ -488,73 +482,81 @@ def generar_grilla_interactiva_html(lista_ofertas, pagina_actual, cols, rows):
                     const productoExistente = slot.querySelector('.tarjeta-producto');
                     const origen = elementoArrastrado.parentNode;
 
-                    if (productoExistente) {{
+                    if (productoExistente) {
                         origen.appendChild(productoExistente);
-                    }} else {{
+                    } else {
                         const ph = slot.querySelector('.placeholder-vacio');
                         if (ph) ph.remove();
-                    }}
+                    }
 
                     slot.appendChild(elementoArrastrado);
                     verificarEstructuraVisual();
-                }});
-            }}
+                });
+            }
 
-            function configurarEventosBanco(banco) {{
-                banco.addEventListener('dragover', (e) => {{ e.preventDefault(); banco.style.background = '#eff6ff'; }});
-                banco.addEventListener('dragleave', () => {{ banco.style.background = '#f1f5f9'; }});
-                banco.addEventListener('drop', (e) => {{
+            function configurarEventosBanco(banco) {
+                banco.addEventListener('dragover', (e) => { e.preventDefault(); banco.style.background = '#eff6ff'; });
+                banco.addEventListener('dragleave', () => { banco.style.background = '#f1f5f9'; });
+                banco.addEventListener('drop', (e) => {
                     e.preventDefault();
                     banco.style.background = '#f1f5f9';
                     if (!elementoArrastrado) return;
                     banco.appendChild(elementoArrastrado);
-                    verificarEstructuraVisual();
-                }});
-            }}
+                    verificarEstructureVisual();
+                });
+            }
 
-            function inyectarTarjeta(producto, contenedor) {{
+            function inyectarTarjeta(producto, contenedor) {
                 const tarjeta = document.createElement('div');
                 tarjeta.className = 'tarjeta-producto';
                 tarjeta.draggable = true;
-                tarjeta.id = `prod-id-${{producto.id_producto}}`;
+                tarjeta.id = 'prod-id-' + producto.id_producto;
                 
                 tarjeta.setAttribute('data-id-oferta', producto.id_oferta);
                 tarjeta.setAttribute('data-id-producto', producto.id_producto);
 
                 tarjeta.innerHTML = `
-                    <img src="${{producto.img || 'https://picsum.photos'}}" alt="Foto">
+                    <img src="${producto.img || 'https://picsum.photos'}" alt="Foto">
                     <div class="meta-datos">
-                        <span class="nombre" title="${{producto.nombre}}">${{producto.nombre}}</span>
-                        <span class="sku">SKU: ${{producto.sku || 'N/A'}}</span>
-                        <span class="precio">$${{producto.precio_oferta}}</span>
+                        <span class="nombre" title="${producto.nombre}">${producto.nombre}</span>
+                        <span class="sku">SKU: ${producto.sku || 'N/A'}</span>
+                        <span class="precio">$${producto.precio_oferta}</span>
                     </div>
                 `;
 
-                tarjeta.addEventListener('dragstart', () => {{ elementoArrastrado = tarjeta; tarjeta.style.opacity = '0.4'; }});
-                tarjeta.addEventListener('dragend', () => {{ elementoArrastrado = null; tarjeta.style.opacity = '1'; }});
+                tarjeta.addEventListener('dragstart', () => { elementoArrastrado = tarjeta; tarjeta.style.opacity = '0.4'; });
+                tarjeta.addEventListener('dragend', () => { elementoArrastrado = null; tarjeta.style.opacity = '1'; });
 
                 contenedor.appendChild(tarjeta);
-            }}
+            }
 
-            function verificarEstructuraVisual() {{
-                document.querySelectorAll('.slot-maqueta').forEach(slot => {{
+            function verificarEstructuraVisual() {
+                document.querySelectorAll('.slot-maqueta').forEach(slot => {
                     const tieneProducto = slot.querySelector('.tarjeta-producto');
                     const tienePlaceholder = slot.querySelector('.placeholder-vacio');
-                    if (!tieneProducto && !tienePlaceholder) {{
+                    if (!tieneProducto && !tienePlaceholder) {
                         const nuevoPlaceholder = document.createElement('span');
                         nuevoPlaceholder.className = 'placeholder-vacio';
                         nuevoPlaceholder.innerText = 'Vacante';
                         slot.appendChild(nuevoPlaceholder);
-                    }}
-                }});
-            }}
+                    }
+                });
+            }
+
             ejecutarDistribucionCampana();
         </script>
     </body>
     </html>
     """
-    return html_code
 
+    # Reemplazo manual seguro de variables (Inyección directa)
+    html_code = raw_html.replace("__STYLE_COLS__", style_cols)\
+                        .replace("__STYLE_ROWS__", style_rows)\
+                        .replace("__OFERTAS_JSON__", ofertas_json)\
+                        .replace("PAGINA_ACTUAL", str(pagina_actual))
+                        .replace("COLS", str(cols))
+                        .replace("TOTAL_SLOTS", str(total_slots))
+return html_code
 
 # ==============================================================================
 # 9. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA
