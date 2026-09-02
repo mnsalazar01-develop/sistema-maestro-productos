@@ -1,7 +1,6 @@
 import streamlit as st
 from streamlit_sortables import sort_items
 from supabase import create_client, Client
-import os
 
 # ==============================================================================
 # CONFIGURACIÓN
@@ -257,36 +256,37 @@ _, _, num_cols_reales = calcular_layout_grid(slots_deseados)
 st.markdown("### 🎨 Arrastra ofertas entre el Banco y los Slots")
 st.caption("💡 Arrastra una oferta del banco a un slot para asignarla. Arrastra de un slot al banco para desasignarla.")
 
-# Preparar contenedores para sort_items
 ofertas = st.session_state.get("ofertas", [])
+
+# Crear un diccionario de lookup por id para parsear después
+ofertas_por_id = {str(o["id_oferta"]): o for o in ofertas}
+
+# Formato de string: "id_oferta|nombre|precio"
+def format_item(o):
+    precio = float(o.get("precio_oferta", 0)) if o.get("precio_oferta") is not None else 0
+    return f"{o['id_oferta']}|{o.get('nombre', 'Sin nombre')}|${precio:,.0f}"
+
+def parse_item_id(item_str):
+    return item_str.split("|")[0]
 
 # Container del banco (ofertas libres)
 banco_items = []
 for o in ofertas:
     if safe_int(o.get("numero_pagina")) is None:
-        precio = float(o.get("precio_oferta", 0)) if o.get("precio_oferta") is not None else 0
-        banco_items.append({
-            "title": f"{o.get('nombre', 'Sin nombre')} — ${precio:,.0f}",
-            "key": str(o["id_oferta"])
-        })
+        banco_items.append(format_item(o))
 
-# Containers de slots (uno por slot)
+# Containers de slots
 slot_containers = []
 for slot_num in range(1, slots_deseados + 1):
     slot_items = []
     for o in ofertas:
         if safe_int(o.get("numero_pagina")) == pag_act and safe_int(o.get("posicion_slot")) == slot_num:
-            precio = float(o.get("precio_oferta", 0)) if o.get("precio_oferta") is not None else 0
-            slot_items.append({
-                "title": f"{o.get('nombre', 'Sin nombre')} — ${precio:,.0f}",
-                "key": str(o["id_oferta"])
-            })
+            slot_items.append(format_item(o))
     slot_containers.append({
         "header": f"📍 Slot {slot_num}",
         "items": slot_items
     })
 
-# El banco siempre va primero
 all_containers = [{"header": "📦 Banco de Ofertas", "items": banco_items}] + slot_containers
 
 # Renderizar sortables
@@ -302,15 +302,13 @@ sorted_data = sort_items(
 # ==============================================================================
 if sorted_data:
     cambio = False
-    # Mapear nuevo estado
     for container in sorted_data:
         header = container.get("header", "")
         items = container.get("items", [])
 
         if header == "📦 Banco de Ofertas":
-            # Todo lo que esté aquí debe quedar libre
-            for item in items:
-                id_oferta = int(item["key"])
+            for item_str in items:
+                id_oferta = int(parse_item_id(item_str))
                 for o in st.session_state.ofertas:
                     if o["id_oferta"] == id_oferta:
                         if o.get("numero_pagina") is not None or o.get("posicion_slot") is not None:
@@ -320,8 +318,8 @@ if sorted_data:
                         break
         elif header.startswith("📍 Slot "):
             slot_num = int(header.replace("📍 Slot ", ""))
-            for item in items:
-                id_oferta = int(item["key"])
+            for item_str in items:
+                id_oferta = int(parse_item_id(item_str))
                 for o in st.session_state.ofertas:
                     if o["id_oferta"] == id_oferta:
                         if o.get("numero_pagina") != pag_act or o.get("posicion_slot") != slot_num:
