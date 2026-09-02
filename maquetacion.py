@@ -371,121 +371,189 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     </script></body></html>"""
 
 # ==============================================================================
-# 8. RENDERIZADO INTERACTIVO DRAG & DROP OFICIAL (CON CONTENEDORES NATIVOS)
+# 8. CONFIGURACIÓN DEL MOTOR DE RENDERIZADO INTERACTIVO (HTML + JS) INYECTADO
 # ==============================================================================
-from streamlit_dnd import dnd  # Componente oficial de arrastre de contenedores
-import pandas as pd
-import json
-
-st.markdown("### 🗺️ Lienzo de Maquetación Visual")
-st.info("Arrastra los bloques de productos desde el banco hacia las posiciones del folleto.")
-
-# Inicializamos la marca de tiempo de control en la sesión
-if "ultimo_ts_procesado" not in st.session_state:
-    st.session_state.ultimo_ts_procesado = 0
-
-# Separamos las ofertas en dos grupos según su estado actual
-banco_items = []
-slots_items = {f"slot_{i}": [] for i in range(1, slots_deseados + 1)}
-
-if "ofertas" in st.session_state:
-    for o in st.session_state.ofertas:
-        raw_p = o.get('numero_pagina')
-        raw_s = o.get('posicion_slot')
-        
-        es_p = raw_p is not None and str(raw_p).lower() != "null" and str(raw_p).strip() != ""
-        es_s = raw_s is not None and str(raw_s).lower() != "null" and str(raw_s).strip() != ""
-        
-        if es_p and es_s and int(raw_p) == pag_act and f"slot_{raw_s}" in slots_items:
-            slots_items[f"slot_{raw_s}"].append(o)
-        else:
-            if not es_p or int(raw_p) == pag_act:
-                banco_items.append(o)
-
-# CREACIÓN DEL LAYOUT VISUAL EN PANTALLA
-col_banco, col_folleto = st.columns([1, 2])
-
-with col_banco:
-    st.markdown("#### 📦 Banco de Productos")
-    # Generamos el contenedor del banco con una clave única 'banco_origen'
-    with st.container(key="banco_origen", border=True):
-        if not banco_items:
-            st.caption("No hay productos sueltos")
-        for o in banco_items:
-            # ¡CORRECCIÓN CRÍTICA!: Añadimos key al st.container secundario
-            with st.container(key=f"item_{o['id_oferta']}", border=True):
-                st.markdown(f"**{o.get('nombre', 'Sin Nombre')}**")
-                st.markdown(f"ID: {o.get('id_producto')} | ${o.get('precio_oferta', 0)}")
-
-with col_folleto:
-    st.markdown(f"#### 📄 Slots Disponibles (Página {pag_act})")
+def generar_grilla_interactiva_html(lista_ofertas, pagina_actual, cols, rows):
+    """
+    Construye la grilla de distribución de campaña con soporte nativo de
+    Drag & Drop, procesando la bandera '0' para el banco de disponibles.
+    """
+    import json
+    total_slots = cols * rows
+    style_cols = f"repeat({cols}, 1fr)"
+    style_rows = f"repeat({rows}, 1fr)"
     
-    # Calculamos la distribución de columnas dinámicas según la matemática del layout
-    grid_cols = st.columns(2)
-    
-    for i in range(1, slots_deseados + 1):
-        target_col = grid_cols[(i - 1) % 2]
-        with target_col:
-            st.markdown(f"**Posición {i}**")
-            # Generamos cada slot como un contenedor rastreable por el DnD
-            with st.container(key=f"slot_{i}", border=True):
-                ofertas_en_slot = slots_items[f"slot_{i}"]
-                if not ofertas_en_slot:
-                    st.caption("Arrastra un producto aquí")
-                for o in ofertas_en_slot:
-                    # ¡CORRECCIÓN CRÍTICA!: Añadimos la misma estructura de key aquí
-                    with st.container(key=f"item_{o['id_oferta']}", border=True):
-                        st.markdown(f"**{o.get('nombre', 'Sin Nombre')}**")
-                        st.caption(f"ID: {o.get('id_producto')}")
+    # Serialización segura de datos de Python a JavaScript
+    ofertas_json = json.dumps(lista_ofertas)
 
-# ACTIVACIÓN DEL MOTOR DRAG & DROP
-todas_las_llaves = ["banco_origen"] + [f"slot_{i}" for i in range(1, slots_deseados + 1)]
-evento_movimiento = dnd(*todas_las_llaves, key=f"motor_maquetador_pag_{pag_act}")
+    html_code = f"""
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{ font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; padding: 10px; color: #0f172a; }}
+            .layout-campana {{ display: flex; gap: 20px; height: 480px; }}
+            .seccion-banco {{ width: 280px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; }}
+            .contenedor-banco {{ flex: 1; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; background: #f1f5f9; padding: 10px; border-radius: 8px; border: 2px dashed #cbd5e1; }}
+            .seccion-folleto {{ flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; }}
+            .grilla-folleto-dinamica {{ display: grid; grid-template-columns: {style_cols}; grid-template-rows: {style_rows}; gap: 12px; flex: 1; background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 12px; }}
+            .slot-maqueta {{ background: white; border: 2px dashed #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px; position: relative; min-height: 100px; box-sizing: border-box; transition: all 0.2s; }}
+            .slot-info-coordenada {{ position: absolute; top: 4px; left: 4px; font-size: 9px; font-weight: 700; color: #94a3b8; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }}
+            .placeholder-vacio {{ color: #cbd5e1; font-size: 12px; font-weight: 500; user-select: none; }}
+            .tarjeta-producto {{ background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; display: flex; gap: 10px; width: 100%; height: 100%; align-items: center; box-sizing: border-box; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: grab; }}
+            .tarjeta-producto img {{ width: 45px; height: 45px; object-fit: cover; border-radius: 6px; pointer-events: none; }}
+            .meta-datos {{ display: flex; flex-direction: column; overflow: hidden; flex: 1; pointer-events: none; }}
+            .nombre {{ font-weight: 600; font-size: 12px; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+            .sku {{ font-size: 10px; color: #64748b; margin: 1px 0; }}
+            .precio {{ color: #16a34a; font-weight: 700; font-size: 13px; }}
+        </style>
+    </head>
+    <body>
 
-# CAPTURA Y PROCESAMIENTO DEL MOVIMIENTO EN PYTHON
-if evento_movimiento:
-    try:
-        id_item_raw = ""
-        contenedor_destino = ""
+        <div class="layout-campana">
+            <div class="seccion-banco">
+                <h4 style="margin:0 0 8px 0; font-size:14px; color:#1e293b;">Banco (Fila/Slot en 0)</h4>
+                <div class="contenedor-banco" id="banco-disponibles"></div>
+            </div>
 
-        # Evaluamos el objeto devuelto por la librería de forma flexible
-        if isinstance(evento_movimiento, dict):
-            id_item_raw = evento_movimiento.get("item_id") or evento_movimiento.get("id") or evento_movimiento.get("source_item", "")
-            contenedor_destino = evento_movimiento.get("destination_container") or evento_movimiento.get("target") or evento_movimiento.get("to_container", "")
-        else:
-            for attr in ["item_id", "id", "source_item", "item"]:
-                if hasattr(evento_movimiento, attr):
-                    id_item_raw = getattr(evento_movimiento, attr)
-                    break
-            for attr in ["destination_container", "target", "destination", "to_container"]:
-                if hasattr(evento_movimiento, attr):
-                    contenedor_destino = getattr(evento_movimiento, attr)
-                    break
+            <div class="seccion-folleto">
+                <h4 style="margin:0 0 8px 0; font-size:14px; color:#1e293b;">Página {pagina_actual} — Distribución</h4>
+                <div class="grilla-folleto-dinamica" id="grilla-render"></div>
+            </div>
+        </div>
 
-        id_item_movido = str(id_item_raw).replace("item_", "").strip()
-        contenedor_destino = str(contenedor_destino).strip()
+        <script>
+            const totalProductosCampana = {ofertas_json};
+            const PAGINA_ACTUAL = {pagina_actual};
+            const CONFIG_COLUMNAS = {cols};
+            const TOTAL_SLOTS = {total_slots};
+            
+            let elementoArrastrado = null;
 
-        if id_item_movido and contenedor_destino:
-            cambio = False
-            if "ofertas" in st.session_state:
-                for o in st.session_state.ofertas:
-                    if str(o.get("id_oferta")) == str(id_item_movido):
-                        if contenedor_destino == "banco_origen":
-                            if o.get("numero_pagina") is not None or o.get("posicion_slot") is not None:
-                                o["numero_pagina"] = None
-                                o["posicion_slot"] = None
-                                cambio = True
-                        elif "slot_" in contenedor_destino:
-                            num_slot = int(contenedor_destino.replace("slot_", ""))
-                            if o.get("numero_pagina") != pag_act or o.get("posicion_slot") != num_slot:
-                                o["numero_pagina"] = pag_act
-                                o["posicion_slot"] = num_slot
-                                cambio = True
-                if cambio:
-                    st.rerun()
-    except Exception as e:
-        pass
+            function ejecutarDistribucionCampana() {{
+                const bancoContenedor = document.getElementById('banco-disponibles');
+                const grillaContenedor = document.getElementById('grilla-render');
+                
+                bancoContenedor.innerHTML = '';
+                grillaContenedor.innerHTML = '';
 
+                const slotsMapeados = {{}};
+                for (let i = 1; i <= TOTAL_SLOTS; i++) {{ slotsMapeados[i] = null; }}
+
+                totalProductosCampana.forEach(producto => {{
+                    const pag = parseInt(producto.numero_pagina) || 0;
+                    const slot = parseInt(producto.posicion_slot) || 0;
+
+                    if (pag === PAGINA_ACTUAL && slot > 0 && slot <= TOTAL_SLOTS) {{
+                        slotsMapeados[slot] = producto;
+                    }} else {{
+                        inyectarTarjeta(producto, bancoContenedor);
+                    }}
+                }});
+
+                for (let slotId = 1; slotId <= TOTAL_SLOTS; slotId++) {{
+                    const fila = Math.floor((slotId - 1) / CONFIG_COLUMNAS) + 1;
+                    const columna = ((slotId - 1) % CONFIG_COLUMNAS) + 1;
+
+                    const contenedorSlot = document.createElement('div');
+                    contenedorSlot.className = 'slot-maqueta';
+                    contenedorSlot.id = `slot-${{slotId}}`;
+                    contenedorSlot.setAttribute('data-slot-num', slotId);
+
+                    contenedorSlot.innerHTML = `<span class="slot-info-coordenada">Slot ${{slotId}}</span>`;
+
+                    const productoAsignado = slotsMapeados[slotId];
+                    if (productoAsignado) {{
+                        inyectarTarjeta(productoAsignado, contenedorSlot);
+                    }} else {{
+                        contenedorSlot.innerHTML += `<span class="placeholder-vacio">Vacante</span>`;
+                    }}
+
+                    configurarEventosSlot(contenedorSlot);
+                    grillaContenedor.appendChild(contenedorSlot);
+                }}
+                configurarEventosBanco(bancoContenedor);
+            }}
+
+            function configurarEventosSlot(slot) {{
+                slot.addEventListener('dragover', (e) => {{ e.preventDefault(); slot.style.background = '#eff6ff'; }});
+                slot.addEventListener('dragleave', () => {{ slot.style.background = 'white'; }});
+                slot.addEventListener('drop', (e) => {{
+                    e.preventDefault();
+                    slot.style.background = 'white';
+                    if (!elementoArrastrado) return;
+
+                    const productoExistente = slot.querySelector('.tarjeta-producto');
+                    const origen = elementoArrastrado.parentNode;
+
+                    if (productoExistente) {{
+                        origen.appendChild(productoExistente);
+                    }} else {{
+                        const ph = slot.querySelector('.placeholder-vacio');
+                        if (ph) ph.remove();
+                    }}
+
+                    slot.appendChild(elementoArrastrado);
+                    verificarEstructuraVisual();
+                }});
+            }}
+
+            function configurarEventosBanco(banco) {{
+                banco.addEventListener('dragover', (e) => {{ e.preventDefault(); banco.style.background = '#eff6ff'; }});
+                banco.addEventListener('dragleave', () => {{ banco.style.background = '#f1f5f9'; }});
+                banco.addEventListener('drop', (e) => {{
+                    e.preventDefault();
+                    banco.style.background = '#f1f5f9';
+                    if (!elementoArrastrado) return;
+                    banco.appendChild(elementoArrastrado);
+                    verificarEstructuraVisual();
+                }});
+            }}
+
+            function inyectarTarjeta(producto, contenedor) {{
+                const tarjeta = document.createElement('div');
+                tarjeta.className = 'tarjeta-producto';
+                tarjeta.draggable = true;
+                tarjeta.id = `prod-id-${{producto.id_producto}}`;
+                
+                tarjeta.setAttribute('data-id-oferta', producto.id_oferta);
+                tarjeta.setAttribute('data-id-producto', producto.id_producto);
+
+                tarjeta.innerHTML = `
+                    <img src="${{producto.img || 'https://picsum.photos'}}" alt="Foto">
+                    <div class="meta-datos">
+                        <span class="nombre" title="${{producto.nombre}}">${{producto.nombre}}</span>
+                        <span class="sku">SKU: ${{producto.sku || 'N/A'}}</span>
+                        <span class="precio">$${{producto.precio_oferta}}</span>
+                    </div>
+                `;
+
+                tarjeta.addEventListener('dragstart', () => {{ elementoArrastrado = tarjeta; tarjeta.style.opacity = '0.4'; }});
+                tarjeta.addEventListener('dragend', () => {{ elementoArrastrado = null; tarjeta.style.opacity = '1'; }});
+
+                contenedor.appendChild(tarjeta);
+            }}
+
+            function verificarEstructuraVisual() {{
+                document.querySelectorAll('.slot-maqueta').forEach(slot => {{
+                    const tieneProducto = slot.querySelector('.tarjeta-producto');
+                    const tienePlaceholder = slot.querySelector('.placeholder-vacio');
+                    if (!tieneProducto && !tienePlaceholder) {{
+                        const nuevoPlaceholder = document.createElement('span');
+                        nuevoPlaceholder.className = 'placeholder-vacio';
+                        nuevoPlaceholder.innerText = 'Vacante';
+                        slot.appendChild(nuevoPlaceholder);
+                    }}
+                }});
+            }}
+
+            ejecutarDistribucionCampana();
+        </script>
+    </body>
+    </html>
+    """
+    return html_code
 
 
 # ==============================================================================
