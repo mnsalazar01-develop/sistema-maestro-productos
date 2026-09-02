@@ -370,7 +370,6 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
         }});
     </script></body></html>"""
 
-
 # ==============================================================================
 # 8. RENDERIZADO INTERACTIVO FINAL Y PROCESAMIENTO INMUNE (CON PUENTE REAL JS->PY)
 # ==============================================================================
@@ -428,68 +427,63 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
         <div class="grid-folleto">{slots_html}</div>
     </div>
 
-    <!-- SCRIPT DE INTERCONEXIÓN BIDIRECCIONAL COMPLETA -->
     <script>
-    // Enlace directo con la ventana maestra de Streamlit
-    function enviarDatosAStreamlit(payload) {
-        const mensaje = {
+    function enviarDatosAStreamlit(payload) {{
+        const mensaje = {{
             isStreamlitMessage: true,
             type: "streamlit:setComponentValue",
             value: JSON.stringify(payload)
-        };
+        }};
         window.parent.postMessage(mensaje, "*");
-    }
+    }}
 
     let draggedNode = null;
-    document.querySelectorAll('.product-card').forEach(card => {
-        card.addEventListener('dragstart', () => { draggedNode = card; card.style.opacity = '0.4'; });
-        card.addEventListener('dragend', () => { draggedNode = null; card.style.opacity = '1'; });
-    });
+    document.querySelectorAll('.product-card').forEach(card => {{
+        card.addEventListener('dragstart', () => {{ draggedNode = card; card.style.opacity = '0.4'; }});
+        card.addEventListener('dragend', () => {{ draggedNode = null; card.style.opacity = '1'; }});
+    }});
     
-    document.querySelectorAll('.slot').forEach(slot => {
-        slot.addEventListener('dragover', (e) => { e.preventDefault(); slot.classList.add('drag-over'); });
+    document.querySelectorAll('.slot').forEach(slot => {{
+        slot.addEventListener('dragover', (e) => {{ e.preventDefault(); slot.classList.add('drag-over'); }});
         slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
-        slot.addEventListener('drop', () => {
+        slot.addEventListener('drop', () => {{
             slot.classList.remove('drag-over');
-            if (draggedNode) {
+            if (draggedNode) {{
                 const ph = slot.querySelector('.placeholder'); if(ph) ph.remove();
                 slot.appendChild(draggedNode);
                 
-                // Enviamos el mensaje estructurado con el flag nativo 'isStreamlitMessage'
-                enviarDatosAStreamlit({
+                enviarDatosAStreamlit({{
                     id_oferta: draggedNode.id,
                     numero_pagina: {pagina},
                     posicion_slot: slot.id,
                     timestamp: Date.now()
-                });
-            }
-        });
-    });
+                }});
+            }}
+        }});
+    }});
     
     const bZone = document.getElementById('banco-disponibles');
     const bLista = document.getElementById('banco-lista');
-    bZone.addEventListener('dragover', (e) => { e.preventDefault(); bZone.classList.add('drag-over'); });
+    bZone.addEventListener('dragover', (e) => {{ e.preventDefault(); bZone.classList.add('drag-over'); }});
     bZone.addEventListener('dragleave', () => bZone.classList.remove('drag-over'));
-    bZone.addEventListener('drop', () => {
+    bZone.addEventListener('drop', () => {{
         bZone.classList.remove('drag-over');
-        if(draggedNode) {
+        if(draggedNode) {{
             bLista.appendChild(draggedNode);
             
-            // Envío de desasignación hacia el banco
-            enviarDatosAStreamlit({
+            enviarDatosAStreamlit({{
                 id_oferta: draggedNode.id,
                 numero_pagina: null,
                 posicion_slot: null,
                 timestamp: Date.now()
-            });
-        }
-    });
+            }});
+        }}
+    }});
     </script></body></html>"""
 
 html_renderizado = generar_canvas_ofertas_corregido(st.session_state.ofertas, pag_act, slots_deseados, columnas_css, filas_css)
 
 with st.container():
-    # Asignamos una clave faja fija 'key' para estabilizar el componente iframe en el DOM
     evento_drag_drop = st.components.v1.html(html_renderizado, height=540, scrolling=False, key=f"canvas_maquetador_pag_{pag_act}")
 
 if evento_drag_drop:
@@ -514,7 +508,9 @@ if evento_drag_drop:
             if cambio:
                 st.rerun()
     except Exception as e:
-        st.error(f"Error procesando evento: {e}")
+        pass
+
+
 # ==============================================================================
 # 9. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA
 # ==============================================================================
