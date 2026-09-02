@@ -435,33 +435,56 @@ with col_folleto:
                         st.caption(f"ID: {o.get('id_producto')}")
 
 # ACTIVACIÓN DEL MOTOR DRAG & DROP
-# Le pasamos la lista de llaves de los contenedores que queremos enlazar
 todas_las_llaves = ["banco_origen"] + [f"slot_{i}" for i in range(1, slots_deseados + 1)]
 evento_movimiento = dnd(*todas_las_llaves, key="motor_maquetador")
 
-# CAPTURA Y PROCESAMIENTO DEL MOVIMIENTO EN PYTHON
+# CAPTURA Y PROCESAMIENTO DEL MOVIMIENTO EN PYTHON (BLINDADO CON TRY/EXCEPT)
 if evento_movimiento:
-    # El componente nos devuelve qué elemento se movió, desde dónde y hacia dónde
-    id_item_movido = evento_movimiento.source_item.replace("item_", "")
-    contenedor_destino = evento_movimiento.destination_container
-    
-    cambio = False
-    if "ofertas" in st.session_state:
-        for o in st.session_state.ofertas:
-            if str(o.get("id_oferta")) == str(id_item_movido):
-                if contenedor_destino == "banco_origen":
-                    if o.get("numero_pagina") is not None or o.get("posicion_slot") is not None:
-                        o["numero_pagina"] = None
-                        o["posicion_slot"] = None
-                        cambio = True
-                else:
-                    num_slot = int(contenedor_destino.replace("slot_", ""))
-                    if o.get("numero_pagina") != pag_act or o.get("posicion_slot") != num_slot:
-                        o["numero_pagina"] = pag_act
-                        o["posicion_slot"] = num_slot
-                        cambio = True
-        if cambio:
-            st.rerun()
+    try:
+        id_item_raw = ""
+        contenedor_destino = ""
+
+        # 1. Intentamos leerlo como si fuera un diccionario o tuviera métodos estructurados
+        if isinstance(evento_movimiento, dict):
+            id_item_raw = evento_movimiento.get("item_id") or evento_movimiento.get("id") or evento_movimiento.get("source_item", "")
+            contenedor_destino = evento_movimiento.get("destination_container") or evento_movimiento.get("target", "")
+        else:
+            # 2. Si es un objeto, intentamos extraer dinámicamente sus atributos disponibles
+            for attr in ["item_id", "id", "source_item", "item"]:
+                if hasattr(evento_movimiento, attr):
+                    id_item_raw = getattr(evento_movimiento, attr)
+                    break
+            for attr in ["destination_container", "target", "destination"]:
+                if hasattr(evento_movimiento, attr):
+                    contenedor_destino = getattr(evento_movimiento, attr)
+                    break
+
+        # Limpiamos el ID del producto removiendo el prefijo "item_" si el componente lo inyectó
+        id_item_movido = str(id_item_raw).replace("item_", "").strip()
+        contenedor_destino = str(contenedor_destino).strip()
+
+        if id_item_movido and contenedor_destino:
+            cambio = False
+            if "ofertas" in st.session_state:
+                for o in st.session_state.ofertas:
+                    if str(o.get("id_oferta")) == str(id_item_movido):
+                        if contenedor_destino == "banco_origen":
+                            if o.get("numero_pagina") is not None or o.get("posicion_slot") is not None:
+                                o["numero_pagina"] = None
+                                o["posicion_slot"] = None
+                                cambio = True
+                        elif "slot_" in contenedor_destino:
+                            num_slot = int(contenedor_destino.replace("slot_", ""))
+                            if o.get("numero_pagina") != pag_act or o.get("posicion_slot") != num_slot:
+                                o["numero_pagina"] = pag_act
+                                o["posicion_slot"] = num_slot
+                                cambio = True
+                if cambio:
+                    st.rerun()
+    except Exception as e:
+        # Evitamos que la app se caiga si el formato del evento cambia temporalmente
+        st.warning(f"Aviso: Procesando actualización de grilla... ({str(e)})")
+
 
 # ==============================================================================
 # 9. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA
