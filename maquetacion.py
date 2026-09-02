@@ -370,7 +370,6 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
         }});
     </script></body></html>"""
 
-
 # ==============================================================================
 # 8. RENDERIZADO INTERACTIVO FINAL Y PROCESAMIENTO INMUNE (CON PUENTE REAL JS->PY)
 # ==============================================================================
@@ -460,13 +459,14 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
         </div>
 
         <script>
+        // ¡CAMBIO CLAVE!: Usamos window.top para traspasar los iframes de protección de Streamlit Cloud
         function enviarDatosAStreamlit(payload) {{
             const mensaje = {{
                 isStreamlitMessage: true,
                 type: "streamlit:setComponentValue",
                 value: JSON.stringify(payload)
             }};
-            window.parent.postMessage(mensaje, "*");
+            window.top.postMessage(mensaje, "*");
         }}
 
         let draggedNode = null;
@@ -515,7 +515,10 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
     except Exception:
         return "<h3>Error en generacion de interfaz HTML</h3>"
 
-# Invocación limpia de los datos
+# Aseguramos que la marca de tiempo de control exista en el session_state
+if "ultimo_ts_procesado" not in st.session_state:
+    st.session_state.ultimo_ts_procesado = 0
+
 lista_ofertas_segura = st.session_state.ofertas if "ofertas" in st.session_state else []
 html_renderizado = generar_canvas_ofertas_corregido(
     lista_ofertas_segura, 
@@ -526,19 +529,20 @@ html_renderizado = generar_canvas_ofertas_corregido(
 )
 
 with st.container():
-    # ¡EL CAMBIO CRÍTICO!: Eliminamos la key dinámica para estabilizar el recolector de métricas de Streamlit
     evento_drag_drop = st.components.v1.html(
         str(html_renderizado), 
         height=540, 
         scrolling=False
     )
 
+# Procesamiento del evento con validación forzada
 if evento_drag_drop:
     try:
         datos = json.loads(evento_drag_drop)
-        evento_ts = datos.get("timestamp", 0)
+        evento_ts = int(datos.get("timestamp", 0))
+        ultimo_ts = int(st.session_state.get("ultimo_ts_procesado", 0))
         
-        if evento_ts > st.session_state.get("ultimo_ts_procesado", 0):
+        if evento_ts > ultimo_ts:
             id_mod = datos.get("id_oferta")
             nueva_p = datos.get("numero_pagina")
             nuevo_s = datos.get("posicion_slot")
@@ -560,6 +564,7 @@ if evento_drag_drop:
                     st.rerun()
     except Exception:
         pass
+
 
 
 
