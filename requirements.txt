@@ -2,3 +2,4 @@ supabase
 pandas
 openpyxl
 streamlit-dnd
+streamlit-drag-drop
