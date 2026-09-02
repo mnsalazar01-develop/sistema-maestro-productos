@@ -369,6 +369,7 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
             }}
         }});
     </script></body></html>"""
+
 # ==============================================================================
 # 8. RENDERIZADO INTERACTIVO FINAL Y PROCESAMIENTO INMUNE (CON PUENTE REAL JS->PY)
 # ==============================================================================
@@ -424,18 +425,20 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
                 else:
                     banco_html += card
 
-        # ¡CORRECCIÓN CRÍTICA!: Evaluamos el contenido dinámicamente DENTRO del ciclo for
         slots_html = ""
         for i in range(1, num_slots + 1):
             contenido_slot = slots_ocupados.get(i, f'<div class="placeholder">Posición Slot {i}</div>')
             slots_html += f'<div class="slot" id="{i}">{contenido_slot}</div>'
         
+        # Convertimos las variables de columnas y filas a strings limpios
+        style_cols = str(cols)
+        style_rows = str(rows)
+
         return f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
         body {{ font-family: system-ui, sans-serif; margin: 0; background: #f8f9fa; display: flex; gap: 20px; padding: 10px; }}
         .sidebar {{ width: 280px; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; max-height:500px; overflow-y:auto; }}
         .sidebar.drag-over {{ background: #fff5f5; border: 2px dashed #dc3545; }}
         .canvas {{ flex: 1; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; }}
-        .grid-folleto {{ display: grid; grid-template-columns: {cols}; grid-template-rows: {rows}; gap: 12px; min-height: 400px; }}
         .slot {{ border: 2px dashed #cbd5e1; border-radius: 6px; background: #fafafa; display: flex; align-items: center; justify-content: center; min-height: 90px; padding: 5px; }}
         .slot.drag-over {{ border-color: #3b82f6; background: #eff6ff; }}
         .product-card {{ background: white; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; cursor: grab; display: flex; gap: 10px; width: 100%; box-sizing: border-box; }}
@@ -451,7 +454,10 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
         </div>
         <div class="canvas">
             <h4 style="margin:0 0 10px 0; font-size: 14px; color: #475569;">Diseño Hoja Página {pagina}</h4>
-            <div class="grid-folleto">{slots_html}</div>
+            <!-- Inyectamos los estilos de grilla de forma directa en el estilo del elemento para no romper las llaves CSS -->
+            <div class="grid-folleto" style="display: grid; grid-template-columns: {style_cols}; grid-template-rows: {style_rows}; gap: 12px; min-height: 400px;">
+                {slots_html}
+            </div>
         </div>
 
         <script>
@@ -508,23 +514,23 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
         }});
         </script></body></html>"""
     except Exception as e:
-        return f"<h3>Error interno en la generación del canvas: {str(e)}</h3>"
+        # Si algo falla, devolvemos un HTML plano sin llaves conflictivas para que no rompa Streamlit
+        return "<h3>Error en generacion de interfaz HTML</h3>"
 
-# Invocación protegida con retorno de cadena garantizado
-try:
-    lista_ofertas_segura = st.session_state.ofertas if "ofertas" in st.session_state else []
-    html_renderizado = generar_canvas_ofertas_corregido(
-        lista_ofertas_segura, 
-        int(pag_act), 
-        slots_deseados, 
-        columnas_css, 
-        filas_css
-    )
-except Exception as e:
-    html_renderizado = f"<h3>Error crítico en el hilo de renderizado: {str(e)}</h3>"
+# Invocación limpia
+lista_ofertas_segura = st.session_state.ofertas if "ofertas" in st.session_state else []
+html_renderizado = generar_canvas_ofertas_corregido(
+    lista_ofertas_segura, 
+    int(pag_act), 
+    slots_deseados, 
+    columnas_css, 
+    filas_css
+)
 
-if not html_renderizado or not isinstance(html_renderizado, str):
-    html_renderizado = "<h3>Lienzo de maquetación no disponible por error de formato</h3>"
+# Validamos que el String sea correcto antes de renderizar
+if not isinstance(html_renderizado, str) or "Error" in html_renderizado:
+    st.error("Hubo un problema al estructurar los datos del lienzo visual.")
+    st.stop()
 
 with st.container():
     evento_drag_drop = st.components.v1.html(
@@ -561,6 +567,7 @@ if evento_drag_drop:
                     st.rerun()
     except Exception:
         pass
+
 
 
 # ==============================================================================
