@@ -383,7 +383,7 @@ def generar_grilla_interactiva_html(lista_ofertas, pagina_actual, cols, rows):
     style_cols = f"repeat({cols}, 1fr)"
     style_rows = f"repeat({rows}, 1fr)"
     
-    # Serialización segura de datos de Python a JavaScript
+    # Convierte la lista de diccionarios de Python a un string JSON limpio
     ofertas_json = json.dumps(lista_ofertas)
 
     html_code = f"""
@@ -424,6 +424,7 @@ def generar_grilla_interactiva_html(lista_ofertas, pagina_actual, cols, rows):
         </div>
 
         <script>
+            // Inyección limpia desde Python
             const totalProductosCampana = {ofertas_json};
             const PAGINA_ACTUAL = {pagina_actual};
             const CONFIG_COLUMNAS = {cols};
@@ -547,7 +548,6 @@ def generar_grilla_interactiva_html(lista_ofertas, pagina_actual, cols, rows):
                     }}
                 }});
             }}
-
             ejecutarDistribucionCampana();
         </script>
     </body>
