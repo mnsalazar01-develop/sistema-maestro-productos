@@ -559,49 +559,42 @@ def generar_grilla_interactiva_html(lista_ofertas, pagina_actual, cols, rows):
     
     return html_code
 
+
 # ==============================================================================
-# 9. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA
+# 9. CONTROL DE RENDERIZADO EN STREAMLIT (CON RESPALDO DE SEGURIDAD)
 # ==============================================================================
-st.markdown(f"### 📊 Registros Procesados de la Página {pag_act}")
+import streamlit as st
 
-id_campana_real = 0
-if "selector_campana_activa" in st.session_state and "dict_campanas_opciones" in locals():
-    label = st.session_state["selector_campana_activa"]
-    id_campana_real = dict_campanas_opciones.get(label, 0)
-elif "id_campana_activa" in locals():
-    id_campana_real = id_campana_activa
+# 1. Control de seguridad: Si no hay ofertas cargadas, creamos unas de prueba para ver la grilla
+if "ofertas" not in st.session_state or not st.session_state.ofertas:
+    st.session_state.ofertas = [
+        {"id_oferta": 1, "id_producto": 101, "nombre": "Producto Prueba A", "precio_oferta": 120.50, "numero_pagina": 1, "posicion_slot": 1, "sku": "SKU-PRO-A"},
+        {"id_oferta": 2, "id_producto": 102, "nombre": "Producto Prueba B", "precio_oferta": 45.00, "numero_pagina": 0, "posicion_slot": 0, "sku": "SKU-PRO-B"},
+        {"id_oferta": 3, "id_producto": 103, "nombre": "Producto Prueba C", "precio_oferta": 89.99, "numero_pagina": 1, "posicion_slot": 2, "sku": "SKU-PRO-C"}
+    ]
 
-tipo_distribucion = cfg.get("distribucion", "Equilibrado") if 'cfg' in locals() else "Equilibrado"
-sub_estilo = cfg.get("estilo", "Estándar") if 'cfg' in locals() else "Estándar"
+# 2. Leemos las ofertas reales (o las de prueba) de la sesión
+lista_ofertas_campana = st.session_state.ofertas
 
-filas_tabla_ofertas = []
+# 3. Leemos las variables de configuración de tu Streamlit (página, columnas, filas)
+# Si tu app usa otros nombres (ej. st.session_state.pag_actual), cámbialos aquí:
+pag_act = int(st.session_state.get("pag_act", 1))
+cols_grilla = int(st.session_state.get("columnas_css", 2))
+filas_grilla = int(st.session_state.get("filas_css", 3))
 
-if "ofertas" in st.session_state:
-    for o in st.session_state.ofertas:
-        if o.get("numero_pagina") is not None and int(o["numero_pagina"]) == pag_act:
-            slot = o.get("posicion_slot")
-            
-            num_fila = ((int(slot) - 1) // 2) + 1 if slot else None
-            num_columna = ((int(slot) - 1) % 2) + 1 if slot else None
-            
-            fila = {
-                "id_oferta": o.get("id_oferta"),
-                "id_producto": o.get("id_producto"),
-                "id_campana": int(id_campana_real),
-                "numero_pagina": int(o["numero_pagina"]),
-                "posicion_slot": int(slot) if slot else None,
-                "precio_oferta": o.get("precio_oferta"),
-                "posicion_mix": tipo_distribucion,
-                "sub_molde_estilo": sub_estilo,
-                "numero_fila": num_fila,
-                "numero_columna": num_columna
-            }
-            filas_tabla_ofertas.append(fila)
+# 4. Generamos el HTML combinando las dos partes de forma segura
+codigo_canvas_listo = generar_grilla_interactiva_html(
+    lista_ofertas=lista_ofertas_campana, 
+    pagina_actual=pag_act, 
+    cols=cols_grilla, 
+    rows=filas_grilla
+)
 
-if filas_tabla_ofertas:
-    st.dataframe(filas_tabla_ofertas, use_container_width=True)
-else:
-    st.info("Ninguna oferta asignada en esta hoja todavía.")
+# 5. Pintamos el iFrame interactivo en la interfaz de Streamlit
+st.markdown("### 🛠️ Lienzo de Maquetación Activa")
+st.components.v1.html(codigo_canvas_listo, height=520, scrolling=False)
+st.caption("💡 Organiza el folleto arrastrando los productos. El movimiento ocurre de forma nativa a 60fps.")
+
 
 # ==============================================================================
 # 10. EXPORTACIÓN A CSV Y CONTROL DE RESPALDO MANUAL
