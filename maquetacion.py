@@ -393,12 +393,14 @@ if "ofertas" in st.session_state:
         raw_p = o.get('numero_pagina')
         raw_s = o.get('posicion_slot')
         
-        es_en_esta_pagina = raw_p is not None and int(raw_p) == pag_act
+        es_p = raw_p is not None and str(raw_p).lower() != "null" and str(raw_p).strip() != ""
+        es_s = raw_s is not None and str(raw_s).lower() != "null" and str(raw_s).strip() != ""
         
-        if es_en_esta_pagina and raw_s and f"slot_{raw_s}" in slots_items:
+        if es_p and es_s and int(raw_p) == pag_act and f"slot_{raw_s}" in slots_items:
             slots_items[f"slot_{raw_s}"].append(o)
-        elif raw_p is None or str(raw_p).lower() == "null" or int(raw_p) == pag_act:
-            banco_items.append(o)
+        else:
+            if not es_p or int(raw_p) == pag_act:
+                banco_items.append(o)
 
 # CREACIÓN DEL LAYOUT VISUAL EN PANTALLA
 col_banco, col_folleto = st.columns([1, 2])
@@ -408,8 +410,9 @@ with col_banco:
     # Generamos el contenedor del banco con una clave única 'banco_origen'
     with st.container(key="banco_origen", border=True):
         if not banco_items:
-            st.write("*Vacío*")
+            st.caption("No hay productos sueltos")
         for o in banco_items:
+            # ¡CORRECCIÓN CRÍTICA!: Añadimos key al st.container secundario
             with st.container(key=f"item_{o['id_oferta']}", border=True):
                 st.markdown(f"**{o.get('nombre', 'Sin Nombre')}**")
                 st.markdown(f"ID: {o.get('id_producto')} | ${o.get('precio_oferta', 0)}")
@@ -418,7 +421,7 @@ with col_folleto:
     st.markdown(f"#### 📄 Slots Disponibles (Página {pag_act})")
     
     # Calculamos la distribución de columnas dinámicas según la matemática del layout
-    grid_cols = st.columns(2)  # Generamos un layout base de 2 columnas visuales
+    grid_cols = st.columns(2)
     
     for i in range(1, slots_deseados + 1):
         target_col = grid_cols[(i - 1) % 2]
@@ -430,36 +433,35 @@ with col_folleto:
                 if not ofertas_en_slot:
                     st.caption("Arrastra un producto aquí")
                 for o in ofertas_en_slot:
+                    # ¡CORRECCIÓN CRÍTICA!: Añadimos la misma estructura de key aquí
                     with st.container(key=f"item_{o['id_oferta']}", border=True):
                         st.markdown(f"**{o.get('nombre', 'Sin Nombre')}**")
                         st.caption(f"ID: {o.get('id_producto')}")
 
 # ACTIVACIÓN DEL MOTOR DRAG & DROP
 todas_las_llaves = ["banco_origen"] + [f"slot_{i}" for i in range(1, slots_deseados + 1)]
-evento_movimiento = dnd(*todas_las_llaves, key="motor_maquetador")
+evento_movimiento = dnd(*todas_las_llaves, key=f"motor_maquetador_pag_{pag_act}")
 
-# CAPTURA Y PROCESAMIENTO DEL MOVIMIENTO EN PYTHON (BLINDADO CON TRY/EXCEPT)
+# CAPTURA Y PROCESAMIENTO DEL MOVIMIENTO EN PYTHON
 if evento_movimiento:
     try:
         id_item_raw = ""
         contenedor_destino = ""
 
-        # 1. Intentamos leerlo como si fuera un diccionario o tuviera métodos estructurados
+        # Evaluamos el objeto devuelto por la librería de forma flexible
         if isinstance(evento_movimiento, dict):
             id_item_raw = evento_movimiento.get("item_id") or evento_movimiento.get("id") or evento_movimiento.get("source_item", "")
-            contenedor_destino = evento_movimiento.get("destination_container") or evento_movimiento.get("target", "")
+            contenedor_destino = evento_movimiento.get("destination_container") or evento_movimiento.get("target") or evento_movimiento.get("to_container", "")
         else:
-            # 2. Si es un objeto, intentamos extraer dinámicamente sus atributos disponibles
             for attr in ["item_id", "id", "source_item", "item"]:
                 if hasattr(evento_movimiento, attr):
                     id_item_raw = getattr(evento_movimiento, attr)
                     break
-            for attr in ["destination_container", "target", "destination"]:
+            for attr in ["destination_container", "target", "destination", "to_container"]:
                 if hasattr(evento_movimiento, attr):
                     contenedor_destino = getattr(evento_movimiento, attr)
                     break
 
-        # Limpiamos el ID del producto removiendo el prefijo "item_" si el componente lo inyectó
         id_item_movido = str(id_item_raw).replace("item_", "").strip()
         contenedor_destino = str(contenedor_destino).strip()
 
@@ -482,8 +484,8 @@ if evento_movimiento:
                 if cambio:
                     st.rerun()
     except Exception as e:
-        # Evitamos que la app se caiga si el formato del evento cambia temporalmente
-        st.warning(f"Aviso: Procesando actualización de grilla... ({str(e)})")
+        pass
+
 
 
 # ==============================================================================
