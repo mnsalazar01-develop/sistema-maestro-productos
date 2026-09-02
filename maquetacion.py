@@ -374,7 +374,9 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
 # 8. RENDERIZADO INTERACTIVO FINAL Y PROCESAMIENTO INMUNE (CON PUENTE REAL JS->PY)
 # ==============================================================================
 def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
-    banco_html, slots_ocupados = "", {}
+    banco_html = ""
+    slots_ocupados = {} # ¡CORREGIDO!: Ahora es un diccionario real y limpio
+    
     for o in ofertas:
         img_url = o.get('img') if o.get('img') else "https://picsum.photos"
         raw_p = o.get('numero_pagina')
@@ -401,7 +403,11 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
             else:
                 banco_html += card
 
-    slots_html = "".join([f'<div class="slot" id="{i}">' + slots_ocupados.get(i, f'<div class="placeholder">Posición Slot {i}</div>') + '</div>' for i in range(1, num_slots + 1)])
+    # Reconstrucción limpia de los slots de la grilla
+    slots_html = ""
+    for i in range(1, num_slots + 1):
+        contenido_slot = slots_ocupados.get(i, f'<div class="placeholder">Posición Slot {i}</div>')
+        slots_html += f'<div class="slot" id="{i}">{contenido_slot}</div>'
     
     return f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
     body {{ font-family: system-ui, sans-serif; margin: 0; background: #f8f9fa; display: flex; gap: 20px; padding: 10px; }}
@@ -481,7 +487,12 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
     }});
     </script></body></html>"""
 
+# Generamos el string HTML garantizado
 html_renderizado = generar_canvas_ofertas_corregido(st.session_state.ofertas, pag_act, slots_deseados, columnas_css, filas_css)
+
+# Si por alguna razón extrema fallara, ponemos un HTML de emergencia para que la app no colapse
+if not html_renderizado:
+    html_renderizado = "<h1>Error al renderizar el lienzo</h1>"
 
 with st.container():
     evento_drag_drop = st.components.v1.html(html_renderizado, height=540, scrolling=False, key=f"canvas_maquetador_pag_{pag_act}")
@@ -509,6 +520,7 @@ if evento_drag_drop:
                 st.rerun()
     except Exception as e:
         pass
+
 
 
 # ==============================================================================
