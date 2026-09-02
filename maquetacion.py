@@ -409,29 +409,45 @@ if evento_drag_drop:
 # ==============================================================================
 st.markdown(f"### 📊 Registros Procesados de la Página {pag_act}")
 
-# 1. Recuperamos las variables con un valor por defecto seguro si no existen
-id_campana_segura = int(st.session_state.get("id_campana_activa", 0)) if 'id_campana_activa' in globals() or 'id_campana_activa' in locals() else int(id_campana_activa) if 'id_campana_activa' in locals() else 0
-distribucion_segura = tipo_distribucion if 'tipo_distribucion' in globals() or 'tipo_distribucion' in locals() else "Estándar"
-sub_estilo_seguro = sub_estilo if 'sub_estilo' in globals() or 'sub_estilo' in locals() else "Normal"
+# 1. Detectamos el ID real de la campaña desde el st.session_state
+id_campana_real = 0
+
+# Buscamos las variaciones de nombres más comunes que uses en tus selectores
+if "id_campana_activa" in st.session_state:
+    id_campana_real = st.session_state["id_campana_activa"]
+elif "id_campana" in st.session_state:
+    id_campana_real = st.session_state["id_campana"]
+elif "campana_seleccionada" in st.session_state:
+    id_campana_real = st.session_state["campana_seleccionada"]
+elif 'id_campana_activa' in locals() or 'id_campana_activa' in globals():
+    # Si existe como variable suelta, la usamos
+    id_campana_real = id_campana_activa
+
+# Aseguramos que sea un entero numérico puro
+try:
+    id_campana_real = int(id_campana_real)
+except (ValueError, TypeError):
+    id_campana_real = 0
+
+# Valores de respaldo para distribución y estilo
+distribucion_segura = tipo_distribucion if 'tipo_distribucion' in locals() or 'tipo_distribucion' in globals() else "Estándar"
+sub_estilo_seguro = sub_estilo if 'sub_estilo' in locals() or 'sub_estilo' in globals() else "Normal"
 
 filas_tabla_ofertas = []
 
-# 2. Procesamos las ofertas de forma segura con un bucle limpio
+# 2. Procesamos las ofertas
 if "ofertas" in st.session_state:
     for o in st.session_state.ofertas:
-        # Validamos que la oferta pertenezca a la página actual
         if o.get("numero_pagina") is not None and str(o["numero_pagina"]) != "null" and int(o["numero_pagina"]) == pag_act:
             slot = o.get("posicion_slot")
             
-            # Calculamos fila y columna solo si hay un slot válido
             num_fila = ((int(slot) - 1) // 2) + 1 if slot else None
             num_columna = ((int(slot) - 1) % 2) + 1 if slot else None
             
-            # Construimos el registro
             fila = {
                 "id_oferta": o.get("id_oferta"),
                 "id_producto": o.get("id_producto"),
-                "id_campana": id_campana_segura,
+                "id_campana": id_campana_real,  # <--- ID REAL ASIGNADO
                 "numero_pagina": int(o["numero_pagina"]),
                 "posicion_slot": int(slot) if slot else None,
                 "precio_oferta": o.get("precio_oferta"),
@@ -442,11 +458,12 @@ if "ofertas" in st.session_state:
             }
             filas_tabla_ofertas.append(fila)
 
-# 3. Renderizado de la tabla en Streamlit
+# 3. Renderizado de la tabla
 if filas_tabla_ofertas:
     st.dataframe(filas_tabla_ofertas, use_container_width=True)
 else:
     st.info("Ninguna oferta asignada en esta hoja todavía. Arrastra elementos desde el banco de la campaña.")
+
 
 # ==============================================================================
 # 10. EJECUCIÓN DIRECTA DEL UPSERT MULTI-PÁGINA EN SUPABASE
