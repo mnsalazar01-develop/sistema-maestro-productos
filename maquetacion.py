@@ -464,7 +464,30 @@ if filas_tabla_ofertas:
 else:
     st.info("Ninguna oferta asignada en esta hoja todavía. Arrastra elementos desde el banco de la campaña.")
 
+# ==============================================================================
+# 10. ACCIÓN DE GUARDADO EN BASE DE DATOS
+# ==============================================================================
 
+# 1. Creamos la variable que espera tu lógica de base de datos
+lote_para_guardar = filas_tabla_ofertas if 'filas_tabla_ofertas' in locals() else []
+
+# 2. Condicional del botón de guardado
+if st.button("Guardar Cambios", type="primary"):
+    if lote_para_guardar:
+        try:
+            # Aquí va tu código actual de conexión/subida a Supabase
+            resultado = supabase.table("ofertas").upsert(lote_para_guardar).execute()
+            
+            st.success(f"¡Éxito! Se guardaron {len(lote_para_guardar)} registros correctamente.")
+            st.balloons()
+            
+        except Exception as e:
+            st.error(f"Error al conectar con la base de datos: {str(e)}")
+    else:
+        st.warning("No hay registros modificados en esta página para guardar.")
+
+
+"""
 # ==============================================================================
 # 10. EJECUCIÓN DIRECTA DEL UPSERT MULTI-PÁGINA EN SUPABASE
 # ==============================================================================
@@ -486,4 +509,4 @@ if st.button("💾 Guardar Configuración Completa del Folleto", type="primary",
             st.error(f"❌ Error al impactar la tabla ofertas en Supabase: {str(e)}")
     else:
         st.warning("⚠️ La maqueta actual no cuenta con elementos cargados para persistir.")
-
+"""
