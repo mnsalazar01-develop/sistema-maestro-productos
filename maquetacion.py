@@ -515,8 +515,6 @@ if evento_drag_drop:
                 st.rerun()
     except Exception as e:
         st.error(f"Error procesando evento: {e}")
-
-
 # ==============================================================================
 # 9. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA
 # ==============================================================================
@@ -531,9 +529,10 @@ elif "id_campana_activa" in locals():
     id_campana_real = id_campana_activa
 
 # Detectamos configuración de layout actual
-tipo_distribucion = cfg.get("distribucion", "Equilibrado")
-sub_estilo = cfg.get("estilo", "Estándar")
+tipo_distribucion = cfg.get("distribucion", "Equilibrado") if 'cfg' in locals() else "Equilibrado"
+sub_estilo = cfg.get("estilo", "Estándar") if 'cfg' in locals() else "Estándar"
 
+# ¡CORREGIDO!: Inicialización de lista vacía para evitar el SyntaxError
 filas_tabla_ofertas = []
 
 if "ofertas" in st.session_state:
