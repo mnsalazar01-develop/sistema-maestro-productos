@@ -384,19 +384,32 @@ if "ofertas" not in st.session_state or not st.session_state.ofertas:
         {"id_oferta": 12, "nombre": "Barra Sonido", "precio_oferta": 85, "numero_pagina": 1, "posicion_slot": 2}
     ]
 
-# 2. Extracción y tipado forzado de variables estructurales
-pag_act = int(st.session_state.get("pag_act", 1))
-cols_grilla = int(st.session_state.get("columnas_css", 2))
-filas_grilla = int(st.session_state.get("filas_css", 3))
+# ==============================================================================
+# PARCHE DE SEGURIDAD CRÍTICO: Forzar conversión limpia a Entero Puro (Evita TypeError)
+# ==============================================================================
+def _limpiar_entero_seguro(clave_estado, valor_defecto):
+    raw_val = st.session_state.get(clave_estado, valor_defecto)
+    if raw_val is None:
+        return valor_defecto
+    try:
+        # Extrae el número si viene como flotante o string decimal (ej: 1.0 -> 1)
+        return int(float(str(raw_val).strip()))
+    except (ValueError, TypeError):
+        return valor_defecto
 
-total_slots = cols_grilla * filas_grilla
+# Sanitización estricta de las variables que tocan la KEY de Streamlit
+pag_act = _limpiar_entero_seguro("pag_act", 1)
+cols_grilla = _limpiar_entero_seguro("columnas_css", 2)
+filas_grilla = _limpiar_entero_seguro("filas_css", 3)
+
+total_slots = int(cols_grilla * filas_grilla)
 style_cols = f"repeat({cols_grilla}, 1fr)"
 style_rows = f"repeat({filas_grilla}, 1fr)"
 
 # 3. Serialización limpia a JSON de los productos de la campaña
 ofertas_json = json.dumps(st.session_state.ofertas)
 
-# 4. Plantilla Maestra en Texto Crudo (Impedimos problemas de retorno u objetos vacíos)
+# 4. Plantilla Maestra en Texto Crudo
 plantilla_html_cruda = """
 <!DOCTYPE html>
 <html lang="es">
@@ -531,7 +544,7 @@ plantilla_html_cruda = """
 </html>
 """
 
-# 5. Reemplazo directo y forzado de etiquetas en memoria de Python (Retorna un 'str' garantizado)
+# 5. Reemplazo directo seguro
 html_final_compilado = plantilla_html_cruda.replace("__STYLE_COLS__", style_cols)\
                                            .replace("__STYLE_ROWS__", style_rows)\
                                            .replace("__PAGINA_ACTUAL__", str(pag_act))\
@@ -539,15 +552,17 @@ html_final_compilado = plantilla_html_cruda.replace("__STYLE_COLS__", style_cols
                                            .replace("__COLS_NUM__", str(cols_grilla))\
                                            .replace("__TOTAL_SLOTS__", str(total_slots))
 
-# 6. Renderizado reactivo final protegido
+# 6. Renderizado reactivo final protegido contra llaves dinámicas nulas
 st.markdown(f"### 🛠️ Lienzo Activo — Página {pag_act}")
 
-# Pasamos el string garantizado y forzamos refresco de iFrame al cambiar la key de página
+# Creamos una cadena de texto limpia para la KEY usando el entero sanitizado
+clave_render_segura = "grilla_estable_p" + str(pag_act)
+
 st.components.v1.html(
     str(html_final_compilado), 
     height=450, 
     scrolling=False, 
-    key=f"grilla_estable_p{pag_act}"
+    key=clave_render_segura
 )
 
 
