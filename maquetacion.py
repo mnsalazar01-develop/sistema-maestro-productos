@@ -371,229 +371,82 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     </script></body></html>"""
 
 # ==============================================================================
-# 8. RENDERIZADO INTERACTIVO FINAL Y PROCESAMIENTO INMUNE (PUENTE POR DOM)
+# 8. RENDERIZADO INTERACTIVO DRAG & DROP OFICIAL (INMUNE A BLOQUEOS)
 # ==============================================================================
+from streamlit_drag_drop import streamlit_drag_drop
+import pandas as pd
+import json
 
-# 1. Creamos un input de texto invisible para capturar los movimientos de JS
-# Ponemos la clave 'bridge_drag_drop' para poder identificarlo con JavaScript
-if "ultimo_ts_procesado" not in st.session_state:
-    st.session_state.ultimo_ts_procesado = 0
+st.markdown("### 🗺️ Lienzo de Maquetación Visual")
+st.info("Arrastra las ofertas desde el banco izquierdo hacia los slots numerados de la derecha.")
 
-# Este input captura el JSON que le manda JavaScript en tiempo real
-datos_puente_raw = st.text_input("Puente de comunicación", value="", key="bridge_drag_drop", label_visibility="collapsed")
+# 1. Preparación limpia de datos para el componente nativo
+banco_productos = []
+slots_iniciales = {f"Slot {i}": [] for i in range(1, slots_deseados + 1)}
 
-def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
-    try:
-        banco_html = ""
-        slots_ocupados = {}
+if "ofertas" in st.session_state:
+    for o in st.session_state.ofertas:
+        # Estructuramos la etiqueta visual de la tarjeta
+        label_tarjeta = f"📦 {o.get('id_producto')} - {o.get('nombre', 'Sin Nombre')} (${o.get('precio_oferta', 0)})"
         
-        try:
-            num_slots = int(float(str(num_slots).strip()))
-        except (ValueError, TypeError):
-            num_slots = 4
-
-        for o in ofertas:
-            if not isinstance(o, dict):
-                continue
-                
-            img_url = o.get('img') if o.get('img') else "https://picsum.photos"
-            raw_p = o.get('numero_pagina')
-            raw_s = o.get('posicion_slot')
-            
-            es_p = raw_p is not None and str(raw_p).lower() != "null" and str(raw_p).strip() != "" and str(raw_p) != "0"
-            es_s = raw_s is not None and str(raw_s).lower() != "null" and str(raw_s).strip() != "" and str(raw_s) != "0"
-            
-            card = f'''<div class="product-card" draggable="true" id="{o.get('id_oferta', '')}">
-            <img src="{img_url}"><div class="info"><span class="name">{o.get('nombre', 'Sin Nombre')}</span><span class="price">${o.get('precio_oferta', 0)}</span></div>
-            </div>'''
-            
-            if es_p and es_s:
-                try:
-                    p_int = int(float(str(raw_p).strip()))
-                    s_int = int(float(str(raw_s).strip()))
-                    
-                    if p_int == pagina:
-                        if 1 <= s_int <= num_slots:
-                            slots_ocupados[s_int] = card
-                        else:
-                            banco_html += card
-                    else:
-                        banco_html += f'<div style="display:none !important;" class="hidden-item-dom">{card}</div>'
-                except (ValueError, TypeError):
-                    banco_html += card
-            else:
-                if es_p:
-                    try:
-                        p_int = int(float(str(raw_p).strip()))
-                        if p_int != pagina:
-                            banco_html += f'<div style="display:none !important;" class="hidden-item-dom">{card}</div>'
-                        else:
-                            banco_html += card
-                    except (ValueError, TypeError):
-                        banco_html += card
-                else:
-                    banco_html += card
-
-        slots_html = ""
-        for i in range(1, num_slots + 1):
-            contenido_slot = slots_ocupados.get(i, f'<div class="placeholder">Posición Slot {i}</div>')
-            slots_html += f'<div class="slot" id="{i}">{contenido_slot}</div>'
+        raw_p = o.get('numero_pagina')
+        raw_s = o.get('posicion_slot')
         
-        style_cols = str(cols)
-        style_rows = str(rows)
-
-        return f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-        body {{ font-family: system-ui, sans-serif; margin: 0; background: #f8f9fa; display: flex; gap: 20px; padding: 10px; }}
-        .sidebar {{ width: 280px; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; max-height:500px; overflow-y:auto; }}
-        .sidebar.drag-over {{ background: #fff5f5; border: 2px dashed #dc3545; }}
-        .canvas {{ flex: 1; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; }}
-        .slot {{ border: 2px dashed #cbd5e1; border-radius: 6px; background: #fafafa; display: flex; align-items: center; justify-content: center; min-height: 90px; padding: 5px; }}
-        .slot.drag-over {{ border-color: #3b82f6; background: #eff6ff; }}
-        .product-card {{ background: white; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; cursor: grab; display: flex; gap: 10px; width: 100%; box-sizing: border-box; }}
-        .product-card img {{ width: 45px; height: 45px; object-fit: cover; border-radius: 4px; pointer-events: none; }}
-        .product-card .info {{ display: flex; flex-direction: column; font-size: 12px; overflow: hidden; pointer-events: none; }}
-        .product-card .price {{ color: #16a34a; font-weight: 700; margin-top: 2px; }}
-        .product-card .name {{ font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
-        .placeholder {{ color: #94a3b8; font-size: 13px; text-align: center; pointer-events: none; user-select: none; }}
-        </style></head><body>
-        <div class="sidebar" id="banco-disponibles">
-            <h4 style="margin:0 0 10px 0; font-size:14px; color: #475569;">Banco Productos</h4>
-            <div style="display: flex; flex-direction: column; gap:8px; min-height:400px;" id="banco-lista">{banco_html}</div>
-        </div>
-        <div class="canvas">
-            <h4 style="margin:0 0 10px 0; font-size: 14px; color: #475569;">Diseño Hoja Página {pagina}</h4>
-            <div class="grid-folleto" style="display: grid; grid-template-columns: {style_cols}; grid-template-rows: {style_rows}; gap: 12px; min-height: 400px;">
-                {slots_html}
-            </div>
-        </div>
-
-        <script>
-        // TRUCO MAESTRO: JavaScript busca el input de Streamlit en la ventana superior y escribe en él
-        function enviarDatosAPython(payload) {{
-            // Buscamos los elementos input de la página contenedora de Streamlit
-            const inputs = window.top.document.querySelectorAll('input');
-            let inputPuente = null;
-            
-            // Localizamos el input correcto que creamos con Python
-            for (let inp of inputs) {{
-                if (inp.getAttribute('aria-label') === "Puente de comunicación" || inp.id.includes('bridge_drag_drop')) {{
-                    inputPuente = inp;
-                    break;
-                }}
-            }}
-            
-            if (inputPuente) {{
-                // Inyectamos el valor JSON simulando la escritura del usuario
-                inputPuente.value = JSON.stringify(payload);
-                
-                // Disparamos los eventos nativos para que Streamlit reaccione al cambio de texto
-                inputPuente.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                inputPuente.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                
-                // Forzamos el click o el "Enter" para enviar el cambio de inmediato
-                const ke = new KeyboardEvent('keydown', {{ bubbles: true, cancelable: true, keyCode: 13, key: 'Enter' }});
-                inputPuente.dispatchEvent(ke);
-            }}
-        }}
-
-        let draggedNode = null;
-        document.querySelectorAll('.product-card').forEach(card => {{
-            card.addEventListener('dragstart', () => {{ draggedNode = card; card.style.opacity = '0.4'; }});
-            card.addEventListener('dragend', () => {{ draggedNode = null; card.style.opacity = '1'; }});
-        }});
+        es_en_esta_pagina = raw_p is not None and int(raw_p) == pag_act
         
-        document.querySelectorAll('.slot').forEach(slot => {{
-            slot.addEventListener('dragover', (e) => {{ e.preventDefault(); slot.classList.add('drag-over'); }});
-            slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
-            slot.addEventListener('drop', () => {{
-                slot.classList.remove('drag-over');
-                if (draggedNode) {{
-                    const ph = slot.querySelector('.placeholder'); if(ph) ph.remove();
-                    slot.appendChild(draggedNode);
-                    
-                    enviarDatosAPython({{
-                        id_oferta: draggedNode.id,
-                        numero_pagina: {pagina},
-                        posicion_slot: slot.id,
-                        timestamp: Date.now()
-                    }});
-                }}
-            }});
-        }});
-        
-        const bZone = document.getElementById('banco-disponibles');
-        const bLista = document.getElementById('banco-lista');
-        bZone.addEventListener('dragover', (e) => {{ e.preventDefault(); bZone.classList.add('drag-over'); }});
-        bZone.addEventListener('dragleave', () => bZone.classList.remove('drag-over'));
-        bZone.addEventListener('drop', () => {{
-            bZone.classList.remove('drag-over');
-            if(draggedNode) {{
-                bLista.appendChild(draggedNode);
-                
-                enviarDatosAPython({{
-                    id_oferta: draggedNode.id,
-                    numero_pagina: null,
-                    posicion_slot: null,
-                    timestamp: Date.now()
-                }});
-            }}
-        }});
-        </script></body></html>"""
-    except Exception:
-        return "<h3>Error en generacion de interfaz HTML</h3>"
+        if es_en_esta_pagina and raw_s and f"Slot {raw_s}" in slots_iniciales:
+            slots_iniciales[f"Slot {raw_s}"].append(label_tarjeta)
+        elif raw_p is None or str(raw_p).lower() == "null" or int(raw_p) == pag_act:
+            banco_productos.append(label_tarjeta)
 
-lista_ofertas_segura = st.session_state.ofertas if "ofertas" in st.session_state else []
-html_renderizado = generar_canvas_ofertas_corregido(
-    lista_ofertas_segura, 
-    int(pag_act), 
-    slots_deseados, 
-    columnas_css, 
-    filas_css
+# Unificamos las columnas que el componente Drag & Drop va a dibujar en pantalla
+columnas_maquetador = {
+    "Banco de Productos": banco_productos,
+    **slots_iniciales
+}
+
+# 2. Renderizado del Drag & Drop (Retorna los datos mutados en tiempo real)
+resultado_movimientos = streamlit_drag_drop(
+    columns_mapping=columnas_maquetador,
+    key=f"maquetador_nativo_pag_{pag_act}"
 )
 
-# Dibujamos el componente visual estático (Ya no esperamos su retorno directo)
-with st.container():
-    st.components.v1.html(str(html_renderizado), height=540, scrolling=False)
-
-
-# ==============================================================================
-# 2. PROCESAMIENTO DESDE EL INPUT DE TEXTO REAL (Esto sí lo ve Python siempre)
-# ==============================================================================
-if datos_puente_raw and datos_puente_raw.strip() != "":
-    try:
-        datos = json.loads(datos_puente_raw)
-        evento_ts = int(datos.get("timestamp", 0))
-        ultimo_ts = int(st.session_state.get("ultimo_ts_procesado", 0))
-        
-        if evento_ts > ultimo_ts:
-            id_mod = datos.get("id_oferta")
-            nueva_p = datos.get("numero_pagina")
-            nuevo_s = datos.get("posicion_slot")
-            cambio = False
-            
-            if "ofertas" in st.session_state:
-                for ofer in st.session_state.ofertas:
-                    if str(ofer.get("id_oferta")) == str(id_mod):
-                        val_p = None if nueva_p is None else int(nueva_p)
-                        val_s = None if nuevo_s is None else int(nuevo_s)
-                        
-                        if ofer.get("numero_pagina") != val_p or ofer.get("posicion_slot") != val_s:
-                            ofer["numero_pagina"] = val_p
-                            ofer["posicion_slot"] = val_s
-                            cambio = True
+# 3. Sincronización instantánea de los movimientos en el st.session_state
+if resultado_movimientos and isinstance(resultado_movimientos, dict):
+    cambio_detectado = False
+    
+    for columna_nombre, lista_tarjetas in resultado_movimientos.items():
+        for tarjeta in lista_tarjetas:
+            # Extraemos el ID del producto desde el texto de la tarjeta
+            try:
+                id_prod_movido = tarjeta.split(" - ")[0].replace("📦 ", "").strip()
+            except Exception:
+                continue
                 
-                st.session_state.ultimo_ts_procesado = evento_ts
-                if cambio:
-                    st.rerun()
-    except Exception:
-        pass
+            for ofer in st.session_state.ofertas:
+                if str(ofer.get("id_producto")) == str(id_prod_movido):
+                    if columna_nombre == "Banco de Productos":
+                        # Si se regresó al banco, limpiamos coordenadas
+                        if ofer.get("numero_pagina") is not None or ofer.get("posicion_slot") is not None:
+                            ofer["numero_pagina"] = None
+                            ofer["posicion_slot"] = None
+                            cambio_detectado = True
+                    else:
+                        # Si se soltó en un slot, extraemos el número de slot
+                        num_slot_detectado = int(columna_nombre.replace("Slot ", "").strip())
+                        if ofer.get("numero_pagina") != pag_act or ofer.get("posicion_slot") != num_slot_detectado:
+                            ofer["numero_pagina"] = pag_act
+                            ofer["posicion_slot"] = num_slot_detectado
+                            cambio_detectado = True
+                            
+    if cambio_detectado:
+        st.rerun()
 
 # ==============================================================================
 # 9. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA
 # ==============================================================================
 st.markdown(f"### 📊 Registros Procesados de la Página {pag_act}")
 
-# Detectamos de manera segura el ID numérico de la campaña activa
 id_campana_real = 0
 if "selector_campana_activa" in st.session_state and "dict_campanas_opciones" in locals():
     label = st.session_state["selector_campana_activa"]
@@ -601,16 +454,14 @@ if "selector_campana_activa" in st.session_state and "dict_campanas_opciones" in
 elif "id_campana_activa" in locals():
     id_campana_real = id_campana_activa
 
-# Detectamos configuración de layout actual
 tipo_distribucion = cfg.get("distribucion", "Equilibrado") if 'cfg' in locals() else "Equilibrado"
 sub_estilo = cfg.get("estilo", "Estándar") if 'cfg' in locals() else "Estándar"
 
-# ¡CORREGIDO!: Inicialización de lista vacía para evitar el SyntaxError
 filas_tabla_ofertas = []
 
 if "ofertas" in st.session_state:
     for o in st.session_state.ofertas:
-        if o.get("numero_pagina") is not None and str(o["numero_pagina"]) != "null" and int(o["numero_pagina"]) == pag_act:
+        if o.get("numero_pagina") is not None and int(o["numero_pagina"]) == pag_act:
             slot = o.get("posicion_slot")
             
             num_fila = ((int(slot) - 1) // 2) + 1 if slot else None
@@ -633,30 +484,62 @@ if "ofertas" in st.session_state:
 if filas_tabla_ofertas:
     st.dataframe(filas_tabla_ofertas, use_container_width=True)
 else:
-    st.info("Ninguna oferta asignada en esta hoja todavía. Arrastra elementos desde el banco de la campaña.")
-
+    st.info("Ninguna oferta asignada en esta hoja todavía.")
 
 # ==============================================================================
-# 10. EJECUCIÓN DIRECTA DEL UPSERT MULTI-PÁGINA EN SUPABASE (BOTÓN ÚNICO BLINDADO)
+# 10. EXPORTACIÓN A CSV Y CONTROL DE RESPALDO MANUAL
 # ==============================================================================
-lote_para_guardar = filas_tabla_ofertas
+st.divider()
+st.markdown("### 💾 Acciones de Respaldo y Sincronización")
 
-if st.button("Guardar Configuración Completa del Folleto", type="primary", use_container_width=True):
-    if lote_para_guardar:
-        with st.spinner("Sincronizando cambios con Supabase..."):
+col_exp, col_imp = st.columns(2)
+
+with col_exp:
+    st.markdown("**1. Exportar Maqueta Local**")
+    if filas_tabla_ofertas:
+        df_exportar = pd.DataFrame(filas_tabla_ofertas)
+        csv_data = df_exportar.to_csv(index=False).encode('utf-8')
+        
+        st.download_button(
+            label="📥 Descargar Maqueta Actual (.CSV)",
+            data=csv_data,
+            file_name=f"maqueta_campana_{id_campana_real}_pag_{pag_act}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    else:
+        st.button("📥 Descargar Maqueta Actual (.CSV)", disabled=True, use_container_width=True)
+
+with col_imp:
+    st.markdown("**2. Importar y Sincronizar desde CSV**")
+    archivo_subido = st.file_uploader("Cargar archivo de respaldo:", type=["csv"], label_visibility="collapsed")
+    
+    if archivo_subido is not None:
+        try:
+            df_importado = pd.read_csv(archivo_subido)
+            lote_importado = df_importado.to_dict(orient="records")
+            
+            if st.button("🚀 Aplicar Cambios del CSV a Supabase", use_container_width=True, type="primary"):
+                with st.spinner("Actualizando registros en la nube..."):
+                    supabase.table("ofertas").upsert(lote_importado).execute()
+                    st.success("¡Sincronización Exitosa! Datos actualizados en Supabase.")
+                    if "ofertas" in st.session_state:
+                        del st.session_state.ofertas
+                    st.rerun()
+        except Exception as e:
+            st.error(f"Error al procesar el archivo CSV: {str(e)}")
+
+st.divider()
+if st.button("💾 Guardar Configuración Directamente a Supabase (Sin pasar por CSV)", use_container_width=True):
+    if filas_tabla_ofertas:
+        with st.spinner("Sincronizando con Supabase..."):
             try:
-                # Actualización directa por ID en Supabase
-                resultado = supabase.table("ofertas").upsert(lote_para_guardar).execute()
-                st.success("¡Sincronización Exitosa! Se actualizaron los registros en la nube.")
-                st.toast("Base de datos actualizada correctamente", icon="✅")
-                
-                # Limpiamos la caché del session_state para forzar la lectura fresca de datos
+                supabase.table("ofertas").upsert(filas_tabla_ofertas).execute()
+                st.success("¡Guardado directo exitoso!")
                 if "ofertas" in st.session_state:
                     del st.session_state.ofertas
                 st.rerun()
-                
             except Exception as e:
-                st.error(f"❌ Error al impactar la tabla ofertas en Supabase: {str(e)}")
+                st.error(f"Error: {e}")
     else:
-        st.warning("⚠️ La maqueta actual no cuenta con elementos cargados en esta página para persistir.")
-
+        st.warning("No hay elementos para persistir.")
