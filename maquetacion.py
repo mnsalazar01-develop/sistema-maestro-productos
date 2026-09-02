@@ -374,141 +374,161 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
 # 8. RENDERIZADO INTERACTIVO FINAL Y PROCESAMIENTO INMUNE (CON PUENTE REAL JS->PY)
 # ==============================================================================
 def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
-    banco_html = ""
-    slots_ocupados = {}
-    
-    for o in ofertas:
-        img_url = o.get('img') if o.get('img') else "https://picsum.photos"
-        raw_p = o.get('numero_pagina')
-        raw_s = o.get('posicion_slot')
+    try:
+        banco_html = ""
+        slots_ocupados = {}
         
-        es_p = raw_p is not None and str(raw_p).lower() != "null" and str(raw_p).strip() != "" and str(raw_p) != "0"
-        es_s = raw_s is not None and str(raw_s).lower() != "null" and str(raw_s).strip() != "" and str(raw_s) != "0"
-        
-        card = f'''<div class="product-card" draggable="true" id="{o['id_oferta']}">
-        <img src="{img_url}"><div class="info"><span class="name">{o['nombre']}</span><span class="price">${o.get('precio_oferta', 0)}</span></div>
-        </div>'''
-        
-        if es_p and es_s:
-            try:
-                # Conversión ultra segura para evitar colapsos por tipos de datos
-                p_int = int(float(str(raw_p).strip()))
-                s_int = int(float(str(raw_s).strip()))
+        # Aseguramos que num_slots sea un entero limpio
+        try:
+            num_slots = int(float(str(num_slots).strip()))
+        except (ValueError, TypeError):
+            num_slots = 4
+
+        for o in ofertas:
+            if not isinstance(o, dict):
+                continue
                 
-                if p_int == pagina:
-                    if 1 <= s_int <= num_slots:
-                        slots_ocupados[s_int] = card
-                    else:
-                        banco_html += card
-                else:
-                    banco_html += f'<div style="display:none !important;" class="hidden-item-dom">{card}</div>'
-            except (ValueError, TypeError):
-                # Si el dato de la BD está corrupto, lo mandamos al banco a salvo
-                banco_html += card
-        else:
-            if es_p:
+            img_url = o.get('img') if o.get('img') else "https://picsum.photos"
+            raw_p = o.get('numero_pagina')
+            raw_s = o.get('posicion_slot')
+            
+            es_p = raw_p is not None and str(raw_p).lower() != "null" and str(raw_p).strip() != "" and str(raw_p) != "0"
+            es_s = raw_s is not None and str(raw_s).lower() != "null" and str(raw_s).strip() != "" and str(raw_s) != "0"
+            
+            card = f'''<div class="product-card" draggable="true" id="{o.get('id_oferta', '')}">
+            <img src="{img_url}"><div class="info"><span class="name">{o.get('nombre', 'Sin Nombre')}</span><span class="price">${o.get('precio_oferta', 0)}</span></div>
+            </div>'''
+            
+            if es_p and es_s:
                 try:
                     p_int = int(float(str(raw_p).strip()))
-                    if p_int != pagina:
-                        banco_html += f'<div style="display:none !important;" class="hidden-item-dom">{card}</div>'
+                    s_int = int(float(str(raw_s).strip()))
+                    
+                    if p_int == pagina:
+                        if 1 <= s_int <= num_slots:
+                            slots_ocupados[s_int] = card
+                        else:
+                            banco_html += card
                     else:
-                        banco_html += card
+                        banco_html += f'<div style="display:none !important;" class="hidden-item-dom">{card}</div>'
                 except (ValueError, TypeError):
                     banco_html += card
             else:
-                banco_html += card
+                if es_p:
+                    try:
+                        p_int = int(float(str(raw_p).strip()))
+                        if p_int != pagina:
+                            banco_html += f'<div style="display:none !important;" class="hidden-item-dom">{card}</div>'
+                        else:
+                            banco_html += card
+                    except (ValueError, TypeError):
+                        banco_html += card
+                else:
+                    banco_html += card
 
-    slots_html = ""
-    for i in range(1, num_slots + 1):
-        contenido_slot = slots_ocupados.get(i, f'<div class="placeholder">Posición Slot {i}</div>')
-        slots_html += f'<div class="slot" id="{i}">{contenido_slot}</div>'
-    
-    return f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-    body {{ font-family: system-ui, sans-serif; margin: 0; background: #f8f9fa; display: flex; gap: 20px; padding: 10px; }}
-    .sidebar {{ width: 280px; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; max-height:500px; overflow-y:auto; }}
-    .sidebar.drag-over {{ background: #fff5f5; border: 2px dashed #dc3545; }}
-    .canvas {{ flex: 1; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; }}
-    .grid-folleto {{ display: grid; grid-template-columns: {cols}; grid-template-rows: {rows}; gap: 12px; min-height: 400px; }}
-    .slot {{ border: 2px dashed #cbd5e1; border-radius: 6px; background: #fafafa; display: flex; align-items: center; justify-content: center; min-height: 90px; padding: 5px; }}
-    .slot.drag-over {{ border-color: #3b82f6; background: #eff6ff; }}
-    .product-card {{ background: white; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; cursor: grab; display: flex; gap: 10px; width: 100%; box-sizing: border-box; }}
-    .product-card img {{ width: 45px; height: 45px; object-fit: cover; border-radius: 4px; pointer-events: none; }}
-    .product-card .info {{ display: flex; flex-direction: column; font-size: 12px; overflow: hidden; pointer-events: none; }}
-    .product-card .price {{ color: #16a34a; font-weight: 700; margin-top: 2px; }}
-    .product-card .name {{ font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
-    .placeholder {{ color: #94a3b8; font-size: 13px; text-align: center; pointer-events: none; user-select: none; }}
-    </style></head><body>
-    <div class="sidebar" id="banco-disponibles">
-        <h4 style="margin:0 0 10px 0; font-size:14px; color: #475569;">Banco Productos</h4>
-        <div style="display: flex; flex-direction: column; gap:8px; min-height:400px;" id="banco-lista">{banco_html}</div>
-    </div>
-    <div class="canvas">
-        <h4 style="margin:0 0 10px 0; font-size: 14px; color: #475569;">Diseño Hoja Página {pagina}</h4>
-        <div class="grid-folleto">{slots_html}</div>
-    </div>
+        slots_html = ""
+        for i in range(1, num_slots + 1):
+            contenido_slot = slots_ocupados.get(i, f'<div class="placeholder">Posición Slot {i}</div>')
+            slots_html += f'<div class="slot" id="{i}">{contenido_slot}</div>'
+        
+        return f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+        body {{ font-family: system-ui, sans-serif; margin: 0; background: #f8f9fa; display: flex; gap: 20px; padding: 10px; }}
+        .sidebar {{ width: 280px; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; max-height:500px; overflow-y:auto; }}
+        .sidebar.drag-over {{ background: #fff5f5; border: 2px dashed #dc3545; }}
+        .canvas {{ flex: 1; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; }}
+        .grid-folleto {{ display: grid; grid-template-columns: {cols}; grid-template-rows: {rows}; gap: 12px; min-height: 400px; }}
+        .slot {{ border: 2px dashed #cbd5e1; border-radius: 6px; background: #fafafa; display: flex; align-items: center; justify-content: center; min-height: 90px; padding: 5px; }}
+        .slot.drag-over {{ border-color: #3b82f6; background: #eff6ff; }}
+        .product-card {{ background: white; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; cursor: grab; display: flex; gap: 10px; width: 100%; box-sizing: border-box; }}
+        .product-card img {{ width: 45px; height: 45px; object-fit: cover; border-radius: 4px; pointer-events: none; }}
+        .product-card .info {{ display: flex; flex-direction: column; font-size: 12px; overflow: hidden; pointer-events: none; }}
+        .product-card .price {{ color: #16a34a; font-weight: 700; margin-top: 2px; }}
+        .product-card .name {{ font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+        .placeholder {{ color: #94a3b8; font-size: 13px; text-align: center; pointer-events: none; user-select: none; }}
+        </style></head><body>
+        <div class="sidebar" id="banco-disponibles">
+            <h4 style="margin:0 0 10px 0; font-size:14px; color: #475569;">Banco Productos</h4>
+            <div style="display: flex; flex-direction: column; gap:8px; min-height:400px;" id="banco-lista">{banco_html}</div>
+        </div>
+        <div class="canvas">
+            <h4 style="margin:0 0 10px 0; font-size: 14px; color: #475569;">Diseño Hoja Página {pagina}</h4>
+            <div class="grid-folleto">{slots_html}</div>
+        </div>
 
-    <script>
-    function enviarDatosAStreamlit(payload) {{
-        const mensaje = {{
-            isStreamlitMessage: true,
-            type: "streamlit:setComponentValue",
-            value: JSON.stringify(payload)
-        }};
-        window.parent.postMessage(mensaje, "*");
-    }}
+        <script>
+        function enviarDatosAStreamlit(payload) {{
+            const mensaje = {{
+                isStreamlitMessage: true,
+                type: "streamlit:setComponentValue",
+                value: JSON.stringify(payload)
+            }};
+            window.parent.postMessage(mensaje, "*");
+        }}
 
-    let draggedNode = null;
-    document.querySelectorAll('.product-card').forEach(card => {{
-        card.addEventListener('dragstart', () => {{ draggedNode = card; card.style.opacity = '0.4'; }});
-        card.addEventListener('dragend', () => {{ draggedNode = null; card.style.opacity = '1'; }});
-    }});
-    
-    document.querySelectorAll('.slot').forEach(slot => {{
-        slot.addEventListener('dragover', (e) => {{ e.preventDefault(); slot.classList.add('drag-over'); }});
-        slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
-        slot.addEventListener('drop', () => {{
-            slot.classList.remove('drag-over');
-            if (draggedNode) {{
-                const ph = slot.querySelector('.placeholder'); if(ph) ph.remove();
-                slot.appendChild(draggedNode);
+        let draggedNode = null;
+        document.querySelectorAll('.product-card').forEach(card => {{
+            card.addEventListener('dragstart', () => {{ draggedNode = card; card.style.opacity = '0.4'; }});
+            card.addEventListener('dragend', () => {{ draggedNode = null; card.style.opacity = '1'; }});
+        }});
+        
+        document.querySelectorAll('.slot').forEach(slot => {{
+            slot.addEventListener('dragover', (e) => {{ e.preventDefault(); slot.classList.add('drag-over'); }});
+            slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
+            slot.addEventListener('drop', () => {{
+                slot.classList.remove('drag-over');
+                if (draggedNode) {{
+                    const ph = slot.querySelector('.placeholder'); if(ph) ph.remove();
+                    slot.appendChild(draggedNode);
+                    
+                    enviarDatosAStreamlit({{
+                        id_oferta: draggedNode.id,
+                        numero_pagina: {pagina},
+                        posicion_slot: slot.id,
+                        timestamp: Date.now()
+                    }});
+                }}
+            }});
+        }});
+        
+        const bZone = document.getElementById('banco-disponibles');
+        const bLista = document.getElementById('banco-lista');
+        bZone.addEventListener('dragover', (e) => {{ e.preventDefault(); bZone.classList.add('drag-over'); }});
+        bZone.addEventListener('dragleave', () => bZone.classList.remove('drag-over'));
+        bZone.addEventListener('drop', () => {{
+            bZone.classList.remove('drag-over');
+            if(draggedNode) {{
+                bLista.appendChild(draggedNode);
                 
                 enviarDatosAStreamlit({{
                     id_oferta: draggedNode.id,
-                    numero_pagina: {pagina},
-                    posicion_slot: slot.id,
+                    numero_pagina: null,
+                    posicion_slot: null,
                     timestamp: Date.now()
                 }});
             }}
         }});
-    }});
-    
-    const bZone = document.getElementById('banco-disponibles');
-    const bLista = document.getElementById('banco-lista');
-    bZone.addEventListener('dragover', (e) => {{ e.preventDefault(); bZone.classList.add('drag-over'); }});
-    bZone.addEventListener('dragleave', () => bZone.classList.remove('drag-over'));
-    bZone.addEventListener('drop', () => {{
-        bZone.classList.remove('drag-over');
-        if(draggedNode) {{
-            bLista.appendChild(draggedNode);
-            
-            enviarDatosAStreamlit({{
-                id_oferta: draggedNode.id,
-                numero_pagina: null,
-                posicion_slot: null,
-                timestamp: Date.now()
-            }});
-        }}
-    }});
-    </script></body></html>"""
+        </script></body></html>"""
+    except Exception as e:
+        return f"<h3>Error interno en la generación del canvas: {str(e)}</h3>"
 
 # Ejecución forzada con retorno de texto garantizado
 try:
-    html_renderizado = generar_canvas_ofertas_corregido(st.session_state.ofertas, pag_act, slots_deseados, columnas_css, filas_css)
+    # Verificamos que las ofertas existan en el estado de sesión antes de procesar
+    lista_ofertas_segura = st.session_state.ofertas if "ofertas" in st.session_state else []
+    
+    html_renderizado = generar_canvas_ofertas_corregido(
+        lista_ofertas_segura, 
+        int(pag_act), 
+        slots_deseados, 
+        columnas_css, 
+        filas_css
+    )
 except Exception as e:
-    html_renderizado = f"<h3>Error crítico en renderizado de datos: {str(e)}</h3>"
+    html_renderizado = f"<h3>Error crítico en el hilo de renderizado: {str(e)}</h3>"
 
+# Blindaje definitivo contra cualquier posible escape de tipo None
 if not html_renderizado or not isinstance(html_renderizado, str):
-    html_renderizado = "<h3>Lienzo de maquetación no disponible</h3>"
+    html_renderizado = "<h3>Lienzo de maquetación no disponible por error de datos</h3>"
 
 with st.container():
     evento_drag_drop = st.components.v1.html(
@@ -529,22 +549,22 @@ if evento_drag_drop:
             nuevo_s = datos.get("posicion_slot")
             cambio = False
             
-            for ofer in st.session_state.ofertas:
-                if str(ofer["id_oferta"]) == str(id_mod):
-                    val_p = None if nueva_p is None else int(nueva_p)
-                    val_s = None if nuevo_s is None else int(nuevo_s)
-                    
-                    if ofer.get("numero_pagina") != val_p or ofer.get("posicion_slot") != val_s:
-                        ofer["numero_pagina"] = val_p
-                        ofer["posicion_slot"] = val_s
-                        cambio = True
-            
-            st.session_state.ultimo_ts_procesado = evento_ts
-            if cambio:
-                st.rerun()
+            if "ofertas" in st.session_state:
+                for ofer in st.session_state.ofertas:
+                    if str(ofer.get("id_oferta")) == str(id_mod):
+                        val_p = None if nueva_p is None else int(nueva_p)
+                        val_s = None if nuevo_s is None else int(nuevo_s)
+                        
+                        if ofer.get("numero_pagina") != val_p or ofer.get("posicion_slot") != val_s:
+                            ofer["numero_pagina"] = val_p
+                            ofer["posicion_slot"] = val_s
+                            cambio = True
+                
+                st.session_state.ultimo_ts_procesado = evento_ts
+                if cambio:
+                    st.rerun()
     except Exception:
         pass
-
 
 
 
