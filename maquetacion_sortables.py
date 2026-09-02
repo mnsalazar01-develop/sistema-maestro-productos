@@ -6,7 +6,7 @@ from supabase import create_client, Client
 # CONFIGURACIÓN
 # ==============================================================================
 st.set_page_config(layout="wide", page_title="Maquetador Profesional de Ofertas")
-st.title("🎨 Maquetador Drag & Drop — 100% Operativo")
+st.title("🎨 Maquetador Drag & Drop — Guardado Multi-Página Corregido")
 
 # ==============================================================================
 # 1. SUPABASE
@@ -156,16 +156,16 @@ def safe_int(val, default=None):
     except (ValueError, TypeError):
         return default
 
-def calcular_layout_grid(num_slots):
+def calcular_num_cols(num_slots):
     if num_slots == 1:
-        return "1fr", "1fr", 1
+        return 1
     if num_slots == 2:
-        return "repeat(2, 1fr)", "1fr", 2
+        return 2
     if num_slots in (3, 4):
-        return "repeat(2, 1fr)", "repeat(2, 1fr)", 2
+        return 2
     if num_slots in (5, 6):
-        return "repeat(2, 1fr)", "repeat(3, 1fr)", 3
-    return "repeat(2, 1fr)", "repeat(4, 1fr)", 4
+        return 3
+    return 4
 
 # ==============================================================================
 # 7. CARGA DE OFERTAS
@@ -248,7 +248,7 @@ with st.container(border=True):
     with nav_col6:
         st.session_state.config_paginas[pag_act]["estilo"] = st.selectbox("Estilo:", ["Estándar", "Destacado", "Compacto"], index=["Estándar", "Destacado", "Compacto"].index(cfg["estilo"]), key=f"est_p{pag_act}")
 
-_, _, num_cols_reales = calcular_layout_grid(slots_deseados)
+num_cols_reales = calcular_num_cols(slots_deseados)
 
 # ==============================================================================
 # 9. DRAG & DROP OPERATIVO CON STREAMLIT-SORTABLES
@@ -258,18 +258,14 @@ st.caption("💡 Arrastra una oferta del banco a un slot para asignarla. Arrastr
 
 ofertas = st.session_state.get("ofertas", [])
 
-# Crear un diccionario de lookup por id para parsear después
-ofertas_por_id = {str(o["id_oferta"]): o for o in ofertas}
-
-# Formato de string: "id_oferta|nombre|precio"
 def format_item(o):
     precio = float(o.get("precio_oferta", 0)) if o.get("precio_oferta") is not None else 0
     return f"{o['id_oferta']}|{o.get('nombre', 'Sin nombre')}|${precio:,.0f}"
 
 def parse_item_id(item_str):
-    return item_str.split("|")[0]
+    return int(item_str.split("|")[0])
 
-# Container del banco (ofertas libres)
+# Container del banco
 banco_items = []
 for o in ofertas:
     if safe_int(o.get("numero_pagina")) is None:
@@ -289,7 +285,6 @@ for slot_num in range(1, slots_deseados + 1):
 
 all_containers = [{"header": "📦 Banco de Ofertas", "items": banco_items}] + slot_containers
 
-# Renderizar sortables
 sorted_data = sort_items(
     all_containers,
     multi_containers=True,
@@ -308,7 +303,7 @@ if sorted_data:
 
         if header == "📦 Banco de Ofertas":
             for item_str in items:
-                id_oferta = int(parse_item_id(item_str))
+                id_oferta = parse_item_id(item_str)
                 for o in st.session_state.ofertas:
                     if o["id_oferta"] == id_oferta:
                         if o.get("numero_pagina") is not None or o.get("posicion_slot") is not None:
@@ -319,7 +314,7 @@ if sorted_data:
         elif header.startswith("📍 Slot "):
             slot_num = int(header.replace("📍 Slot ", ""))
             for item_str in items:
-                id_oferta = int(parse_item_id(item_str))
+                id_oferta = parse_item_id(item_str)
                 for o in st.session_state.ofertas:
                     if o["id_oferta"] == id_oferta:
                         if o.get("numero_pagina") != pag_act or o.get("posicion_slot") != slot_num:
@@ -329,11 +324,11 @@ if sorted_data:
                         break
 
     if cambio:
-        st.success("✅ Cambios aplicados. Reordenamiento guardado en memoria.")
+        st.success("✅ Cambios aplicados.")
         st.rerun()
 
 # ==============================================================================
-# 11. TABLA DE ASIGNADAS
+# 11. TABLA DE ASIGNADAS (PÁGINA ACTUAL)
 # ==============================================================================
 st.markdown(f"### 📊 Ofertas en Página {pag_act}")
 
@@ -361,34 +356,71 @@ else:
     st.info("Ninguna oferta asignada en esta hoja todavía.")
 
 # ==============================================================================
-# 12. PREPARAR LOTE PARA GUARDAR
+# 12. RESUMEN DE TODAS LAS PÁGINAS MAQUETADAS
 # ==============================================================================
-filas_desasignadas = []
-for o in st.session_state.get("ofertas", []):
-    num_pag = safe_int(o.get("numero_pagina"))
-    if num_pag is None:
-        filas_desasignadas.append({
-            "id_oferta": o["id_oferta"],
-            "id_producto": o["id_producto"],
-            "id_campana": id_campana_activa,
-            "numero_pagina": None,
-            "posicion_slot": None,
-            "numero_fila": None,
-            "numero_columna": None,
-        })
+todas_asignadas = [o for o in st.session_state.get("ofertas", []) if safe_int(o.get("numero_pagina")) is not None]
+paginas_ocupadas = sorted(list(set([safe_int(o["numero_pagina"]) for o in todas_asignadas])))
 
-lote_para_guardar = filas_tabla_ofertas + filas_desasignadas
+if len(paginas_ocupadas) > 1:
+    st.markdown("### 📑 Resumen de páginas con ofertas")
+    cols_resumen = st.columns(len(paginas_ocupadas))
+    for idx, p_num in enumerate(paginas_ocupadas):
+        count = len([o for o in todas_asignadas if safe_int(o["numero_pagina"]) == p_num])
+        with cols_resumen[idx]:
+            st.metric(f"Página {p_num}", f"{count} ofertas")
 
 # ==============================================================================
-# 13. GUARDAR EN SUPABASE
+# 13. GUARDAR EN SUPABASE — CORRECCIÓN CRÍTICA: RECORRE TODAS LAS PÁGINAS
 # ==============================================================================
 if st.button("💾 Guardar Configuración Completa del Folleto", type="primary", use_container_width=True):
+    lote_para_guardar = []
+
+    for o in st.session_state.get("ofertas", []):
+        num_pag = safe_int(o.get("numero_pagina"))
+        pos_slot = safe_int(o.get("posicion_slot"))
+
+        if num_pag is not None and pos_slot is not None:
+            # Oferta asignada a alguna página → incluir con sus coordenadas
+            # Buscar la config de esa página para posicion_mix y sub_molde_estilo
+            config_pag = st.session_state.config_paginas.get(num_pag, {})
+            num_cols_pag = calcular_num_cols(config_pag.get("slots", slots_deseados))
+
+            lote_para_guardar.append({
+                "id_oferta": o["id_oferta"],
+                "id_producto": o["id_producto"],
+                "id_campana": id_campana_activa,
+                "numero_pagina": num_pag,
+                "posicion_slot": pos_slot,
+                "precio_oferta": o.get("precio_oferta"),
+                "posicion_mix": config_pag.get("distribucion", "Equilibrado"),
+                "sub_molde_estilo": config_pag.get("estilo", "Estándar"),
+                "numero_fila": ((pos_slot - 1) // num_cols_pag) + 1,
+                "numero_columna": ((pos_slot - 1) % num_cols_pag) + 1,
+            })
+        else:
+            # Oferta desasignada → limpiar coordenadas
+            lote_para_guardar.append({
+                "id_oferta": o["id_oferta"],
+                "id_producto": o["id_producto"],
+                "id_campana": id_campana_activa,
+                "numero_pagina": None,
+                "posicion_slot": None,
+                "numero_fila": None,
+                "numero_columna": None,
+            })
+
     if lote_para_guardar:
         try:
             with st.spinner("Sincronizando cambios con Supabase..."):
                 resultado = supabase.table("ofertas").upsert(lote_para_guardar).execute()
+
+            asignadas_count = len([r for r in lote_para_guardar if r["numero_pagina"] is not None])
+            desasignadas_count = len([r for r in lote_para_guardar if r["numero_pagina"] is None])
+
             st.success(f"✨ ¡Sincronización Exitosa! {len(resultado.data)} registros actualizados.")
+            st.info(f"📌 {asignadas_count} ofertas maquetadas | 🗑️ {desasignadas_count} ofertas en banco")
             st.toast("Base de datos actualizada correctamente", icon="🚀")
+
             if "ofertas" in st.session_state:
                 del st.session_state.ofertas
             st.rerun()
