@@ -372,9 +372,114 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
 
 
 # ==============================================================================
-# 8. RENDERIZADO INTERACTIVO FINAL Y PROCESAMIENTO INMUNE
+# 8. RENDERIZADO INTERACTIVO FINAL Y PROCESAMIENTO INMUNE (CON SINK DE EVENTOS)
 # ==============================================================================
-html_renderizado = generar_canvas_ofertas(st.session_state.ofertas, pag_act, slots_deseados, columnas_css, filas_css)
+# Generamos el HTML inyectando las funciones nativas de mensajería corregidas
+def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
+    banco_html, slots_ocupados = "", {}
+    for o in ofertas:
+        img_url = o.get('img') if o.get('img') else "https://picsum.photos"
+        raw_p = o.get('numero_pagina')
+        raw_s = o.get('posicion_slot')
+        
+        es_p = raw_p is not None and str(raw_p).lower() != "null" and str(raw_p).strip() != "" and str(raw_p) != "0"
+        es_s = raw_s is not None and str(raw_s).lower() != "null" and str(raw_s).strip() != "" and str(raw_s) != "0"
+        
+        card = f'''<div class="product-card" draggable="true" id="{o['id_oferta']}">
+        <img src="{img_url}"><div class="info"><span class="name">{o['nombre']}</span><span class="price">${o.get('precio_oferta', 0)}</span></div>
+        </div>'''
+        
+        if es_p and es_s:
+            if int(raw_p) == pagina:
+                if 1 <= int(raw_s) <= num_slots:
+                    slots_ocupados[int(raw_s)] = card
+                else:
+                    banco_html += card
+            else:
+                banco_html += f'<div style="display:none !important;" class="hidden-item-dom">{card}</div>'
+        else:
+            if es_p and int(raw_p) != pagina:
+                banco_html += f'<div style="display:none !important;" class="hidden-item-dom">{card}</div>'
+            else:
+                banco_html += card
+
+    slots_html = "".join([f'<div class="slot" id="{i}">' + slots_ocupados.get(i, f'<div class="placeholder">Posición Slot {i}</div>') + '</div>' for i in range(1, num_slots + 1)])
+    
+    return f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+    body {{ font-family: system-ui, sans-serif; margin: 0; background: #f8f9fa; display: flex; gap: 20px; padding: 10px; }}
+    .sidebar {{ width: 280px; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; max-height:500px; overflow-y:auto; }}
+    .sidebar.drag-over {{ background: #fff5f5; border: 2px dashed #dc3545; }}
+    .canvas {{ flex: 1; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; }}
+    .grid-folleto {{ display: grid; grid-template-columns: {cols}; grid-template-rows: {rows}; gap: 12px; min-height: 400px; }}
+    .slot {{ border: 2px dashed #cbd5e1; border-radius: 6px; background: #fafafa; display: flex; align-items: center; justify-content: center; min-height: 90px; padding: 5px; }}
+    .slot.drag-over {{ border-color: #3b82f6; background: #eff6ff; }}
+    .product-card {{ background: white; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; cursor: grab; display: flex; gap: 10px; width: 100%; box-sizing: border-box; }}
+    .product-card img {{ width: 45px; height: 45px; object-fit: cover; border-radius: 4px; pointer-events: none; }}
+    .product-card .info {{ display: flex; flex-direction: column; font-size: 12px; overflow: hidden; pointer-events: none; }}
+    .product-card .price {{ color: #16a34a; font-weight: 700; margin-top: 2px; }}
+    .product-card .name {{ font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+    .placeholder {{ color: #94a3b8; font-size: 13px; text-align: center; pointer-events: none; user-select: none; }}
+    </style></head><body>
+    <div class="sidebar" id="banco-disponibles">
+        <h4 style="margin:0 0 10px 0; font-size:14px; color: #475569;">Banco Productos</h4>
+        <div style="display: flex; flex-direction: column; gap:8px; min-height:400px;" id="banco-lista">{banco_html}</div>
+    </div>
+    <div class="canvas">
+        <h4 style="margin:0 0 10px 0; font-size: 14px; color: #475569;">Diseño Hoja Página {pagina}</h4>
+        <div class="grid-folleto">{slots_html}</div>
+    </div>
+    <script>
+    let draggedNode = null;
+    document.querySelectorAll('.product-card').forEach(card => {{
+        card.addEventListener('dragstart', () => {{ draggedNode = card; card.style.opacity = '0.4'; }});
+        card.addEventListener('dragend', () => {{ draggedNode = null; card.style.opacity = '1'; }});
+    }});
+    
+    document.querySelectorAll('.slot').forEach(slot => {{
+        slot.addEventListener('dragover', (e) => {{ e.preventDefault(); slot.classList.add('drag-over'); }});
+        slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
+        slot.addEventListener('drop', () => {{
+            slot.classList.remove('drag-over');
+            if (draggedNode) {{
+                const ph = slot.querySelector('.placeholder'); if(ph) ph.remove();
+                slot.appendChild(draggedNode);
+                // ¡CORRECCIÓN CRÍTICA!: Enviamos el timestamp real para que Python reaccione
+                window.parent.postMessage({{
+                    type: 'streamlit:setComponentValue', 
+                    value: JSON.stringify({{
+                        id_oferta: draggedNode.id,
+                        numero_pagina: {pagina},
+                        posicion_slot: slot.id,
+                        timestamp: Date.now()
+                    }})
+                }}, '*');
+            }}
+        }});
+    }});
+    
+    const bZone = document.getElementById('banco-disponibles');
+    const bLista = document.getElementById('banco-lista');
+    bZone.addEventListener('dragover', (e) => {{ e.preventDefault(); bZone.classList.add('drag-over'); }});
+    bZone.addEventListener('dragleave', () => bZone.classList.remove('drag-over'));
+    bZone.addEventListener('drop', () => {{
+        bZone.classList.remove('drag-over');
+        if(draggedNode) {{
+            bLista.appendChild(draggedNode);
+            // ¡CORRECCIÓN CRÍTICA!: Envío de desasignación con timestamp hacia el banco
+            window.parent.postMessage({{
+                type: 'streamlit:setComponentValue', 
+                value: JSON.stringify({{
+                    id_oferta: draggedNode.id,
+                    numero_pagina: null,
+                    posicion_slot: null,
+                    timestamp: Date.now()
+                }})
+            }}, '*');
+        }}
+    }});
+    </script></body></html>"""
+
+html_renderizado = generar_canvas_ofertas_corregido(st.session_state.ofertas, pag_act, slots_deseados, columnas_css, filas_css)
 
 with st.container():
     evento_drag_drop = st.components.v1.html(html_renderizado, height=540, scrolling=False)
@@ -384,24 +489,23 @@ if evento_drag_drop:
         datos = json.loads(evento_drag_drop)
         evento_ts = datos.get("timestamp", 0)
         
-        # Filtro por marca de tiempo: El evento solo se procesa si es una acción nueva
         if evento_ts > st.session_state.get("ultimo_ts_procesado", 0):
             id_mod = datos.get("id_oferta")
             nueva_p = datos.get("numero_pagina")
             nuevo_s = datos.get("posicion_slot")
-            
             cambio = False
+            
             for ofer in st.session_state.ofertas:
-                if ofer["id_oferta"] == id_mod:
+                if str(ofer["id_oferta"]) == str(id_mod):
                     if ofer.get("numero_pagina") != nueva_p or ofer.get("posicion_slot") != nuevo_s:
-                        ofer["numero_pagina"] = nueva_p
-                        ofer["posicion_slot"] = nuevo_s
+                        ofer["numero_pagina"] = nueva_p if nueva_p is None else int(nueva_p)
+                        ofer["posicion_slot"] = nuevo_s if nuevo_s is None else int(nuevo_s)
                         cambio = True
             
+            st.session_state.ultimo_ts_procesado = evento_ts
             if cambio:
-                st.session_state.ultimo_ts_procesado = evento_ts
                 st.rerun()
-    except Exception:
+    except Exception as e:
         pass
 
 # ==============================================================================
@@ -409,33 +513,20 @@ if evento_drag_drop:
 # ==============================================================================
 st.markdown(f"### 📊 Registros Procesados de la Página {pag_act}")
 
-# 1. Detectamos el ID real de la campaña desde el st.session_state
+# Detectamos de manera segura el ID numérico de la campaña activa
 id_campana_real = 0
-
-# Buscamos las variaciones de nombres más comunes que uses en tus selectores
-if "id_campana_activa" in st.session_state:
-    id_campana_real = st.session_state["id_campana_activa"]
-elif "id_campana" in st.session_state:
-    id_campana_real = st.session_state["id_campana"]
-elif "campana_seleccionada" in st.session_state:
-    id_campana_real = st.session_state["campana_seleccionada"]
-elif 'id_campana_activa' in locals() or 'id_campana_activa' in globals():
-    # Si existe como variable suelta, la usamos
+if "selector_campana_activa" in st.session_state and "dict_campanas_opciones" in locals():
+    label = st.session_state["selector_campana_activa"]
+    id_campana_real = dict_campanas_opciones.get(label, 0)
+elif "id_campana_activa" in locals():
     id_campana_real = id_campana_activa
 
-# Aseguramos que sea un entero numérico puro
-try:
-    id_campana_real = int(id_campana_real)
-except (ValueError, TypeError):
-    id_campana_real = 0
-
-# Valores de respaldo para distribución y estilo
-distribucion_segura = tipo_distribucion if 'tipo_distribucion' in locals() or 'tipo_distribucion' in globals() else "Estándar"
-sub_estilo_seguro = sub_estilo if 'sub_estilo' in locals() or 'sub_estilo' in globals() else "Normal"
+# Detectamos configuración de layout actual
+tipo_distribucion = cfg.get("distribucion", "Equilibrado")
+sub_estilo = cfg.get("estilo", "Estándar")
 
 filas_tabla_ofertas = []
 
-# 2. Procesamos las ofertas
 if "ofertas" in st.session_state:
     for o in st.session_state.ofertas:
         if o.get("numero_pagina") is not None and str(o["numero_pagina"]) != "null" and int(o["numero_pagina"]) == pag_act:
@@ -447,66 +538,44 @@ if "ofertas" in st.session_state:
             fila = {
                 "id_oferta": o.get("id_oferta"),
                 "id_producto": o.get("id_producto"),
-                "id_campana": id_campana_real,  # <--- ID REAL ASIGNADO
+                "id_campana": int(id_campana_real),
                 "numero_pagina": int(o["numero_pagina"]),
                 "posicion_slot": int(slot) if slot else None,
                 "precio_oferta": o.get("precio_oferta"),
-                "posicion_mix": distribucion_segura,
-                "sub_molde_estilo": sub_estilo_seguro,
+                "posicion_mix": tipo_distribucion,
+                "sub_molde_estilo": sub_estilo,
                 "numero_fila": num_fila,
                 "numero_columna": num_columna
             }
             filas_tabla_ofertas.append(fila)
 
-# 3. Renderizado de la tabla
 if filas_tabla_ofertas:
     st.dataframe(filas_tabla_ofertas, use_container_width=True)
 else:
     st.info("Ninguna oferta asignada en esta hoja todavía. Arrastra elementos desde el banco de la campaña.")
 
-# ==============================================================================
-# 10. ACCIÓN DE GUARDADO EN BASE DE DATOS
-# ==============================================================================
 
-# 1. Creamos la variable que espera tu lógica de base de datos
-lote_para_guardar = filas_tabla_ofertas if 'filas_tabla_ofertas' in locals() else []
+# ==============================================================================
+# 10. EJECUCIÓN DIRECTA DEL UPSERT MULTI-PÁGINA EN SUPABASE (BOTÓN ÚNICO BLINDADO)
+# ==============================================================================
+lote_para_guardar = filas_tabla_ofertas
 
-# 2. Condicional del botón de guardado
-if st.button("Guardar Cambios", type="primary"):
+if st.button("Guardar Configuración Completa del Folleto", type="primary", use_container_width=True):
     if lote_para_guardar:
-        try:
-            # Aquí va tu código actual de conexión/subida a Supabase
-            resultado = supabase.table("ofertas").upsert(lote_para_guardar).execute()
-            
-            st.success(f"¡Éxito! Se guardaron {len(lote_para_guardar)} registros correctamente.")
-            st.balloons()
-            
-        except Exception as e:
-            st.error(f"Error al conectar con la base de datos: {str(e)}")
-    else:
-        st.warning("No hay registros modificados en esta página para guardar.")
-
-
-"""
-# ==============================================================================
-# 10. EJECUCIÓN DIRECTA DEL UPSERT MULTI-PÁGINA EN SUPABASE
-# ==============================================================================
-if st.button("💾 Guardar Configuración Completa del Folleto", type="primary", use_container_width=True):
-    if lote_para_guardar:
-        try:
-            with st.spinner("Sincronizando cambios con Supabase..."):
-                # El método upsert actualizará las filas existentes por su 'id_oferta' en un único viaje de red
+        with st.spinner("Sincronizando cambios con Supabase..."):
+            try:
+                # Actualización directa por ID en Supabase
                 resultado = supabase.table("ofertas").upsert(lote_para_guardar).execute()
+                st.success("¡Sincronización Exitosa! Se actualizaron los registros en la nube.")
+                st.toast("Base de datos actualizada correctamente", icon="✅")
                 
-            st.success(f"✨ ¡Sincronización Exitosa! {len(resultado.data)} registros actualizados en la nube.")
-            st.toast("Base de datos actualizada correctamente", icon="🚀")
-            
-            # Forzamos una recarga limpia del estado de la campaña desde la base de datos post-guardado
-            del st.session_state.ofertas
-            st.rerun()
-            
-        except Exception as e:
-            st.error(f"❌ Error al impactar la tabla ofertas en Supabase: {str(e)}")
+                # Limpiamos la caché del session_state para forzar la lectura fresca de datos
+                if "ofertas" in st.session_state:
+                    del st.session_state.ofertas
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"❌ Error al impactar la tabla ofertas en Supabase: {str(e)}")
     else:
-        st.warning("⚠️ La maqueta actual no cuenta con elementos cargados para persistir.")
-"""
+        st.warning("⚠️ La maqueta actual no cuenta con elementos cargados en esta página para persistir.")
+
