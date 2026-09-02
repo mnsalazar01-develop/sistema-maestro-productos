@@ -371,76 +371,97 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     </script></body></html>"""
 
 # ==============================================================================
-# 8. RENDERIZADO INTERACTIVO DRAG & DROP OFICIAL (INMUNE A BLOQUEOS)
+# 8. RENDERIZADO INTERACTIVO DRAG & DROP OFICIAL (CON CONTENEDORES NATIVOS)
 # ==============================================================================
-from streamlit_drag_drop import streamlit_drag_drop
+from streamlit_dnd import dnd  # Componente oficial de arrastre de contenedores
 import pandas as pd
 import json
 
 st.markdown("### 🗺️ Lienzo de Maquetación Visual")
-st.info("Arrastra las ofertas desde el banco izquierdo hacia los slots numerados de la derecha.")
+st.info("Arrastra los bloques de productos desde el banco hacia las posiciones del folleto.")
 
-# 1. Preparación limpia de datos para el componente nativo
-banco_productos = []
-slots_iniciales = {f"Slot {i}": [] for i in range(1, slots_deseados + 1)}
+# Inicializamos la marca de tiempo de control en la sesión
+if "ultimo_ts_procesado" not in st.session_state:
+    st.session_state.ultimo_ts_procesado = 0
+
+# Separamos las ofertas en dos grupos según su estado actual
+banco_items = []
+slots_items = {f"slot_{i}": [] for i in range(1, slots_deseados + 1)}
 
 if "ofertas" in st.session_state:
     for o in st.session_state.ofertas:
-        # Estructuramos la etiqueta visual de la tarjeta
-        label_tarjeta = f"📦 {o.get('id_producto')} - {o.get('nombre', 'Sin Nombre')} (${o.get('precio_oferta', 0)})"
-        
         raw_p = o.get('numero_pagina')
         raw_s = o.get('posicion_slot')
         
         es_en_esta_pagina = raw_p is not None and int(raw_p) == pag_act
         
-        if es_en_esta_pagina and raw_s and f"Slot {raw_s}" in slots_iniciales:
-            slots_iniciales[f"Slot {raw_s}"].append(label_tarjeta)
+        if es_en_esta_pagina and raw_s and f"slot_{raw_s}" in slots_items:
+            slots_items[f"slot_{raw_s}"].append(o)
         elif raw_p is None or str(raw_p).lower() == "null" or int(raw_p) == pag_act:
-            banco_productos.append(label_tarjeta)
+            banco_items.append(o)
 
-# Unificamos las columnas que el componente Drag & Drop va a dibujar en pantalla
-columnas_maquetador = {
-    "Banco de Productos": banco_productos,
-    **slots_iniciales
-}
+# CREACIÓN DEL LAYOUT VISUAL EN PANTALLA
+col_banco, col_folleto = st.columns([1, 2])
 
-# 2. Renderizado del Drag & Drop (Retorna los datos mutados en tiempo real)
-resultado_movimientos = streamlit_drag_drop(
-    columns_mapping=columnas_maquetador,
-    key=f"maquetador_nativo_pag_{pag_act}"
-)
+with col_banco:
+    st.markdown("#### 📦 Banco de Productos")
+    # Generamos el contenedor del banco con una clave única 'banco_origen'
+    with st.container(key="banco_origen", border=True):
+        if not banco_items:
+            st.write("*Vacío*")
+        for o in banco_items:
+            with st.container(key=f"item_{o['id_oferta']}", border=True):
+                st.markdown(f"**{o.get('nombre', 'Sin Nombre')}**")
+                st.markdown(f"ID: {o.get('id_producto')} | ${o.get('precio_oferta', 0)}")
 
-# 3. Sincronización instantánea de los movimientos en el st.session_state
-if resultado_movimientos and isinstance(resultado_movimientos, dict):
-    cambio_detectado = False
+with col_folleto:
+    st.markdown(f"#### 📄 Slots Disponibles (Página {pag_act})")
     
-    for columna_nombre, lista_tarjetas in resultado_movimientos.items():
-        for tarjeta in lista_tarjetas:
-            # Extraemos el ID del producto desde el texto de la tarjeta
-            try:
-                id_prod_movido = tarjeta.split(" - ")[0].replace("📦 ", "").strip()
-            except Exception:
-                continue
-                
-            for ofer in st.session_state.ofertas:
-                if str(ofer.get("id_producto")) == str(id_prod_movido):
-                    if columna_nombre == "Banco de Productos":
-                        # Si se regresó al banco, limpiamos coordenadas
-                        if ofer.get("numero_pagina") is not None or ofer.get("posicion_slot") is not None:
-                            ofer["numero_pagina"] = None
-                            ofer["posicion_slot"] = None
-                            cambio_detectado = True
-                    else:
-                        # Si se soltó en un slot, extraemos el número de slot
-                        num_slot_detectado = int(columna_nombre.replace("Slot ", "").strip())
-                        if ofer.get("numero_pagina") != pag_act or ofer.get("posicion_slot") != num_slot_detectado:
-                            ofer["numero_pagina"] = pag_act
-                            ofer["posicion_slot"] = num_slot_detectado
-                            cambio_detectado = True
-                            
-    if cambio_detectado:
-        st.rerun()
+    # Calculamos la distribución de columnas dinámicas según la matemática del layout
+    grid_cols = st.columns(2)  # Generamos un layout base de 2 columnas visuales
+    
+    for i in range(1, slots_deseados + 1):
+        target_col = grid_cols[(i - 1) % 2]
+        with target_col:
+            st.markdown(f"**Posición {i}**")
+            # Generamos cada slot como un contenedor rastreable por el DnD
+            with st.container(key=f"slot_{i}", border=True):
+                ofertas_en_slot = slots_items[f"slot_{i}"]
+                if not ofertas_en_slot:
+                    st.caption("Arrastra un producto aquí")
+                for o in ofertas_en_slot:
+                    with st.container(key=f"item_{o['id_oferta']}", border=True):
+                        st.markdown(f"**{o.get('nombre', 'Sin Nombre')}**")
+                        st.caption(f"ID: {o.get('id_producto')}")
+
+# ACTIVACIÓN DEL MOTOR DRAG & DROP
+# Le pasamos la lista de llaves de los contenedores que queremos enlazar
+todas_las_llaves = ["banco_origen"] + [f"slot_{i}" for i in range(1, slots_deseados + 1)]
+evento_movimiento = dnd(*todas_las_llaves, key="motor_maquetador")
+
+# CAPTURA Y PROCESAMIENTO DEL MOVIMIENTO EN PYTHON
+if evento_movimiento:
+    # El componente nos devuelve qué elemento se movió, desde dónde y hacia dónde
+    id_item_movido = evento_movimiento.source_item.replace("item_", "")
+    contenedor_destino = evento_movimiento.destination_container
+    
+    cambio = False
+    if "ofertas" in st.session_state:
+        for o in st.session_state.ofertas:
+            if str(o.get("id_oferta")) == str(id_item_movido):
+                if contenedor_destino == "banco_origen":
+                    if o.get("numero_pagina") is not None or o.get("posicion_slot") is not None:
+                        o["numero_pagina"] = None
+                        o["posicion_slot"] = None
+                        cambio = True
+                else:
+                    num_slot = int(contenedor_destino.replace("slot_", ""))
+                    if o.get("numero_pagina") != pag_act or o.get("posicion_slot") != num_slot:
+                        o["numero_pagina"] = pag_act
+                        o["posicion_slot"] = num_slot
+                        cambio = True
+        if cambio:
+            st.rerun()
 
 # ==============================================================================
 # 9. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA
