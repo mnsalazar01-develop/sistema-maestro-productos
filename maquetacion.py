@@ -484,68 +484,89 @@ else:
 
 
 # ==============================================================================
-# 10. EXPORTACIÓN A CSV Y CONTROL DE RESPALDO MANUAL
+# 10. CONSTRUIR CONTENEDORES PARA SORTABLES REACTIVOS
 # ==============================================================================
-st.divider()
-st.markdown("### 💾 Acciones de Respaldo y Sincronización")
+ofertas = st.session_state.get("ofertas", [])
 
-# PARCHE DE SEGURIDAD PARA ID_CAMPANA_REAL (Evita el NameError)
-if "id_campana_real" not in locals() and "id_campana_real" not in globals():
-    # Buscamos variantes comunes en tu session_state o asignamos un respaldo limpio
-    id_campana_real = st.session_state.get("id_campana", st.session_state.get("id_campana_real", "global"))
+# El Banco captura todo lo que safe_int dictamine como None (incluyendo null y 0)
+banco_items = [format_item(o) for o in ofertas if safe_int(o.get("numero_pagina")) is None]
 
-col_exp, col_imp = st.columns(2)
+# Slots: cada slot es un contenedor separado para la página en pantalla
+slot_containers = []
+for slot_num in range(1, slots_deseados + 1):
+    slot_items = [
+        format_item(o) for o in ofertas
+        if safe_int(o.get("numero_pagina")) == pag_act
+        and safe_int(o.get("posicion_slot")) == slot_num
+    ]
+    slot_containers.append({
+        "header": f"📦 Slot {slot_num}",
+        "items": slot_items
+    })
 
-with col_exp:
-    st.markdown("**1. Exportar Maqueta Local**")
-    if "filas_tabla_ofertas" not in locals() and "filas_tabla_ofertas" not in globals():
-        filas_tabla_ofertas = st.session_state.get("ofertas", [])
-        
-    if filas_tabla_ofertas:
-        df_exportar = pd.DataFrame(filas_tabla_ofertas)
-        csv_data = df_exportar.to_csv(index=False).encode('utf-8')
-        
-        st.download_button(
-            label="📥 Descargar Maqueta Actual (.CSV)",
-            data=csv_data,
-            # Nombre de archivo protegido contra caídas
-            file_name=f"maqueta_campana_{id_campana_real}_pag_{pag_act}.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-    else:
-        st.button("📥 Descargar Maqueta Actual (.CSV)", disabled=True, use_container_width=True)
+all_containers = [{"header": "🛒 Banco de Ofertas", "items": banco_items}] + slot_containers
 
-with col_imp:
-    st.markdown("**2. Importar y Sincronizar desde CSV**")
-    archivo_subido = st.file_uploader("Cargar archivo de respaldo:", type=["csv"], label_visibility="collapsed")
+# ==============================================================================
+# 11. RENDERIZAR SORTABLES CON RESPUESTA AL CAMBIO DE PÁGINA
+# ==============================================================================
+st.markdown("### Arrastra ofertas entre el Banco y los Slots")
+st.caption("Arrastra una oferta del banco a un slot para asignarla. Cambia de página para maquetar otra hoja.")
+
+# CLAVE REACTIVA CORREGIDA: Al incluir pag_act, el lienzo se destruye y se vuelve
+# a construir con los datos correctos de la hoja elegida al pulsar los botones.
+sorted_data = sort_items(
+    all_containers,
+    multi_containers=True,
+    direction="vertical",
+    key=f"sort_estable_p{pag_act}_s{slots_deseados}"
+)
+
+# ==============================================================================
+# 12. PROCESAR RESULTADO DEL DRAG & DROP
+# ==============================================================================
+if sorted_data:
+    cambio = False
+    nueva_asignacion = {}  # id_oferta -> (numero_pagina, posicion_slot)
+    ids_procesados = set()
     
-    if archivo_subido is not None:
-        try:
-            df_importado = pd.read_csv(archivo_subido)
-            lote_importado = df_importado.to_dict(orient="records")
-            
-            if st.button("🚀 Aplicar Cambios del CSV a Supabase", use_container_width=True, type="primary"):
-                with st.spinner("Actualizando registros en la nube..."):
-                    supabase.table("ofertas").upsert(lote_importado).execute()
-                    st.success("¡Sincronización Exitosa! Datos actualizados en Supabase.")
-                    if "ofertas" in st.session_state:
-                        del st.session_state.ofertas
-                    st.rerun()
-        except Exception as e:
-            st.error(f"Error al procesar el archivo CSV: {str(e)}")
+    for container in sorted_data:
+        header = container.get("header", "")
+        items = container.get("items", [])
+        
+        if header == "🛒 Banco de Ofertas":
+            # Todo elemento en el banco se limpia y asume None (que safe_int procesará como 0/null)
+            for item_str in items:
+                id_oferta = parse_item_id(item_str)
+                if id_oferta not in ids_procesados:
+                    nueva_asignacion[id_oferta] = (None, None)
+                    ids_procesados.add(id_oferta)
+                    
+        elif header.startswith("📦 Slot "):
+            slot_num = int(header.replace("📦 Slot ", ""))
+            if items:
+                # Solo la primera oferta colocada en el casillero se queda con el espacio
+                id_oferta = parse_item_id(items[0])
+                if id_oferta not in ids_procesados:
+                    nueva_asignacion[id_oferta] = (pag_act, slot_num)
+                    ids_procesados.add(id_oferta)
+                
+                # Las tarjetas sobrantes que se encimen por accidente se devuelven automáticamente al banco
+                for extra_str in items[1:]:
+                    id_extra = parse_item_id(extra_str)
+                    if id_extra not in ids_procesados:
+                        nueva_asignacion[id_extra] = (None, None)
+                        ids_procesados.add(id_extra)
 
-st.divider()
-if st.button("💾 Guardar Configuración Directamente a Supabase (Sin pasar por CSV)", use_container_width=True):
-    if filas_tabla_ofertas:
-        with st.spinner("Sincronizando con Supabase..."):
-            try:
-                supabase.table("ofertas").upsert(filas_tabla_ofertas).execute()
-                st.success("¡Guardado directo exitoso!")
-                if "ofertas" in st.session_state:
-                    del st.session_state.ofertas
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error: {e}")
-    else:
-        st.warning("No hay elementos para persistir.")
+    # Aplicamos los movimientos de las tarjetas al estado global de la sesión
+    for o in st.session_state.ofertas:
+        id_o = o["id_oferta"]
+        if id_o in nueva_asignacion:
+            nueva_p, nueva_s = nueva_asignacion[id_o]
+            if o.get("numero_pagina") != nueva_p or o.get("posicion_slot") != nueva_s:
+                o["numero_pagina"] = nueva_p
+                o["posicion_slot"] = nueva_s
+                cambio = True
+                
+    if cambio:
+        st.success("✔ Cambios aplicados a la maqueta.")
+        st.rerun()
