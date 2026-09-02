@@ -607,7 +607,7 @@ col_exp, col_imp = st.columns(2)
 with col_exp:
     st.markdown("**1. Exportar Maqueta Local**")
     if "filas_tabla_ofertas" not in locals() and "filas_tabla_ofertas" not in globals():
-    filas_tabla_ofertas = st.session_state.get("ofertas", [])
+        filas_tabla_ofertas = st.session_state.get("ofertas", [])
     if filas_tabla_ofertas:
         df_exportar = pd.DataFrame(filas_tabla_ofertas)
         csv_data = df_exportar.to_csv(index=False).encode('utf-8')
