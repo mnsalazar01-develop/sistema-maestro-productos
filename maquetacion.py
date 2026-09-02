@@ -370,6 +370,7 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
         }});
     </script></body></html>"""
 
+
 # ==============================================================================
 # 8. RENDERIZADO INTERACTIVO FINAL Y PROCESAMIENTO INMUNE (CON PUENTE REAL JS->PY)
 # ==============================================================================
@@ -430,7 +431,6 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
             contenido_slot = slots_ocupados.get(i, f'<div class="placeholder">Posición Slot {i}</div>')
             slots_html += f'<div class="slot" id="{i}">{contenido_slot}</div>'
         
-        # Convertimos las variables de columnas y filas a strings limpios
         style_cols = str(cols)
         style_rows = str(rows)
 
@@ -454,7 +454,6 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
         </div>
         <div class="canvas">
             <h4 style="margin:0 0 10px 0; font-size: 14px; color: #475569;">Diseño Hoja Página {pagina}</h4>
-            <!-- Inyectamos los estilos de grilla de forma directa en el estilo del elemento para no romper las llaves CSS -->
             <div class="grid-folleto" style="display: grid; grid-template-columns: {style_cols}; grid-template-rows: {style_rows}; gap: 12px; min-height: 400px;">
                 {slots_html}
             </div>
@@ -513,11 +512,10 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
             }}
         }});
         </script></body></html>"""
-    except Exception as e:
-        # Si algo falla, devolvemos un HTML plano sin llaves conflictivas para que no rompa Streamlit
+    except Exception:
         return "<h3>Error en generacion de interfaz HTML</h3>"
 
-# Invocación limpia
+# Invocación limpia de los datos
 lista_ofertas_segura = st.session_state.ofertas if "ofertas" in st.session_state else []
 html_renderizado = generar_canvas_ofertas_corregido(
     lista_ofertas_segura, 
@@ -527,17 +525,12 @@ html_renderizado = generar_canvas_ofertas_corregido(
     filas_css
 )
 
-# Validamos que el String sea correcto antes de renderizar
-if not isinstance(html_renderizado, str) or "Error" in html_renderizado:
-    st.error("Hubo un problema al estructurar los datos del lienzo visual.")
-    st.stop()
-
 with st.container():
+    # ¡EL CAMBIO CRÍTICO!: Eliminamos la key dinámica para estabilizar el recolector de métricas de Streamlit
     evento_drag_drop = st.components.v1.html(
-        html_renderizado, 
+        str(html_renderizado), 
         height=540, 
-        scrolling=False, 
-        key=f"canvas_maquetador_pag_{pag_act}"
+        scrolling=False
     )
 
 if evento_drag_drop:
