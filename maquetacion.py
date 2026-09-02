@@ -559,6 +559,18 @@ def obtener_motor_javascript_html(ofertas_json, pagina_actual, cols, total_slots
 import json
 import streamlit as st
 
+# Función de conversión segura para evitar el TypeError
+def convertir_a_entero_seguro(valor):
+    if valor is None:
+        return 0
+    val_str = str(valor).strip().lower()
+    if val_str in ("", "null", "none", "nan", "undefined", "0"):
+        return 0
+    try:
+        return int(float(val_str))
+    except (ValueError, TypeError):
+        return 0
+
 # 1. Recuperamos las ofertas de la sesión (o datos de prueba si no existen)
 if "ofertas" not in st.session_state or not st.session_state.ofertas:
     st.session_state.ofertas = [
@@ -571,23 +583,24 @@ if "ofertas" not in st.session_state or not st.session_state.ofertas:
 lista_ofertas_campana = st.session_state.ofertas
 
 # 2. Extraemos las variables de control numéricas de la sesión
-pag_act = int(st.session_state.get("pag_act", 1))
-cols_grilla = int(st.session_state.get("columnas_css", 2))
-filas_grilla = int(st.session_state.get("filas_css", 3))
+pag_act = convertir_a_entero_seguro(st.session_state.get("pag_act", 1))
+cols_grilla = convertir_a_entero_seguro(st.session_state.get("columnas_css", 2))
+filas_grilla = convertir_a_entero_seguro(st.session_state.get("filas_css", 3))
 
 # 3. Calculamos la matriz estructural
 total_slots_calculados = cols_grilla * filas_grilla
 style_cols_grid = f"repeat({cols_grilla}, 1fr)"
 style_rows_grid = f"repeat({filas_grilla}, 1fr)"
 
-# 4. FILTRADO INTELIGENTE EN PYTHON: Separamos los productos antes de enviarlos a JS
-# Pasamos los que pertenecen a la página actual Y los que están en el banco (página 0 o slot 0)
-ofertas_filtradas = [
-    o for o in lista_ofertas_campana 
-    if (int(o.get("numero_pagina", 0)) == pag_act) or 
-       (int(o.get("numero_pagina", 0)) == 0) or 
-       (int(o.get("posicion_slot", 0)) == 0)
-]
+# 4. FILTRADO PROTEGIDO: Evaluamos usando la función segura
+ofertas_filtradas = []
+for o in lista_ofertas_campana:
+    p_num = convertir_a_entero_seguro(o.get("numero_pagina"))
+    s_num = convertir_a_entero_seguro(o.get("posicion_slot"))
+    
+    # Condición: Pertenece a esta página O está sin asignar en el banco (0)
+    if (p_num == pag_act) or (p_num == 0) or (s_num == 0):
+        ofertas_filtradas.append(o)
 
 # Convertimos a JSON seguro
 ofertas_serializadas = json.dumps(ofertas_filtradas)
@@ -611,8 +624,6 @@ html_final_compilado = html_estructura + html_motor_js
 # 6. Renderizado reactivo mediante asignación de Clave Única (Key)
 st.markdown(f"### 🛠️ Lienzo de Maquetación Activa — Página {pag_act}")
 
-# El secreto es usar key=f"canvas_pag_{pag_act}". Al cambiar de página,
-# Streamlit se ve obligado a reconstruir el iFrame con los datos actualizados.
 st.components.v1.html(
     html_final_compilado, 
     height=490, 
@@ -621,7 +632,6 @@ st.components.v1.html(
 )
 
 st.caption("💡 Organiza el catálogo arrastrando los productos. El lienzo se actualiza automáticamente al cambiar de página.")
-
 
 
 # ==============================================================================
