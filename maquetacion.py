@@ -554,35 +554,45 @@ def obtener_motor_javascript_html(ofertas_json, pagina_actual, cols, total_slots
     return js_motor
 
 # ==============================================================================
-# 9. INTEGRACIÓN, COMPILACIÓN Y RENDERIZADO DEL LIENZO EN STREAMLIT
+# 9. INTEGRACIÓN, COMPILACIÓN Y RENDERIZADO REACTIVO DEL LIENZO
 # ==============================================================================
 import json
 import streamlit as st
 
-# 1. Recuperamos las ofertas activas de la sesión (o creamos unas de prueba si no existen)
+# 1. Recuperamos las ofertas de la sesión (o datos de prueba si no existen)
 if "ofertas" not in st.session_state or not st.session_state.ofertas:
     st.session_state.ofertas = [
-        {"id_oferta": 1, "id_producto": 101, "nombre": "Producto Ejemplo 1", "precio_oferta": 199.90, "numero_pagina": 1, "posicion_slot": 1, "sku": "SKU-EX-01"},
-        {"id_oferta": 2, "id_producto": 102, "nombre": "Producto Ejemplo 2", "precio_oferta": 45.00, "numero_pagina": 0, "posicion_slot": 0, "sku": "SKU-EX-02"},
-        {"id_oferta": 3, "id_producto": 103, "nombre": "Producto Ejemplo 3", "precio_oferta": 89.90, "numero_pagina": 1, "posicion_slot": 2, "sku": "SKU-EX-03"}
+        {"id_oferta": 1, "id_producto": 101, "nombre": "Televisor Smart 55", "precio_oferta": 399.99, "numero_pagina": 1, "posicion_slot": 1, "sku": "TV-55"},
+        {"id_oferta": 2, "id_producto": 102, "nombre": "Silla Gamer Ergo", "precio_oferta": 145.00, "numero_pagina": 0, "posicion_slot": 0, "sku": "CHAIR-G"},
+        {"id_oferta": 3, "id_producto": 103, "nombre": "Barra de Sonido BT", "precio_oferta": 85.00, "numero_pagina": 1, "posicion_slot": 2, "sku": "AUDIO-B"},
+        {"id_oferta": 4, "id_producto": 104, "nombre": "Laptop de Oficina", "precio_oferta": 599.00, "numero_pagina": 2, "posicion_slot": 1, "sku": "LAP-OFF"}
     ]
 
 lista_ofertas_campana = st.session_state.ofertas
 
-# 2. Extraemos las variables de diseño dinámicas configuradas en tus pasos previos
+# 2. Extraemos las variables de control numéricas de la sesión
 pag_act = int(st.session_state.get("pag_act", 1))
 cols_grilla = int(st.session_state.get("columnas_css", 2))
 filas_grilla = int(st.session_state.get("filas_css", 3))
 
-# 3. Calculamos las dimensiones de la matriz
+# 3. Calculamos la matriz estructural
 total_slots_calculados = cols_grilla * filas_grilla
 style_cols_grid = f"repeat({cols_grilla}, 1fr)"
 style_rows_grid = f"repeat({filas_grilla}, 1fr)"
 
-# 4. Convertimos el listado de ofertas a formato JSON seguro para JavaScript
-ofertas_serializadas = json.dumps(lista_ofertas_campana)
+# 4. FILTRADO INTELIGENTE EN PYTHON: Separamos los productos antes de enviarlos a JS
+# Pasamos los que pertenecen a la página actual Y los que están en el banco (página 0 o slot 0)
+ofertas_filtradas = [
+    o for o in lista_ofertas_campana 
+    if (int(o.get("numero_pagina", 0)) == pag_act) or 
+       (int(o.get("numero_pagina", 0)) == 0) or 
+       (int(o.get("posicion_slot", 0)) == 0)
+]
 
-# 5. Compilamos el HTML uniendo el Bloque A y el Bloque B de la Parte 8
+# Convertimos a JSON seguro
+ofertas_serializadas = json.dumps(ofertas_filtradas)
+
+# 5. Compilamos el HTML estructurado uniendo los dos bloques de la Parte 8
 html_estructura = obtener_estructura_y_estilos_html(
     style_cols=style_cols_grid, 
     style_rows=style_rows_grid, 
@@ -596,13 +606,21 @@ html_motor_js = obtener_motor_javascript_html(
     total_slots=total_slots_calculados
 )
 
-# Unión definitiva libre de f-string en capas superiores
 html_final_compilado = html_estructura + html_motor_js
 
-# 6. Renderizado del iframe aislado dentro de Streamlit
-st.markdown("### 🛠️ Lienzo de Maquetación Activa")
-st.components.v1.html(html_final_compilado, height=500, scrolling=False)
-st.caption("💡 Arrastra los elementos para organizar el catálogo. El movimiento es nativo a 60fps.")
+# 6. Renderizado reactivo mediante asignación de Clave Única (Key)
+st.markdown(f"### 🛠️ Lienzo de Maquetación Activa — Página {pag_act}")
+
+# El secreto es usar key=f"canvas_pag_{pag_act}". Al cambiar de página,
+# Streamlit se ve obligado a reconstruir el iFrame con los datos actualizados.
+st.components.v1.html(
+    html_final_compilado, 
+    height=490, 
+    scrolling=False, 
+    key=f"canvas_pag_{pag_act}"
+)
+
+st.caption("💡 Organiza el catálogo arrastrando los productos. El lienzo se actualiza automáticamente al cambiar de página.")
 
 
 
