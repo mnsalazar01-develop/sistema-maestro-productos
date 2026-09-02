@@ -556,7 +556,7 @@ def generar_grilla_interactiva_html(lista_ofertas, pagina_actual, cols, rows):
                         .replace("PAGINA_ACTUAL", str(pagina_actual))
                         .replace("COLS", str(cols))
                         .replace("TOTAL_SLOTS", str(total_slots))
-return html_code
+    return html_code
 
 # ==============================================================================
 # 9. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA
