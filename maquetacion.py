@@ -553,9 +553,10 @@ def generar_grilla_interactiva_html(lista_ofertas, pagina_actual, cols, rows):
     html_code = raw_html.replace("__STYLE_COLS__", style_cols)\
                         .replace("__STYLE_ROWS__", style_rows)\
                         .replace("__OFERTAS_JSON__", ofertas_json)\
-                        .replace("PAGINA_ACTUAL", str(pagina_actual))
-                        .replace("COLS", str(cols))
-                        .replace("TOTAL_SLOTS", str(total_slots))
+                        .replace("__PAGINA_ACTUAL__", str(pagina_actual))\
+                        .replace("__COLS__", str(cols))\
+                        .replace("__TOTAL_SLOTS__", str(total_slots))
+    
     return html_code
 
 # ==============================================================================
