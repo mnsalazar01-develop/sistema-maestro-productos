@@ -359,6 +359,7 @@ for o in st.session_state.get("ofertas", []):
             "id_campana": id_campana_activa,
             "numero_pagina": num_pag,
             "posicion_slot": pos_slot,
+            "precio_oferta": o.get("precio_oferta"),
             "posicion_mix": cfg.get("distribucion", "Equilibrado"),
             "sub_molde_estilo": cfg.get("estilo", "Estándar"),
             "numero_fila": ((pos_slot - 1) // num_cols_reales) + 1,
