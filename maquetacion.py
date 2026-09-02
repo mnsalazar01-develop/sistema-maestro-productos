@@ -375,7 +375,7 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
 # ==============================================================================
 def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
     banco_html = ""
-    slots_ocupados = {} # ¡CORREGIDO!: Ahora es un diccionario real y limpio
+    slots_ocupados = {}
     
     for o in ofertas:
         img_url = o.get('img') if o.get('img') else "https://picsum.photos"
@@ -390,20 +390,34 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
         </div>'''
         
         if es_p and es_s:
-            if int(raw_p) == pagina:
-                if 1 <= int(raw_s) <= num_slots:
-                    slots_ocupados[int(raw_s)] = card
+            try:
+                # Conversión ultra segura para evitar colapsos por tipos de datos
+                p_int = int(float(str(raw_p).strip()))
+                s_int = int(float(str(raw_s).strip()))
+                
+                if p_int == pagina:
+                    if 1 <= s_int <= num_slots:
+                        slots_ocupados[s_int] = card
+                    else:
+                        banco_html += card
                 else:
-                    banco_html += card
-            else:
-                banco_html += f'<div style="display:none !important;" class="hidden-item-dom">{card}</div>'
+                    banco_html += f'<div style="display:none !important;" class="hidden-item-dom">{card}</div>'
+            except (ValueError, TypeError):
+                # Si el dato de la BD está corrupto, lo mandamos al banco a salvo
+                banco_html += card
         else:
-            if es_p and int(raw_p) != pagina:
-                banco_html += f'<div style="display:none !important;" class="hidden-item-dom">{card}</div>'
+            if es_p:
+                try:
+                    p_int = int(float(str(raw_p).strip()))
+                    if p_int != pagina:
+                        banco_html += f'<div style="display:none !important;" class="hidden-item-dom">{card}</div>'
+                    else:
+                        banco_html += card
+                except (ValueError, TypeError):
+                    banco_html += card
             else:
                 banco_html += card
 
-    # Reconstrucción limpia de los slots de la grilla
     slots_html = ""
     for i in range(1, num_slots + 1):
         contenido_slot = slots_ocupados.get(i, f'<div class="placeholder">Posición Slot {i}</div>')
@@ -487,15 +501,22 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
     }});
     </script></body></html>"""
 
-# Generamos el string HTML garantizado
-html_renderizado = generar_canvas_ofertas_corregido(st.session_state.ofertas, pag_act, slots_deseados, columnas_css, filas_css)
+# Ejecución forzada con retorno de texto garantizado
+try:
+    html_renderizado = generar_canvas_ofertas_corregido(st.session_state.ofertas, pag_act, slots_deseados, columnas_css, filas_css)
+except Exception as e:
+    html_renderizado = f"<h3>Error crítico en renderizado de datos: {str(e)}</h3>"
 
-# Si por alguna razón extrema fallara, ponemos un HTML de emergencia para que la app no colapse
-if not html_renderizado:
-    html_renderizado = "<h1>Error al renderizar el lienzo</h1>"
+if not html_renderizado or not isinstance(html_renderizado, str):
+    html_renderizado = "<h3>Lienzo de maquetación no disponible</h3>"
 
 with st.container():
-    evento_drag_drop = st.components.v1.html(html_renderizado, height=540, scrolling=False, key=f"canvas_maquetador_pag_{pag_act}")
+    evento_drag_drop = st.components.v1.html(
+        html_renderizado, 
+        height=540, 
+        scrolling=False, 
+        key=f"canvas_maquetador_pag_{pag_act}"
+    )
 
 if evento_drag_drop:
     try:
@@ -510,16 +531,20 @@ if evento_drag_drop:
             
             for ofer in st.session_state.ofertas:
                 if str(ofer["id_oferta"]) == str(id_mod):
-                    if ofer.get("numero_pagina") != nueva_p or ofer.get("posicion_slot") != nuevo_s:
-                        ofer["numero_pagina"] = nueva_p if nueva_p is None else int(nueva_p)
-                        ofer["posicion_slot"] = nuevo_s if nuevo_s is None else int(nuevo_s)
+                    val_p = None if nueva_p is None else int(nueva_p)
+                    val_s = None if nuevo_s is None else int(nuevo_s)
+                    
+                    if ofer.get("numero_pagina") != val_p or ofer.get("posicion_slot") != val_s:
+                        ofer["numero_pagina"] = val_p
+                        ofer["posicion_slot"] = val_s
                         cambio = True
             
             st.session_state.ultimo_ts_procesado = evento_ts
             if cambio:
                 st.rerun()
-    except Exception as e:
+    except Exception:
         pass
+
 
 
 
