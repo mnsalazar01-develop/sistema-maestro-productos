@@ -612,12 +612,18 @@ st.caption("💡 Arrastra los elementos para organizar el catálogo. El movimien
 st.divider()
 st.markdown("### 💾 Acciones de Respaldo y Sincronización")
 
+# PARCHE DE SEGURIDAD PARA ID_CAMPANA_REAL (Evita el NameError)
+if "id_campana_real" not in locals() and "id_campana_real" not in globals():
+    # Buscamos variantes comunes en tu session_state o asignamos un respaldo limpio
+    id_campana_real = st.session_state.get("id_campana", st.session_state.get("id_campana_real", "global"))
+
 col_exp, col_imp = st.columns(2)
 
 with col_exp:
     st.markdown("**1. Exportar Maqueta Local**")
     if "filas_tabla_ofertas" not in locals() and "filas_tabla_ofertas" not in globals():
         filas_tabla_ofertas = st.session_state.get("ofertas", [])
+        
     if filas_tabla_ofertas:
         df_exportar = pd.DataFrame(filas_tabla_ofertas)
         csv_data = df_exportar.to_csv(index=False).encode('utf-8')
@@ -625,6 +631,7 @@ with col_exp:
         st.download_button(
             label="📥 Descargar Maqueta Actual (.CSV)",
             data=csv_data,
+            # Nombre de archivo protegido contra caídas
             file_name=f"maqueta_campana_{id_campana_real}_pag_{pag_act}.csv",
             mime="text/csv",
             use_container_width=True
