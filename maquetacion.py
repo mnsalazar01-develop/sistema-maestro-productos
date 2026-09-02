@@ -371,51 +371,80 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     </script></body></html>"""
 
 # ==============================================================================
-# 8 y 9. MAQUETADOR MATRICIAL NATIVO (SIN JAVASCRIPT, SIN IFRAMES)
+# 8 y 9. MAQUETADOR MATRICIAL NATIVO DE ALTA FIDELIDAD (CON VALIDACIÓN DE NULOS)
 # ==============================================================================
 import streamlit as st
 
-# 1. Asegurar datos de la campaña en la sesión
-if "ofertas" not in st.session_state:
+# 1. Asegurar datos de la campaña en la sesión (Respaldo por si llega vacío)
+if "ofertas" not in st.session_state or not st.session_state.ofertas:
     st.session_state.ofertas = [
         {"id_oferta": 10, "nombre": "Televisor Smart 55", "numero_pagina": 1, "posicion_slot": 1},
-        {"id_oferta": 11, "nombre": "Silla Gamer", "numero_pagina": 0, "posicion_slot": 0},
-        {"id_oferta": 12, "nombre": "Barra Sonido", "numero_pagina": 1, "posicion_slot": 2},
-        {"id_oferta": 13, "nombre": "Laptop Oficina", "numero_pagina": 2, "posicion_slot": 1}
+        {"id_oferta": 11, "nombre": "Silla Gamer", "numero_pagina": None, "posicion_slot": 0},
+        {"id_oferta": 12, "nombre": "Barra Sonido", "numero_pagina": 0, "posicion_slot": None}
     ]
 
-# 2. Variables de control limpias de tu app
-pag_act = int(st.session_state.get("pag_act", 1))
-cols_grilla = int(st.session_state.get("columnas_css", 2))
-filas_grilla = int(st.session_state.get("filas_css", 3))
+# 2. Variables de control estructural limpias y sanitizadas
+pag_act = int(float(str(st.session_state.get("pag_act", 1)).strip()))
+cols_grilla = int(float(str(st.session_state.get("columnas_css", 2)).strip()))
+filas_grilla = int(float(str(st.session_state.get("filas_css", 3)).strip()))
 total_slots = cols_grilla * filas_grilla
 
 st.markdown(f"### 📋 Maquetación de la Página {pag_act}")
 
-# 3. Identificar qué productos están en el Banco (Página 0 o Slot 0)
-banco_productos = [p for p in st.session_state.ofertas if int(p.get("numero_pagina", 0)) == 0 or int(p.get("posicion_slot", 0)) == 0]
-# Identificar qué productos ya pertenecen a esta página
-productos_esta_pagina = [p for p in st.session_state.ofertas if int(p.get("numero_pagina", 0)) == pag_act]
+# 3. FILTRADO CON VALIDACIÓN ANTE VALORES NULL (None) O 0
+# Si el valor es None, asignamos 0. Si no, lo convertimos a entero de forma segura.
+banco_productos = []
+productos_esta_pagina = []
 
-# Lista global de opciones para los desplegables (Productos de esta página + los disponibles en el banco)
+for p in st.session_state.ofertas:
+    # Extracción de valores crudos
+    raw_pag = p.get("numero_pagina")
+    raw_slot = p.get("posicion_slot")
+    
+    # Validación estricta en línea: Si es null (None) o 0, su valor lógico es 0
+    p_num = 0 if (raw_pag is None or raw_pag == 0) else int(float(str(raw_pag).strip()))
+    s_num = 0 if (raw_slot is None or raw_slot == 0) else int(float(str(raw_slot).strip()))
+    
+    # Clasificación de los productos en base a su coordenada sanitizada
+    if p_num == pag_act and s_num > 0:
+        productos_esta_pagina.append(p)
+    elif p_num == pag_act or p_num == 0 or s_num == 0:
+        banco_productos.append(p)
+
+# Unificamos el catálogo disponible para esta vista particular
 productos_disponibles = productos_esta_pagina + banco_productos
-opciones_combo = ["--- Vacante ---"] + [p["nombre"] for p in productos_disponibles]
 
-# 4. Dibujar la Grilla Matricial usando columnas de Streamlit
+# Eliminamos duplicados por nombre si existieran para evitar errores en el selectbox
+nombres_unicos = list(dict.fromkeys([p["nombre"] for p in productos_disponibles if p.get("nombre")]))
+opciones_combo = ["--- Vacante ---"] + nombres_unicos
+
+# 4. RENDIMIENTO DE LA GRILLA MATRICIAL REACTIVA
 slot_actual = 1
 for f in range(filas_grilla):
-    # Creamos dinámicamente las columnas en pantalla según la configuración del usuario
     columnas_ui = st.columns(cols_grilla)
     
     for c in range(cols_grilla):
+        if slot_actual > total_slots:
+            break
+            
         with columnas_ui[c]:
             st.info(f"📍 Slot {slot_actual}")
             
-            # Buscar si ya hay un producto guardado en este slot para esta página
-            prod_asignado = next((p for p in productos_esta_pagina if int(p.get("posicion_slot", 0)) == slot_actual), None)
-            indice_defecto = opciones_combo.index(prod_asignado["nombre"]) if prod_asignado else 0
+            # Buscar si un producto ocupa este slot específico en la página activa
+            prod_asignado = None
+            for p in productos_esta_pagina:
+                r_slot = p.get("posicion_slot")
+                s_val = 0 if (r_slot is None or r_slot == 0) else int(float(str(r_slot).strip()))
+                if s_val == slot_actual:
+                    prod_asignado = p
+                    break
             
-            # Desplegable reactivo por cada celda de tu folleto
+            # Determinar el índice por defecto del combo
+            indice_defecto = 0
+            if prod_asignado and prod_asignado.get("nombre") in opciones_combo:
+                indice_defecto = opciones_combo.index(prod_asignado["nombre"])
+            
+            # Selector desplegable nativo inmune a caídas visuales
             seleccion = st.selectbox(
                 label=f"Asignar a Slot {slot_actual}",
                 options=opciones_combo,
@@ -424,20 +453,32 @@ for f in range(filas_grilla):
                 label_visibility="collapsed"
             )
             
-            # Si el usuario cambia la selección, actualizamos el st.session_state inmediatamente
+            # Si el usuario modifica la selección, impactamos el cambio en caliente
             if seleccion != "--- Vacante ---":
                 for p in st.session_state.ofertas:
-                    if p["nombre"] == seleccion:
+                    if p.get("nombre") == seleccion:
                         p["numero_pagina"] = pag_act
                         p["posicion_slot"] = slot_actual
+            else:
+                # Si se selecciona Vacante, liberamos el producto que estaba ocupando este slot
+                if prod_asignado:
+                    for p in st.session_state.ofertas:
+                        if p.get("id_oferta") == prod_asignado.get("id_oferta"):
+                            p["numero_pagina"] = 0
+                            p["posicion_slot"] = 0
             
             slot_actual += 1
 
-# Mostrar el banco actual de productos que quedaron rezagados con valor 0
+# 5. PANEL COMPLEMENTARIO: Visualización del Banco de Disponibles (Coordenadas en 0 o null)
 st.markdown("#### 📦 Productos en el Banco (Sin asignar)")
-banco_actualizado = [p["nombre"] for p in st.session_state.ofertas if int(p.get("numero_pagina", 0)) == 0]
-if banco_actualizado:
-    st.caption(", ".join(banco_actualizado))
+banco_nombres = []
+for p in st.session_state.ofertas:
+    r_pag = p.get("numero_pagina")
+    if r_pag is None or r_pag == 0:
+        banco_nombres.append(p.get("nombre", "Sin Nombre"))
+
+if banco_nombres:
+    st.caption(", ".join(banco_nombres))
 else:
     st.caption("Todos los productos han sido distribuidos en el folleto.")
 
