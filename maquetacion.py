@@ -27,47 +27,16 @@ if "pagina_actual" not in st.session_state:
 if "config_paginas" not in st.session_state:
     st.session_state.config_paginas = {}
 
-# ==============================================================================
-# 2. FILTRADO DE CAMPAÑAS VÁLIDAS CON BYPASS DE 1000 REGISTROS (Paginación Dinámica)
-# ==============================================================================
+# 2. FILTRADO DE CAMPAÑAS VÁLIDAS CON VALORES EN OFERTAS
 try:
-    ids_campanas_con_ofertas = []
-    limite_bloque = 1000
-    offset = 0
-    con_datos = True
-    
-    # Bucle de extracción masiva para romper la barrera de las 1000 filas de Supabase
-    while con_datos:
-        resp_bloque = supabase.table("ofertas")\
-            .select("id_campana")\
-            .range(offset, offset + limite_bloque - 1)\
-            .execute()
-            
-        datos_bloque = resp_bloque.data
-        
-        if datos_bloque:
-            ids_campanas_con_ofertas.extend([o["id_campana"] for o in datos_bloque if o.get("id_campana") is not None])
-            offset += limite_bloque
-            # Si el bloque trajo menos del límite, es la última página
-            if len(datos_bloque) < limite_bloque:
-                con_datos = False
-        else:
-            con_datos = False
-            
-    # Obtener valores únicos e inmunes al truncado
-    ids_campanas_con_ofertas = list(set(ids_campanas_con_ofertas))
+    resp_ofertas_ids = supabase.table("ofertas").select("id_campana").execute()
+    ids_campanas_con_ofertas = list(set([o["id_campana"] for o in resp_ofertas_ids.data if o.get("id_campana") is not None]))
 
     if not ids_campanas_con_ofertas:
         st.warning("⚠️ No hay ninguna campaña con ofertas registradas actualmente en la base de datos.")
         st.stop()
 
-    # Consulta final de los nombres de campañas correspondientes
-    resp_campanas = supabase.table("campanas")\
-        .select("id_campana, nombre_campana")\
-        .in_("id_campana", ids_campanas_con_ofertas)\
-        .order("id_campana", desc=True)\
-        .execute()
-        
+    resp_campanas = supabase.table("campanas").select("id_campana, nombre_campana").in_("id_campana", ids_campanas_con_ofertas).order("id_campana", desc=True).execute()
     lista_campanas = resp_campanas.data
     
     if not lista_campanas:
@@ -75,12 +44,9 @@ try:
         st.stop()
         
     dict_campanas_opciones = {f"{c['id_campana']} - {c['nombre_campana']}": c['id_campana'] for c in lista_campanas}
-
 except Exception as e:
-    st.error(f"❌ Error crítico en bypass de registros de campañas: {str(e)}")
+    st.error(f"❌ Error al filtrar campañas con valores: {str(e)}")
     st.stop()
-
-
 
 # 3. PANEL DE SELECCIÓN DE CAMPAÑA FILTRADA (Corregido a st.columns(2))
 st.markdown("### 🔍 Selección de Campaña de Trabajo")
@@ -174,9 +140,58 @@ def firmar_lote_imagenes(lista_urls: list) -> dict:
 
     return dict_mapeo_firmado
 
-# ==============================================================================
-# 0. DECLARACIÓN MATEMÁTICA DEL LAYOUT GRID (Movida arriba para evitar NameError)
-# ==============================================================================
+# 4. CONSULTA INMUNE AL ERROR 404 (Ofertas + Productos vinculados + Tipos Blindados)
+try:
+    resp_ofertas = supabase.table("ofertas").select("*").eq("id_campana", id_campana_activa).execute()
+    ofertas_campana = resp_ofertas.data
+    
+    lista_id_productos = list(set([o["id_producto"] for o in ofertas_campana if o.get("id_producto") is not None]))
+    
+    dict_productos = {}
+    urls_totales_a_firmar = []
+    
+    if lista_id_productos:
+        resp_prod = supabase.table("productos").select("id_producto, nombre, url_imagen").in_("id_producto", lista_id_productos).execute()
+        dict_productos = {p["id_producto"]: p for p in resp_prod.data}
+        urls_totales_a_firmar = list(set([p.get("url_imagen") for p in resp_prod.data if p.get("url_imagen")]))
+    
+    mapa_imagenes_firmadas = firmar_lote_imagenes(urls_totales_a_firmar)
+    
+    for o in ofertas_campana:
+        # --- 🟢 CORRECCIÓN CRÍTICA DE TIPOS AQUÍ ---
+        num_pag = o.get("numero_pagina")
+        pos_slot = o.get("posicion_slot")
+        
+        if num_pag is not None and str(num_pag).lower() != "null" and str(num_pag).strip() != "":
+            o["numero_pagina"] = int(num_pag)
+        else:
+            o["numero_pagina"] = None
+            
+        if pos_slot is not None and str(pos_slot).lower() != "null" and str(pos_slot).strip() != "":
+            o["posicion_slot"] = int(pos_slot)
+        else:
+            o["posicion_slot"] = None
+        # -------------------------------------------
+
+        id_p = o.get("id_producto")
+        if id_p in dict_productos:
+            o["nombre"] = dict_productos[id_p].get("nombre") or f"Producto #{id_p}"
+            url_original = dict_productos[id_p].get("url_imagen")
+            o["img"] = mapa_imagenes_firmadas.get(url_original, url_original or "https://picsum.photos")
+        else:
+            o["nombre"] = f"Oferta sin producto asignado (# {o['id_oferta']})"
+            o["img"] = "https://picsum.photos"
+            
+    st.session_state.ofertas = ofertas_campana
+    
+except Exception as e:
+    st.error(f"Error al procesar el banco de datos en Supabase: {str(e)}")
+    st.session_state.ofertas = []
+
+
+# =====================================================================
+# FUNCTION DECLARATION (Definida primero para evitar NameError)
+# =====================================================================
 def calcular_layout_grid(num_slots):
     if num_slots == 1: return "1fr", "1fr"
     if num_slots == 2: return "repeat(2, 1fr)", "1fr"
@@ -184,273 +199,212 @@ def calcular_layout_grid(num_slots):
     if num_slots in (5, 6): return "repeat(2, 1fr)", "repeat(3, 1fr)"
     return "repeat(2, 1fr)", "repeat(4, 1fr)"
 
-# ==============================================================================
-# 4. CONSULTA DE OFERTAS INMUNE A CAMBIOS DE SELECTOR Y REFRESCAS DE PÁGINA
-# ==============================================================================
-# CONDICIÓN PROTEGIDA: Solo entra aquí si la app se abre por primera vez o si el usuario cambia de campaña
-if "ofertas" not in st.session_state or st.session_state.get("campana_anterior") != id_campana_activa:
-    try:
-        resp_ofertas = supabase.table("ofertas").select("*").eq("id_campana", id_campana_activa).execute()
-        ofertas_campana = resp_ofertas.data if resp_ofertas.data else []
-        
-        lista_id_productos = list(set([o["id_producto"] for o in ofertas_campana if o.get("id_producto") is not None]))
-        
-        dict_productos = {}
-        urls_totales_a_firmar = []
-        
-        if lista_id_productos:
-            resp_prod = supabase.table("productos").select("id_producto, nombre, url_imagen").in_("id_producto", lista_id_productos).execute()
-            if resp_prod.data:
-                dict_productos = {p["id_producto"]: p for p in resp_prod.data}
-                urls_totales_a_firmar = list(set([p.get("url_imagen") for p in resp_prod.data if p.get("url_imagen")]))
-        
-        mapa_imagenes_firmadas = firmar_lote_imagenes(urls_totales_a_firmar)
-        
-        # EL FORMATEO OCURRE ÚNICAMENTE AQUÍ (Dentro de la descarga inicial de la BD)
-        for o in ofertas_campana:
-            num_pag = o.get("numero_pagina")
-            pos_slot = o.get("posicion_slot")
-            
-            # Si en la base de datos es 0, None o "null", en Python se inicializa explícitamente como None
-            o["numero_pagina"] = int(num_pag) if num_pag is not None and str(num_pag).lower() != "null" and str(num_pag).strip() != "" and str(num_pag) != "0" else None
-            o["posicion_slot"] = int(pos_slot) if pos_slot is not None and str(pos_slot).lower() != "null" and str(pos_slot).strip() != "" and str(pos_slot) != "0" else None
 
-            id_p = o.get("id_producto")
-            if id_p in dict_productos:
-                o["nombre"] = dict_productos[id_p].get("nombre") or f"Producto #{id_p}"
-                url_original = dict_productos[id_p].get("url_imagen")
-                o["img"] = mapa_imagenes_firmadas.get(url_original, url_original or "https://picsum.photos")
-            else:
-                o["nombre"] = f"Oferta sin producto asignado (#{o['id_oferta']})"
-                o["img"] = "https://picsum.photos"
-                
-        # Seteamos el estado global firme
-        st.session_state.ofertas = ofertas_campana
-        st.session_state.campana_anterior = id_campana_activa
-        
-    except Exception as e:
-        st.error(f"❌ Error al procesar el banco de datos en Supabase: {str(e)}")
-        st.session_state.ofertas = []
-
-# ==============================================================================
-# 5. CALLBACKS DE NAVEGACIÓN Y CONTROLES DE LA PÁGINA (Sin IDs Duplicados)
-# ==============================================================================
+# =====================================================================
+# 5. CONTROLES DE LA PÁGINA SELECCIONADA (Sincronización Reactiva)
+# =====================================================================
 st.markdown("### 🛠️ Configuración de la Hoja del Folleto")
+
 pag_act = int(st.session_state.pagina_actual)
 
-def avanzar_pagina():
-    st.session_state.pagina_actual += 1
-    st.session_state.ultimo_ts_procesado = 99999999999999
-
-def retroceder_pagina():
-    if st.session_state.pagina_actual > 1:
-        st.session_state.pagina_actual -= 1
-        st.session_state.ultimo_ts_procesado = 99999999999999
-
-# Extraer posiciones máximas ocupadas
-slots_usados = [
-    int(o["posicion_slot"]) for o in st.session_state.get("ofertas",) 
-    if o.get("numero_pagina") == pag_act and o.get("posicion_slot") not in (None, 0, "0")
+# 1. Al estar limpios desde la sección 4, la extracción es directa y matemática
+slots_usados_en_pagina = [
+    o["posicion_slot"] 
+    for o in st.session_state.ofertas 
+    if o["numero_pagina"] == pag_act and o["posicion_slot"] is not None
 ]
-slot_maximo_detectado = max(slots_usados) if slots_usados else 4
 
+slot_maximo_detectado = max(slots_usados_en_pagina) if slots_usados_en_pagina else 4
+
+# 2. Inicializar o forzar la actualización si la BD supera el estado actual
 if pag_act not in st.session_state.config_paginas:
-    st.session_state.config_paginas[pag_act] = {"slots": slot_maximo_detectado, "distribucion": "Equilibrado", "estilo": "Estándar"}
-elif slot_maximo_detectado > int(st.session_state.config_paginas[pag_act]["slots"]):
-    st.session_state.config_paginas[pag_act]["slots"] = slot_maximo_detectado
+    st.session_state.config_paginas[pag_act] = {
+        "slots": slot_maximo_detectado, 
+        "distribucion": "Equilibrado", 
+        "estilo": "Estándar"
+    }
+else:
+    if slot_maximo_detectado > int(st.session_state.config_paginas[pag_act]["slots"]):
+        st.session_state.config_paginas[pag_act]["slots"] = slot_maximo_detectado
 
 cfg = st.session_state.config_paginas[pag_act]
 
 with st.container(border=True):
     nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns(6)
+    
     with nav_col1:
-        st.button("◀ Anterior", use_container_width=True, on_click=retroceder_pagina, disabled=(st.session_state.pagina_actual <= 1), key="btn_nav_ant_unique")
+        if st.button("◀ Anterior", use_container_width=True) and st.session_state.pagina_actual > 1:
+            st.session_state.pagina_actual -= 1
+            st.rerun()
+            
     with nav_col2:
         st.markdown(f"<h3 style='text-align: center; margin:0; color:#0d6efd;'>Pág. {st.session_state.pagina_actual}</h3>", unsafe_allow_html=True)
+        
     with nav_col3:
-        st.button("Siguiente ▶", use_container_width=True, on_click=avanzar_pagina, key="btn_nav_sig_unique")
+        if st.button("Siguiente ▶", use_container_width=True):
+            st.session_state.pagina_actual += 1
+            st.rerun()
+
     with nav_col4:
-        slots_deseados = st.slider("Slots asignados:", min_value=1, max_value=8, value=int(cfg["slots"]), key=f"sld_estatico_p{pag_act}")
+        # El key dinámico "slider_pX_sY" destruye el estado viejo si el max detectado cambia
+        slots_deseados = st.slider(
+            "Slots asignados:", 
+            min_value=1, 
+            max_value=8, 
+            value=int(cfg["slots"]),
+            key=f"slider_p{pag_act}_max{slot_maximo_detectado}"
+        )
         st.session_state.config_paginas[pag_act]["slots"] = slots_deseados
+        
     with nav_col5:
-        st.session_state.config_paginas[pag_act]["distribucion"] = st.selectbox("Distribución:", ["Equilibrado", "Banner Superior", "Enfoque Central"], key=f"dst_p{pag_act}")
+        tipo_distribucion = st.selectbox("Distribución (`posicion_mix`):", ["Equilibrado", "Banner Superior", "Enfoque Central", "Asimétrico"], index=["Equilibrado", "Banner Superior", "Enfoque Central", "Asimétrico"].index(cfg["distribucion"]))
+        st.session_state.config_paginas[pag_act]["distribucion"] = tipo_distribucion
+        
     with nav_col6:
-        st.session_state.config_paginas[pag_act]["estilo"] = st.selectbox("Estilo:", ["Estándar", "Destacado", "Compacto"], key=f"est_p{pag_act}")
+        sub_estilo = st.selectbox("Estilo (`sub_molde_estilo`):", ["Estándar", "Destacado", "Compacto"], index=["Estándar", "Destacado", "Compacto"].index(cfg["estilo"]))
+        st.session_state.config_paginas[pag_act]["estilo"] = sub_estilo
 
 columnas_css, filas_css = calcular_layout_grid(slots_deseados)
 
-# ==============================================================================
-# 6. CONSTRUCTOR DEL COMPONENTE HTML VISUAL (Eliminación de Duplicados Visuales)
-# ==============================================================================
+# 6. CONSTRUCTOR DEL COMPONENTE HTML VISUAL (Soporta agregar y devolver ofertas)
 def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
-    banco_html, slots_ocupados = "", {}
-    
-    for o in ofertas:
-        img_url = o.get('img') if o.get('img') else "https://picsum.photos"
-        raw_p = o.get('numero_pagina')
-        raw_s = o.get('posicion_slot')
-        
-        # Clasificación estricta de booleanos (Falso si es None, vacío, "null" o el número/string 0)
-        es_p = raw_p is not None and str(raw_p).lower() != "null" and str(raw_p).strip() != "" and str(raw_p) != "0"
-        es_s = raw_s is not None and str(raw_s).lower() != "null" and str(raw_s).strip() != "" and str(raw_s) != "0"
-        
-        card = f'''<div class="product-card" draggable="true" id="{o['id_oferta']}">
-            <img src="{img_url}"><div class="info"><span class="name">{o['nombre']}</span><span class="price">${o.get('precio_oferta', 0.0):,.2f}</span></div>
-        </div>'''
-        
-        # ESTADO 1: Tiene coordenadas completas y válidas de maquetación
-        if es_p and es_s:
-            if int(raw_p) == pagina:
-                if 1 <= int(raw_s) <= num_slots:
-                    slots_ocupados[int(raw_s)] = card
-                else:
-                    # Si el slider se encogió y el slot ya no existe, se muestra en el banco
-                    banco_html += card
-            else:
-                # Pertenece a otra hoja: Oculto absoluto en el DOM (No se ve en el banco)
-                banco_html += f'<div style="display:none !important;" class="hidden-item-dom">{card}</div>'
-                
-        # ESTADO 2: El registro está libre, es cero, o no tiene maquetación (Va al banco visible)
-        else:
-            banco_html += card
+    banco_html = ""
+    slots_ocupados = {}
 
-    slots_html = "".join([f'<div class="slot" id="{i}">' + slots_ocupados.get(i, f'<div class="placeholder">Posición Slot {i}<br><span>Disponible</span></div>') + '</div>' for i in range(1, num_slots + 1)])
-    
-    return f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-        body {{ font-family: system-ui, sans-serif; margin: 0; background: #f8f9fa; display: flex; gap: 20px; padding: 10px; height: 85vh; }}
-        .sidebar {{ width: 280px; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; overflow-y: auto; display: flex; flex-direction: column; }}
-        .sidebar.drag-over {{ background: #fff5f5; border: 2px dashed #dc3545; }}
-        .canvas {{ flex: 1; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; }}
-        .grid-folleto {{ display: grid; grid-template-columns: {cols}; grid-template-rows: {rows}; gap: 12px; flex: 1; min-height: 400px; }}
-        .slot {{ border: 2px dashed #cbd5e1; border-radius: 6px; background: #fafafa; display: flex; align-items: center; justify-content: center; position: relative; padding: 5px; }}
-        .slot.drag-over {{ border-color: #3b82f6; background: #eff6ff; }}
-        .product-card {{ background: white; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; cursor: grab; display: flex; align-items: center; gap: 10px; width: 90%; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }}
-        .product-card img {{ width: 45px; height: 45px; object-fit: cover; border-radius: 4px; pointer-events: none; }}
-        .product-card .info {{ display: flex; flex-direction: column; font-size: 12px; overflow: hidden; pointer-events: none; }}
-        .product-card .name {{ font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
-        .product-card .price {{ color: #16a34a; font-weight: 700; margin-top: 2px; }}
-        .placeholder {{ color: #94a3b8; font-size: 13px; text-align: center; pointer-events: none; user-select: none; }}
-        .placeholder span {{ font-size: 10px; color: #cbd5e1; }}
-    </style></head><body>
-    <div class="sidebar" id="banco-disponibles">
-        <h4 style="margin:0 0 10px 0; font-size:14px; color:#475569; border-bottom:1px solid #e2e8f0; padding-bottom:5px;">📦 Ofertas Disponibles</h4>
-        <div style="display: flex; flex-direction: column; gap:8px; min-height:400px; flex-grow:1;" id="banco-lista">{banco_html}</div>
-    </div>
-    <div class="canvas">
-        <h4 style="margin:0 0 10px 0; font-size:14px; color:#475569;">🎨 Diseño Hoja — Página {pagina}</h4>
-        <div class="grid-folleto">{slots_html}</div>
-    </div>
-    <script>
-        let draggedNode = null;
-        document.querySelectorAll('.product-card').forEach(card => {{
-            card.addEventListener('dragstart', () => {{ draggedNode = card; card.style.opacity = '0.4'; }});
-            card.addEventListener('dragend', () => {{ draggedNode = null; card.style.opacity = '1'; }});
-        }});
-        document.querySelectorAll('.slot').forEach(slot => {{
-            slot.addEventListener('dragover', (e) => {{ e.preventDefault(); slot.classList.add('drag-over'); }});
-            slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
-            slot.addEventListener('drop', () => {{
-                slot.classList.remove('drag-over');
-                if (draggedNode) {{
-                    const ph = slot.querySelector('.placeholder'); if(ph) ph.remove();
-                    slot.appendChild(draggedNode);
-                    window.parent.postMessage({{type: 'streamlit:setComponentValue', value: JSON.stringify({{id_oferta: parseInt(draggedNode.id), posicion_slot: parseInt(slot.id), numero_pagina: {pagina}, timestamp: Date.now()}})}}, '*');
+    for o in ofertas:
+        card_html = f'''
+        <div class="product-card" draggable="true" id="{o['id_oferta']}">
+            <img src="{o['img']}">
+            <div class="info">
+                <span class="name">{o['nombre']}</span>
+                <span class="price">${o.get('precio_oferta', 0.00)}</span>
+            </div>
+        </div>
+        '''
+        has_page = o.get('numero_pagina') is not None and o.get('numero_pagina') != "" and o.get('numero_pagina') != "null"
+        has_slot = o.get('posicion_slot') is not None and o.get('posicion_slot') != "" and o.get('posicion_slot') != "null"
+        
+        if has_page and has_slot and int(o['numero_pagina']) == pagina:
+            slots_ocupados[int(o['posicion_slot'])] = card_html
+        elif not has_page or o['numero_pagina'] == "null":
+            banco_html += card_html
+
+    slots_html = ""
+    for i in range(1, num_slots + 1):
+        contenido = slots_ocupados.get(i, f'<div class="placeholder">Posición Slot {i}<br><span>Disponible</span></div>')
+        slots_html += f'<div class="slot" id="{i}">{contenido}</div>'
+
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: #f8f9fa; display: flex; gap: 20px; padding: 10px; height: 500px; box-sizing: border-box; }}
+            .sidebar {{ width: 280px; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }}
+            .sidebar.drag-over {{ background: #fff5f5; border: 2px dashed #dc3545; }}
+            .canvas {{ flex: 1; background: white; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; }}
+            .grid-folleto {{ display: grid; grid-template-columns: {cols}; grid-template-rows: {rows}; gap: 12px; flex: 1; }}
+            .slot {{ border: 2px dashed #cbd5e1; border-radius: 6px; background: #fafafa; display: flex; align-items: center; justify-content: center; text-align: center; position: relative; padding: 5px; box-sizing: border-box; }}
+            .slot.drag-over {{ border-color: #3b82f6; background: #eff6ff; }}
+            .product-card {{ background: white; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; cursor: grab; display: flex; gap: 10px; align-items: center; width: 100%; box-sizing: border-box; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }}
+            .product-card img {{ width: 45px; height: 45px; object-fit: cover; border-radius: 4px; }}
+            .product-card .info {{ display: flex; flex-direction: column; font-size: 12px; overflow: hidden; }}
+            .product-card .name {{ font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+            .product-card .price {{ color: #16a34a; font-weight: 700; margin-top: 2px; }}
+            .placeholder {{ color: #94a3b8; font-size: 13px; font-weight: 500; line-height: 1.3; user-select:none; pointer-events:none; }}
+            .placeholder span {{ font-size: 10px; color: #cbd5e1; }}
+        </style>
+    </head>
+    <body>
+        <div class="sidebar" id="banco-disponibles">
+            <h4 style="margin:0; font-size:14px; color:#475569; border-bottom:1px solid #e2e8f0; padding-bottom:5px;">📦 Banco de la Campaña</h4>
+            <div style="display:flex; flex-direction:column; gap:8px; min-height:400px;" id="banco-lista">{banco_html}</div>
+        </div>
+        
+        <div class="canvas">
+            <h4 style="margin:0 0 10px 0; font-size:14px; color:#475569;">📖 Cuadrante de Diseño — Página {pagina}</h4>
+            <div class="grid-folleto">{slots_html}</div>
+        </div>
+        <script>
+            let draggedNode = null;
+            document.querySelectorAll('.product-card').forEach(card => {{
+                card.addEventListener('dragstart', () => {{ draggedNode = card; card.style.opacity = '0.4'; }});
+                card.addEventListener('dragend', () => {{ draggedNode = null; card.style.opacity = '1'; }});
+            }});
+
+            document.querySelectorAll('.slot').forEach(slot => {{
+                slot.addEventListener('dragover', (e) => {{ e.preventDefault(); slot.classList.add('drag-over'); }});
+                slot.addEventListener('dragleave', () => {{ slot.classList.remove('drag-over'); }});
+                slot.addEventListener('drop', () => {{
+                    slot.classList.remove('drag-over');
+                    if(draggedNode) {{
+                        const ph = slot.querySelector('.placeholder');
+                        if(ph) ph.remove();
+                        slot.appendChild(draggedNode);
+                        window.parent.postMessage({{
+                            type: 'streamlit:setComponentValue',
+                            value: JSON.stringify({{ id_oferta: parseInt(draggedNode.id), posicion_slot: parseInt(slot.id), numero_pagina: {pagina} }})
+                        }}, '*');
+                    }}
+                }});
+            }});
+
+            const bancoZone = document.getElementById('banco-disponibles');
+            const bancoLista = document.getElementById('banco-lista');
+            
+            bancoZone.addEventListener('dragover', (e) => {{ e.preventDefault(); bancoZone.classList.add('drag-over'); }});
+            bancoZone.addEventListener('dragleave', () => {{ bancoZone.classList.remove('drag-over'); }});
+            bancoZone.addEventListener('drop', () => {{
+                bancoZone.classList.remove('drag-over');
+                if(draggedNode) {{
+                    bancoLista.appendChild(draggedNode);
+                    window.parent.postMessage({{
+                        type: 'streamlit:setComponentValue',
+                        value: JSON.stringify({{ id_oferta: parseInt(draggedNode.id), posicion_slot: null, numero_pagina: null }})
+                    }}, '*');
                 }}
             }});
-        }});
-        const bZone = document.getElementById('banco-disponibles'), bLista = document.getElementById('banco-lista');
-        bZone.addEventListener('dragover', (e) => {{ e.preventDefault(); bZone.classList.add('drag-over'); }});
-        bZone.addEventListener('dragleave', () => bZone.classList.remove('drag-over'));
-        bZone.addEventListener('drop', () => {{
-            bZone.classList.remove('drag-over');
-            if(draggedNode) {{
-                bLista.appendChild(draggedNode);
-                window.parent.postMessage({{type: 'streamlit:setComponentValue', value: JSON.stringify({{id_oferta: parseInt(draggedNode.id), posicion_slot: 0, numero_pagina: 0, timestamp: Date.now()}})}}, '*');
-            }}
-        }});
-    </script></body></html>"""
+        </script>
+    </body>
+    </html>
+    """
 
-
-# ==============================================================================
-# 8. RENDERIZADO INTERACTIVO FINAL Y PROCESAMIENTO INMUNE
-# ==============================================================================
+# 7. RENDERIZADO DE LA UI DRAG & DROP Y CAPTURA DE EVENTOS
 html_renderizado = generar_canvas_ofertas(st.session_state.ofertas, pag_act, slots_deseados, columnas_css, filas_css)
-
-with st.container():
-    evento_drag_drop = st.components.v1.html(html_renderizado, height=540, scrolling=False)
+evento_drag_drop = components.html(html_renderizado, height=520, scrolling=False)
 
 if evento_drag_drop:
     try:
         datos = json.loads(evento_drag_drop)
-        evento_ts = datos.get("timestamp", 0)
-        
-        # Filtro por marca de tiempo: El evento solo se procesa si es una acción nueva
-        if evento_ts > st.session_state.get("ultimo_ts_procesado", 0):
-            id_mod = datos.get("id_oferta")
-            nueva_p = datos.get("numero_pagina")
-            nuevo_s = datos.get("posicion_slot")
-            
-            cambio = False
-            for ofer in st.session_state.ofertas:
-                if ofer["id_oferta"] == id_mod:
-                    if ofer.get("numero_pagina") != nueva_p or ofer.get("posicion_slot") != nuevo_s:
-                        ofer["numero_pagina"] = nueva_p
-                        ofer["posicion_slot"] = nuevo_s
-                        cambio = True
-            
-            if cambio:
-                st.session_state.ultimo_ts_procesado = evento_ts
-                st.rerun()
+        for ofer in st.session_state.ofertas:
+            if ofer["id_oferta"] == datos["id_oferta"]:
+                ofer["numero_pagina"] = datos["numero_pagina"]
+                ofer["posicion_slot"] = datos["posicion_slot"]
     except Exception:
         pass
 
-# =====================================================================
-# GRILLA NATIVA EN PYTHON (Para resúmenes, contadores o acciones)
-# =====================================================================
+# 8. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA
+st.markdown(f"### 📊 Registros Procesados de la Página {pag_act}")
 
-# 1. Creamos una grilla de columnas en Python (ejemplo de 3 columnas iguales)
-col1, col2, col3 = st.columns(3)
+filas_tabla_ofertas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": int(id_campana_activa), "numero_pagina": int(o["numero_pagina"]), "posicion_slot": int(o["posicion_slot"]), "precio_oferta": o.get("precio_oferta"), "posicion_mix": tipo_distribucion, "sub_molde_estilo": sub_estilo, "numero_fila": ((int(o["posicion_slot"]) - 1) // 2) + 1 if o.get("posicion_slot") else None, "numero_columna": ((int(o["posicion_slot"]) - 1) % 2) + 1 if o.get("posicion_slot") else None} for o in st.session_state.ofertas if o.get("numero_pagina") is not None and str(o["numero_pagina"]) != "null" and int(o["numero_pagina"]) == pag_act]
 
-# 2. Inyectamos contenido en cada celda de la grilla de Python
-with col1:
-    total_banco = len(st.session_state.get("productos_banco", []))
-    st.metric(label="Productos en Banco", value=total_banco)
+if filas_tabla_ofertas:
+    st.dataframe(filas_tabla_ofertas, use_container_width=True)
+else:
+    st.info("Ninguna oferta asignada en esta hoja todavía. Arrastra elementos desde el banco de la campaña.")
 
-with col2:
-    total_folleto = len(st.session_state.get("productos_folleto", []))
-    st.metric(label="Productos en Folleto", value=total_folleto)
+# 9. DETECCIÓN DE ELEMENTOS DEVUELTOS
+filas_desasignadas = [{"id_oferta": o["id_oferta"], "id_producto": o["id_producto"], "id_campana": int(id_campana_activa), "numero_pagina": None, "posicion_slot": None, "numero_fila": None, "numero_columna": None} for o in st.session_state.ofertas if o.get("numero_pagina") is None or str(o["numero_pagina"]) == "null"]
 
-with col3:
-    # Espacio libre para un selector, indicador de estado o filtro rápido
-    st.markdown("**Estado del Maquetador**")
-    if total_folleto > 0:
-        st.success("Listo para guardar")
-    else:
-        st.warning("Folleto vacío")
-
-# Separador visual antes del botón final
-st.divider()
-
-
-# ==============================================================================
-# 10. EJECUCIÓN DIRECTA DEL UPSERT MULTI-PÁGINA EN SUPABASE
-# ==============================================================================
-if st.button("💾 Guardar Configuración Completa del Folleto", type="primary", use_container_width=True):
-    if lote_para_guardar:
+# 10. EJECUCIÓN DIRECTA DEL UPSERT EN SUPABASE
+if st.button("💾 Guardar Configuración y Distribución en Supabase", type="primary", use_container_width=True):
+    lote_sincronizacion = filas_tabla_ofertas + filas_desasignadas
+    if lote_sincronizacion:
         try:
-            with st.spinner("Sincronizando cambios con Supabase..."):
-                # El método upsert actualizará las filas existentes por su 'id_oferta' en un único viaje de red
-                resultado = supabase.table("ofertas").upsert(lote_para_guardar).execute()
-                
-            st.success(f"✨ ¡Sincronización Exitosa! {len(resultado.data)} registros actualizados en la nube.")
-            st.toast("Base de datos actualizada correctamente", icon="🚀")
-            
-            # Forzamos una recarga limpia del estado de la campaña desde la base de datos post-guardado
-            del st.session_state.ofertas
-            st.rerun()
-            
+            resultado = supabase.table("ofertas").upsert(lote_sincronizacion).execute()
+            st.success(f"¡Sincronización Completada! {len(resultado.data)} registros sincronizados con éxito (maquetados y devueltos al banco).")
+            st.toast("Base de datos en la nube actualizada", icon="⚡")
         except Exception as e:
-            st.error(f"❌ Error al impactar la tabla ofertas en Supabase: {str(e)}")
+            st.error(f"Error al impactar la tabla ofertas en Supabase: {str(e)}")
     else:
-        st.warning("⚠️ La maqueta actual no cuenta con elementos cargados para persistir.")
-
+        st.warning("La maqueta actual no cuenta con elementos asignados para persistir.")
