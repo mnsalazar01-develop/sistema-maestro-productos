@@ -371,8 +371,17 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     </script></body></html>"""
 
 # ==============================================================================
-# 8. RENDERIZADO INTERACTIVO FINAL Y PROCESAMIENTO INMUNE (CON PUENTE REAL JS->PY)
+# 8. RENDERIZADO INTERACTIVO FINAL Y PROCESAMIENTO INMUNE (PUENTE POR DOM)
 # ==============================================================================
+
+# 1. Creamos un input de texto invisible para capturar los movimientos de JS
+# Ponemos la clave 'bridge_drag_drop' para poder identificarlo con JavaScript
+if "ultimo_ts_procesado" not in st.session_state:
+    st.session_state.ultimo_ts_procesado = 0
+
+# Este input captura el JSON que le manda JavaScript en tiempo real
+datos_puente_raw = st.text_input("Puente de comunicación", value="", key="bridge_drag_drop", label_visibility="collapsed")
+
 def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
     try:
         banco_html = ""
@@ -459,14 +468,32 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
         </div>
 
         <script>
-        // ¡CAMBIO CLAVE!: Usamos window.top para traspasar los iframes de protección de Streamlit Cloud
-        function enviarDatosAStreamlit(payload) {{
-            const mensaje = {{
-                isStreamlitMessage: true,
-                type: "streamlit:setComponentValue",
-                value: JSON.stringify(payload)
-            }};
-            window.top.postMessage(mensaje, "*");
+        // TRUCO MAESTRO: JavaScript busca el input de Streamlit en la ventana superior y escribe en él
+        function enviarDatosAPython(payload) {{
+            // Buscamos los elementos input de la página contenedora de Streamlit
+            const inputs = window.top.document.querySelectorAll('input');
+            let inputPuente = null;
+            
+            // Localizamos el input correcto que creamos con Python
+            for (let inp of inputs) {{
+                if (inp.getAttribute('aria-label') === "Puente de comunicación" || inp.id.includes('bridge_drag_drop')) {{
+                    inputPuente = inp;
+                    break;
+                }}
+            }}
+            
+            if (inputPuente) {{
+                // Inyectamos el valor JSON simulando la escritura del usuario
+                inputPuente.value = JSON.stringify(payload);
+                
+                // Disparamos los eventos nativos para que Streamlit reaccione al cambio de texto
+                inputPuente.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                inputPuente.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                
+                // Forzamos el click o el "Enter" para enviar el cambio de inmediato
+                const ke = new KeyboardEvent('keydown', {{ bubbles: true, cancelable: true, keyCode: 13, key: 'Enter' }});
+                inputPuente.dispatchEvent(ke);
+            }}
         }}
 
         let draggedNode = null;
@@ -484,7 +511,7 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
                     const ph = slot.querySelector('.placeholder'); if(ph) ph.remove();
                     slot.appendChild(draggedNode);
                     
-                    enviarDatosAStreamlit({{
+                    enviarDatosAPython({{
                         id_oferta: draggedNode.id,
                         numero_pagina: {pagina},
                         posicion_slot: slot.id,
@@ -503,7 +530,7 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
             if(draggedNode) {{
                 bLista.appendChild(draggedNode);
                 
-                enviarDatosAStreamlit({{
+                enviarDatosAPython({{
                     id_oferta: draggedNode.id,
                     numero_pagina: null,
                     posicion_slot: null,
@@ -515,10 +542,6 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
     except Exception:
         return "<h3>Error en generacion de interfaz HTML</h3>"
 
-# Aseguramos que la marca de tiempo de control exista en el session_state
-if "ultimo_ts_procesado" not in st.session_state:
-    st.session_state.ultimo_ts_procesado = 0
-
 lista_ofertas_segura = st.session_state.ofertas if "ofertas" in st.session_state else []
 html_renderizado = generar_canvas_ofertas_corregido(
     lista_ofertas_segura, 
@@ -528,17 +551,17 @@ html_renderizado = generar_canvas_ofertas_corregido(
     filas_css
 )
 
+# Dibujamos el componente visual estático (Ya no esperamos su retorno directo)
 with st.container():
-    evento_drag_drop = st.components.v1.html(
-        str(html_renderizado), 
-        height=540, 
-        scrolling=False
-    )
+    st.components.v1.html(str(html_renderizado), height=540, scrolling=False)
 
-# Procesamiento del evento con validación forzada
-if evento_drag_drop:
+
+# ==============================================================================
+# 2. PROCESAMIENTO DESDE EL INPUT DE TEXTO REAL (Esto sí lo ve Python siempre)
+# ==============================================================================
+if datos_puente_raw and datos_puente_raw.strip() != "":
     try:
-        datos = json.loads(evento_drag_drop)
+        datos = json.loads(datos_puente_raw)
         evento_ts = int(datos.get("timestamp", 0))
         ultimo_ts = int(st.session_state.get("ultimo_ts_procesado", 0))
         
@@ -564,9 +587,6 @@ if evento_drag_drop:
                     st.rerun()
     except Exception:
         pass
-
-
-
 
 # ==============================================================================
 # 9. PREPARACIÓN DE OUTPUT Y CÁLCULOS MATEMÁTICOS DE MAQUETA
