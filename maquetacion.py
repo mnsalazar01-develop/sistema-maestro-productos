@@ -369,7 +369,6 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
             }}
         }});
     </script></body></html>"""
-
 # ==============================================================================
 # 8. RENDERIZADO INTERACTIVO FINAL Y PROCESAMIENTO INMUNE (CON PUENTE REAL JS->PY)
 # ==============================================================================
@@ -378,7 +377,6 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
         banco_html = ""
         slots_ocupados = {}
         
-        # Aseguramos que num_slots sea un entero limpio
         try:
             num_slots = int(float(str(num_slots).strip()))
         except (ValueError, TypeError):
@@ -426,6 +424,7 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
                 else:
                     banco_html += card
 
+        # ¡CORRECCIÓN CRÍTICA!: Evaluamos el contenido dinámicamente DENTRO del ciclo for
         slots_html = ""
         for i in range(1, num_slots + 1):
             contenido_slot = slots_ocupados.get(i, f'<div class="placeholder">Posición Slot {i}</div>')
@@ -511,11 +510,9 @@ def generar_canvas_ofertas_corregido(ofertas, pagina, num_slots, cols, rows):
     except Exception as e:
         return f"<h3>Error interno en la generación del canvas: {str(e)}</h3>"
 
-# Ejecución forzada con retorno de texto garantizado
+# Invocación protegida con retorno de cadena garantizado
 try:
-    # Verificamos que las ofertas existan en el estado de sesión antes de procesar
     lista_ofertas_segura = st.session_state.ofertas if "ofertas" in st.session_state else []
-    
     html_renderizado = generar_canvas_ofertas_corregido(
         lista_ofertas_segura, 
         int(pag_act), 
@@ -526,9 +523,8 @@ try:
 except Exception as e:
     html_renderizado = f"<h3>Error crítico en el hilo de renderizado: {str(e)}</h3>"
 
-# Blindaje definitivo contra cualquier posible escape de tipo None
 if not html_renderizado or not isinstance(html_renderizado, str):
-    html_renderizado = "<h3>Lienzo de maquetación no disponible por error de datos</h3>"
+    html_renderizado = "<h3>Lienzo de maquetación no disponible por error de formato</h3>"
 
 with st.container():
     evento_drag_drop = st.components.v1.html(
@@ -565,7 +561,6 @@ if evento_drag_drop:
                     st.rerun()
     except Exception:
         pass
-
 
 
 # ==============================================================================
