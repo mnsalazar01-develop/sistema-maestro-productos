@@ -371,50 +371,70 @@ def generar_canvas_ofertas(ofertas, pagina, num_slots, cols, rows):
     </script></body></html>"""
 
 # ==============================================================================
-# 8. MOTOR ÚNICO DE MAQUETACIÓN CON RETORNO DE DATOS EN CALIENTE
+# 8 y 9. MOTOR DE RENDIMIENTO INTEGRADO Y LIENZO REACTIVO DEFINITIVO
 # ==============================================================================
-def generar_grilla_completa(lista_ofertas, pagina_actual, cols, rows):
-    import json
-    total_slots = cols * rows
-    style_cols = f"repeat({cols}, 1fr)"
-    style_rows = f"repeat({rows}, 1fr)"
-    
-    # Solo le pasamos a JS las ofertas limpias
-    ofertas_json = json.dumps(lista_ofertas)
+import json
+import streamlit as st
 
-    # HTML y JavaScript unidos en un solo string plano para evitar NameErrors
-    raw_template = """
-    <!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-        body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; padding: 10px; }
+# 1. Recuperación y validación del almacenamiento de ofertas en la sesión
+if "ofertas" not in st.session_state or not st.session_state.ofertas:
+    st.session_state.ofertas = [
+        {"id_oferta": 10, "nombre": "Televisor Smart 55", "precio_oferta": 399, "numero_pagina": 1, "posicion_slot": 1},
+        {"id_oferta": 11, "nombre": "Silla Gamer", "precio_oferta": 145, "numero_pagina": 0, "posicion_slot": 0},
+        {"id_oferta": 12, "nombre": "Barra Sonido", "precio_oferta": 85, "numero_pagina": 1, "posicion_slot": 2}
+    ]
+
+# 2. Extracción y tipado forzado de variables estructurales
+pag_act = int(st.session_state.get("pag_act", 1))
+cols_grilla = int(st.session_state.get("columnas_css", 2))
+filas_grilla = int(st.session_state.get("filas_css", 3))
+
+total_slots = cols_grilla * filas_grilla
+style_cols = f"repeat({cols_grilla}, 1fr)"
+style_rows = f"repeat({filas_grilla}, 1fr)"
+
+# 3. Serialización limpia a JSON de los productos de la campaña
+ofertas_json = json.dumps(st.session_state.ofertas)
+
+# 4. Plantilla Maestra en Texto Crudo (Impedimos problemas de retorno u objetos vacíos)
+plantilla_html_cruda = """
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; padding: 10px; color: #0f172a; }
         .layout-campana { display: flex; gap: 15px; height: 420px; }
         .seccion-banco { width: 250px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; }
         .contenedor-banco { flex: 1; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; background: #f1f5f9; padding: 8px; border-radius: 8px; border: 2px dashed #cbd5e1; }
         .seccion-folleto { flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; }
-        .grilla-folleto-dinamica { display: grid; grid-template-columns: __COLS_STYLE__; grid-template-rows: __ROWS_STYLE__; gap: 10px; flex: 1; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 10px; }
-        .slot-maqueta { background: white; border: 2px dashed #e2e8f0; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; min-height: 80px; }
+        .grilla-folleto-dinamica { display: grid; grid-template-columns: __STYLE_COLS__; grid-template-rows: __STYLE_ROWS__; gap: 10px; flex: 1; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 10px; }
+        .slot-maqueta { background: white; border: 2px dashed #e2e8f0; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; min-height: 80px; box-sizing: border-box; }
         .slot-info { position: absolute; top: 2px; left: 2px; font-size: 8px; font-weight: bold; color: #94a3b8; }
-        .tarjeta-producto { background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px; display: flex; gap: 8px; width: 90%; height: 90%; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: grab; }
+        .tarjeta-producto { background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px; display: flex; gap: 8px; width: 95%; height: 95%; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: grab; box-sizing: border-box; }
         .tarjeta-producto img { width: 35px; height: 35px; object-fit: cover; border-radius: 4px; pointer-events: none; }
         .meta-datos { display: flex; flex-direction: column; font-size: 11px; overflow: hidden; pointer-events: none; }
         .nombre { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .precio { color: #16a34a; font-weight: 700; }
         .placeholder-vacio { color: #cbd5e1; font-size: 11px; user-select: none; }
-    </style></head><body>
+    </style>
+</head>
+<body>
 
     <div class="layout-campana">
         <div class="seccion-banco">
-            <h5 style="margin:0 0 6px 0;">Banco (Slot 0)</h5>
+            <h5 style="margin:0 0 6px 0; font-size:13px;">Banco (Slot 0)</h5>
             <div class="contenedor-banco" id="banco-disponibles"></div>
         </div>
         <div class="seccion-folleto">
-            <h5 style="margin:0 0 6px 0;">Página __PAG__ — Distribución</h5>
+            <h5 style="margin:0 0 6px 0; font-size:13px;">Página __PAGINA_ACTUAL__ — Distribución</h5>
             <div class="grilla-folleto-dinamica" id="grilla-render"></div>
         </div>
     </div>
 
     <script>
-        const totalProductos = __OFERTAS__;
-        const PAGINA_ACTUAL = __PAG__;
+        const totalProductos = __OFERTAS_JSON__;
+        const PAGINA_ACTUAL = __PAGINA_ACTUAL__;
         const COLS = __COLS_NUM__;
         const TOTAL_SLOTS = __TOTAL_SLOTS__;
         let elementoArrastrado = null;
@@ -422,15 +442,17 @@ def generar_grilla_completa(lista_ofertas, pagina_actual, cols, rows):
         function ordenarAlArranque() {
             const banco = document.getElementById('banco-disponibles');
             const grilla = document.getElementById('grilla-render');
+            
             const mapaSlots = {};
             for (let i = 1; i <= TOTAL_SLOTS; i++) { mapaSlots[i] = null; }
 
             totalProductos.forEach(p => {
                 let pag = parseInt(p.numero_pagina) || 0;
                 let slot = parseInt(p.posicion_slot) || 0;
+                
                 if (pag === PAGINA_ACTUAL && slot > 0 && slot <= TOTAL_SLOTS) {
                     mapaSlots[slot] = p;
-                } else if (pag === PAGINA_ACTUAL || pag === 0) {
+                } else if (pag === PAGINA_ACTUAL || pag === 0 || slot === 0) {
                     crearTarjeta(p, banco);
                 }
             });
@@ -440,7 +462,7 @@ def generar_grilla_completa(lista_ofertas, pagina_actual, cols, rows):
                 s.className = 'slot-maqueta';
                 s.id = 'slot-' + i;
                 s.setAttribute('data-slot', i);
-                s.innerHTML = '<span class="slot-info">S' + i + '</span>';
+                s.innerHTML = '<span class="slot-info">Slot ' + i + '</span>';
                 
                 if (mapaSlots[i]) {
                     crearTarjeta(mapaSlots[i], s);
@@ -452,15 +474,19 @@ def generar_grilla_completa(lista_ofertas, pagina_actual, cols, rows):
                 s.addEventListener('drop', (e) => {
                     e.preventDefault();
                     if(!elementoArrastrado) return;
+                    
                     const existente = s.querySelector('.tarjeta-producto');
                     const deDondeViene = elementoArrastrado.parentNode;
                     
-                    if(existente) { deDondeViene.appendChild(existente); }
-                    else { const ph = s.querySelector('.placeholder-vacio'); if(ph) ph.remove(); }
+                    if(existente) { 
+                        deDondeViene.appendChild(existente); 
+                    } else { 
+                        const ph = s.querySelector('.placeholder-vacio'); 
+                        if(ph) ph.remove(); 
+                    }
                     
                     s.appendChild(elementoArrastrado);
                     actualizarEstructuraVisual();
-                    notificarAStreamlit();
                 });
                 grilla.appendChild(s);
             }
@@ -471,7 +497,6 @@ def generar_grilla_completa(lista_ofertas, pagina_actual, cols, rows):
                 if(!elementoArrastrado) return;
                 banco.appendChild(elementoArrastrado);
                 actualizarEstructuraVisual();
-                notificarAStreamlit();
             });
         }
 
@@ -480,7 +505,9 @@ def generar_grilla_completa(lista_ofertas, pagina_actual, cols, rows):
             t.className = 'tarjeta-producto';
             t.draggable = true;
             t.setAttribute('data-id-oferta', p.id_oferta);
-            t.innerHTML = '<img src="' + (p.img || 'https://picsum.photos') + '"><div class="meta-datos"><span class="nombre">' + p.nombre + '</span><span class="precio">$' + p.precio_oferta + '</span></div>';
+            
+            let urlImg = p.img || 'https://picsum.photos';
+            t.innerHTML = '<img src="' + urlImg + '"><div class="meta-datos"><span class="nombre">' + p.nombre + '</span><span class="precio">$' + p.precio_oferta + '</span></div>';
             
             t.addEventListener('dragstart', () => { elementoArrastrado = t; t.style.opacity = '0.4'; });
             t.addEventListener('dragend', () => { elementoArrastrado = null; t.style.opacity = '1'; });
@@ -490,60 +517,38 @@ def generar_grilla_completa(lista_ofertas, pagina_actual, cols, rows):
         function actualizarEstructuraVisual() {
             document.querySelectorAll('.slot-maqueta').forEach(s => {
                 if(!s.querySelector('.tarjeta-producto') && !s.querySelector('.placeholder-vacio')) {
-                    s.innerHTML += '<span class="placeholder-vacio">Vacante</span>';
+                    const ph = document.createElement('span');
+                    ph.className = 'placeholder-vacio';
+                    ph.innerText = 'Vacante';
+                    s.appendChild(ph);
                 }
             });
         }
 
-        function notificarAStreamlit() {
-            let datosActuales = [];
-            document.querySelectorAll('.tarjeta-producto').forEach(t => {
-                let padre = t.parentNode;
-                let enSlot = padre.classList.contains('slot-maqueta');
-                datosActuales.push({
-                    id_oferta: parseInt(t.getAttribute('data-id-oferta')),
-                    numero_pagina: enSlot ? PAGINA_ACTUAL : 0,
-                    posicion_slot: enSlot ? parseInt(padre.getAttribute('data-slot')) : 0
-                });
-            });
-            // Enviamos las coordenadas de regreso a la ventana de Streamlit
-            window.parent.postMessage({type: 'GRILLA_UPDATE', data: datosActuales}, '*');
-        }
-
         ordenarAlArranque();
-    </script></body></html>
-    """
+    </script>
+</body>
+</html>
+"""
 
-    # Inyección directa impecable sin conflictos con f-strings
-    return raw_template.replace("__COLS_STYLE__", style_cols)\
-                       .replace("__ROWS_STYLE__", style_rows)\
-                       .replace("__PAG__", str(pagina_actual))\
-                       .replace("__OFERTAS__", ofertas_json)\
-                       .replace("__COLS_NUM__", str(cols))\
-                       .replace("__TOTAL_SLOTS__", str(total_slots))
+# 5. Reemplazo directo y forzado de etiquetas en memoria de Python (Retorna un 'str' garantizado)
+html_final_compilado = plantilla_html_cruda.replace("__STYLE_COLS__", style_cols)\
+                                           .replace("__STYLE_ROWS__", style_rows)\
+                                           .replace("__PAGINA_ACTUAL__", str(pag_act))\
+                                           .replace("__OFERTAS_JSON__", ofertas_json)\
+                                           .replace("__COLS_NUM__", str(cols_grilla))\
+                                           .replace("__TOTAL_SLOTS__", str(total_slots))
 
-# ==============================================================================
-# 9. COMPONENTE REACTIVO EN STREAMLIT
-# ==============================================================================
-import streamlit as st
-
-# Datos iniciales si la sesión arranca limpia
-if "ofertas" not in st.session_state:
-    st.session_state.ofertas = [
-        {"id_oferta": 10, "nombre": "Televisor Smart 55", "precio_oferta": 399, "numero_pagina": 1, "posicion_slot": 1},
-        {"id_oferta": 11, "nombre": "Silla Gamer", "precio_oferta": 145, "numero_pagina": 0, "posicion_slot": 0},
-        {"id_oferta": 12, "nombre": "Barra Sonido", "precio_oferta": 85, "numero_pagina": 1, "posicion_slot": 2}
-    ]
-
-pag_act = int(st.session_state.get("pag_act", 1))
-cols_grilla = int(st.session_state.get("columnas_css", 2))
-filas_grilla = int(st.session_state.get("filas_css", 3))
-
-# Renderizamos la grilla pasando una clave vinculada a la página actual para que reaccione al cambiar de hoja
-html_final = generar_grilla_completa(st.session_state.ofertas, pag_act, cols_grilla, filas_grilla)
-
+# 6. Renderizado reactivo final protegido
 st.markdown(f"### 🛠️ Lienzo Activo — Página {pag_act}")
-st.components.v1.html(html_final, height=440, scrolling=False, key=f"grilla_reactiva_p{pag_act}")
+
+# Pasamos el string garantizado y forzamos refresco de iFrame al cambiar la key de página
+st.components.v1.html(
+    str(html_final_compilado), 
+    height=450, 
+    scrolling=False, 
+    key=f"grilla_estable_p{pag_act}"
+)
 
 
 # ==============================================================================
