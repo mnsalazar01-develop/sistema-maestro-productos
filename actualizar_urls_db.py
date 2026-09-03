@@ -38,7 +38,7 @@ def corregir_urls_tabla():
     st.info(f"📋 Se detectaron {total} registros. Iniciando actualización de enlaces...")
     
     # 💡 CORRECCIÓN CRÍTICA: Usamos 'authenticated' porque tu nuevo bucket es PRIVADO
-    url_base_nueva = f"{url.rstrip('/')}/storage/v1/object/authenticated/imagenes/"
+    url_base_nueva = f"{url.rstrip('/')}/storage/v1/object/public/imagenes/"
     
     contador_actualizados = 0
     progreso = st.progress(0)
