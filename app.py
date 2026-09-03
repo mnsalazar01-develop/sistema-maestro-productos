@@ -89,7 +89,7 @@ enrutador_global = st.navigation([
     pagina_inventario, 
     pagina_productos,
     pagina_grilla_productos,
-    pag_car_cam_img
+    pag_car_cam_img,
     pagina_maestro, 
     pagina_subcategorias,
     pagina_saneamiento,
