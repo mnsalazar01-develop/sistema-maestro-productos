@@ -251,84 +251,35 @@ with st.container(border=True):
 num_cols_reales = calcular_num_cols(slots_deseados)
 
 # ==============================================================================
-# 9. FORMATO DE ITEMS ULTRA-DENSOS PARA SORTABLES (CON ICONOS UNICODE)
+# 9. FORMATO DE ITEMS Y EXTRACCIÓN DE IDS (BLINDAJE CONTRA FANTASMAS)
 # ==============================================================================
 def format_item(o):
-    """
-    Formatea la tarjeta con indicadores visuales limpios en texto.
-    Usa iconos Unicode para compensar la falta de imágenes nativas.
-    """
+    """Formatea las ofertas reales con texto plano y limpio."""
     precio = float(o.get("precio_oferta", 0)) if o.get("precio_oferta") is not None else 0
     nombre = o.get('nombre', 'Sin nombre')
     sku = o.get('sku', 'S/N')
-    return f"🆔 {o['id_oferta']} | 📦 {nombre} | 💵 ${precio:,.0f} | 📎 SKU: {sku}"
+    return f"{o['id_oferta']} | {nombre} | ${precio:,.0f} | SKU: {sku}"
 
 def parse_item_id(item_str):
+    """Extrae el ID de la oferta ignorando tarjetas del sistema."""
     try:
-        # Extraemos el primer número limpio antes de la tubería
-        partes = item_str.split("|")
-        id_limpio = partes[0].replace("🆔", "").strip()
-        return int(id_limpio)
-    except Exception:
+        if "Slot Libre" in item_str:
+            return None
         return int(item_str.split("|")[0].strip())
+    except Exception:
+        return None
 
 # ==============================================================================
-# INYECCIÓN DE CSS DE CHOQUE: ELIMINA EL ROJO Y FIJA ALTURAS MÍNIMAS
-# ==============================================================================
-st.markdown("""
-<style>
-    /* 1. Matar el fondo rojo de los contenedores sortables y darles estilo premium */
-    div[data-testid="stDataFrame"] + div, 
-    .stSortablesContainer,
-    [id^="sort_estable_"] {
-        background-color: #f8fafc !important;
-        border-radius: 12px !important;
-        padding: 10px !important;
-    }
-    
-    /* 2. Forzar que cada bloque (Banco y Slots) tenga fondo neutro y bordes limpios */
-    div.stSelectbox + div div div div[draggable="true"] {
-        background-color: #ffffff !important;
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 8px !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
-    }
-
-    /* 3. SOLUCIÓN AL APUNTADO: Obligar a los slots vacíos a mantener un tamaño mínimo */
-    /* Esto quita el rojo horrible y lo cambia por un gris magnético interactivo */
-    div[data-baseline="sortable"] div,
-    .sortable-list,
-    div div div div[style*="background-color: red"],
-    div div div div[style*="background-color: rgb(255, 0, 0)"] {
-        background-color: #f1f5f9 !important;
-        border: 2px dashed #cbd5e1 !important;
-        border-radius: 8px !important;
-        min-height: 95px !important; /* Altura fija para que nunca colapse a 0px */
-        margin-bottom: 8px !important;
-        padding: 8px !important;
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 6px !important;
-    }
-    
-    /* Cambiar el color de las letras del encabezado de los slots */
-    div div div h6, div div div p {
-        color: #1e293b !important;
-        font-weight: 700 !important;
-        margin-bottom: 4px !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# ==============================================================================
-# 10. CONSTRUIR CONTENEDORES PARA SORTABLES
+# 10. CONSTRUIR CONTENEDORES CON TARJETAS MAGNETIZADAS ANTI-COLAPSO
 # ==============================================================================
 ofertas = st.session_state.get("ofertas", [])
 
-# Banco de Ofertas: Captura todo lo que no tiene página asignada (None o 0)
+# Banco de Ofertas: Captura todo lo que no tiene página asignada
 banco_items = [format_item(o) for o in ofertas if safe_int(o.get("numero_pagina")) is None]
+if not banco_items:
+    banco_items = ["✨ El banco está vacío. Cambia de página."]
 
-# Slots: Construcción modular de casilleros de la página actual
+# Slots: Construcción modular de casilleros asegurando área de apuntado
 slot_containers = []
 for slot_num in range(1, slots_deseados + 1):
     slot_items = [
@@ -336,22 +287,27 @@ for slot_num in range(1, slots_deseados + 1):
         if safe_int(o.get("numero_pagina")) == pag_act
         and safe_int(o.get("posicion_slot")) == slot_num
     ]
+    
+    # EL SECRETO: Si el slot está vacío, le inyectamos la tarjeta fantasma.
+    # Esto elimina el fondo rojo chillón y le da altura inmediata al Slot 4.
+    if not slot_items:
+        slot_items = [f"➕ Slot {slot_num} Libre - Suelta tu producto aquí"]
+        
     slot_containers.append({
-        "header": f"📥 Casillero Slot {slot_num}",
+        "header": f"Slot {slot_num}",
         "items": slot_items
     })
 
 # Unificación estructural de los bloques de arrastre
-all_containers = [{"header": "🛒 Banco de Ofertas", "items": banco_items}] + slot_containers
+all_containers = [{"header": "Banco de Ofertas", "items": banco_items}] + slot_containers
 
 # ==============================================================================
 # 11. RENDERIZADO DEL PANEL DRAG & DROP REACTIVO A PÁGINAS
 # ==============================================================================
 st.markdown("### 🎂 Panel de Distribución por Arrastre")
-st.caption("Mueve las tarjetas entre el Banco y los Slots. Los casilleros vacíos mantendrán su tamaño para facilitar el drop.")
+st.caption("Mueve las tarjetas entre el Banco y los Slots. Los casilleros vacíos muestran una guía para facilitar el drop.")
 
-# Al incluir pag_act y slots_deseados en la clave, obligamos a la librería
-# a refrescar los datos limpios en pantalla cada vez que navegas con los botones
+# Clave dinámica para forzar la actualización al cambiar de hoja
 sorted_data = sort_items(
     all_containers,
     multi_containers=True,
@@ -360,7 +316,7 @@ sorted_data = sort_items(
 )
 
 # ==============================================================================
-# 12. PROCESAR RESULTADO DEL DRAG & DROP Y APLICAR CAMBIOS
+# 12. PROCESAR RESULTADO DEL DRAG & DROP Y FILTRADO DE DATOS REALES
 # ==============================================================================
 if sorted_data:
     cambio = False
@@ -371,32 +327,34 @@ if sorted_data:
         header = container.get("header", "")
         items = container.get("items", [])
         
-        if header == "🛒 Banco de Ofertas":
-            # Todo elemento devuelto al banco se limpia (asume None)
+        if header == "Banco de Ofertas":
             for item_str in items:
                 id_oferta = parse_item_id(item_str)
-                if id_oferta not in ids_procesados:
+                # Si es una tarjeta real y no ha sido procesada, va al banco
+                if id_oferta is not None and id_oferta not in ids_procesados:
                     nueva_asignacion[id_oferta] = (None, None)
                     ids_procesados.add(id_oferta)
                     
-        elif header.startswith("📥 Casillero Slot"):
-            # Extraemos el número correlativo del casillero de destino
-            slot_num = int(header.replace("📥 Casillero Slot ", ""))
-            if items:
-                # El primer elemento toma posesión legítima del slot
-                id_oferta = parse_item_id(items[0])
+        elif header.startswith("Slot "):
+            slot_num = int(header.replace("Slot ", "").strip())
+            
+            # Recorremos los elementos que cayeron en el slot
+            items_reales = [parse_item_id(i) for i in items if parse_item_id(i) is not None]
+            
+            if items_reales:
+                # El primer producto real se queda legítimamente con el casillero
+                id_oferta = items_reales[0]
                 if id_oferta not in ids_procesados:
                     nueva_asignacion[id_oferta] = (pag_act, slot_num)
                     ids_procesados.add(id_oferta)
                 
-                # REGLA DE PROTECCIÓN: Si encimas más de una tarjeta, las sobrantes van al banco
-                for extra_str in items[1:]:
-                    id_extra = parse_item_id(extra_str)
+                # Si arrastró más de uno por accidente, los sobrantes se desasignan al banco
+                for id_extra in items_reales[1:]:
                     if id_extra not in ids_procesados:
                         nueva_asignacion[id_extra] = (None, None)
                         ids_procesados.add(id_extra)
 
-    # Impactamos el mapeo en caliente sobre la memoria central de Python
+    # Impactamos el mapa de coordenadas sobre la memoria central de Python
     for o in st.session_state.ofertas:
         id_o = o["id_oferta"]
         if id_o in nueva_asignacion:
@@ -409,6 +367,7 @@ if sorted_data:
     if cambio:
         st.success("✔ Distribución de página actualizada en memoria.")
         st.rerun()
+
 
 # ==============================================================================
 # 13. TABLA DE ASIGNADAS (PÁGINA ACTUAL)
