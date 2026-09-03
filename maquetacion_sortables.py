@@ -251,10 +251,8 @@ with st.container(border=True):
 num_cols_reales = calcular_num_cols(slots_deseados)
 
 # ==============================================================================
-# 9. FORMATO DE ITEMS ULTRA-DENSOS (ID 100% FUERA DEL TEXTO VIA CACHÉ)
+# 9. FORMATO DE ITEMS ULTRA-DENSOS (CON FILTRADO DE TARJETAS GUÍA)
 # ==============================================================================
-
-# Inicializamos un diccionario global en la sesión para emparejar textos con IDs
 if "diccionario_ids_sortables" not in st.session_state:
     st.session_state["diccionario_ids_sortables"] = {}
 
@@ -262,26 +260,29 @@ def format_item(o):
     """Genera una tarjeta limpia sin IDs y registra la relación en la caché."""
     precio = float(o.get("precio_oferta", 0)) if o.get("precio_oferta") is not None else 0
     nombre = o.get('nombre', 'Sin nombre')
-    
-    # Este es el texto único y limpio que verá el usuario en la caja
     texto_tarjeta = f"📦 {nombre} | 💵 ${precio}"
-    
-    # Guardamos la relación en la caché de la sesión usando el texto como clave
     st.session_state["diccionario_ids_sortables"][texto_tarjeta] = int(o['id_oferta'])
-    
     return texto_tarjeta
 
 def parse_item_id(item_str):
-    """Recupera el ID de la oferta desde la memoria usando el texto de la caja."""
+    """Recupera el ID de la oferta ignorando de forma segura los textos guía."""
     try:
-        if not item_str or "Slot" in item_str or "Libre" in item_str:
+        if not item_str:
             return None
             
-        # Limpiamos espacios por si las moscas
-        texto_limpio = item_str.strip()
+        item_str_limpio = item_str.strip()
         
-        # Buscamos el ID real guardado en el diccionario de la sesión
-        return st.session_state["diccionario_ids_sortables"].get(texto_limpio)
+        # 🚨 FILTRO CRÍTICO: Si el texto es una tarjeta guía, la ignoramos olímpicamente
+        if (
+            "vacío" in item_str_limpio 
+            or "Libre" in item_str_limpio 
+            or "Suelta" in item_str_limpio 
+            or "Slot" in item_str_limpio
+        ):
+            return None
+            
+        # Buscamos el ID real en la caché
+        return st.session_state["diccionario_ids_sortables"].get(item_str_limpio)
     except Exception:
         return None
 
@@ -289,7 +290,6 @@ def parse_item_id(item_str):
 # 10. CONSTRUIR CONTENEDORES CON TARJETAS GUÍA CON EMOJIS
 # ==============================================================================
 ofertas = st.session_state.get("ofertas", [])
-
 # Banco de Ofertas: Captura todo lo que no tiene página asignada
 banco_items = [format_item(o) for o in ofertas if safe_int(o.get("numero_pagina")) is None]
 if not banco_items:
@@ -304,9 +304,9 @@ for slot_num in range(1, slots_deseados + 1):
         and safe_int(o.get("posicion_slot")) == slot_num
     ]
     
-    # Mantenemos la tarjeta de contenido para que el slot no colapse a 0 píxeles
-    #if not slot_items:
-    #    slot_items = [f"➕ Slot {slot_num} Libre - Suelta tu producto aquí"]
+    # 💡 Tip: Ahora puedes desescomentar esto con total seguridad si quieres
+    if not slot_items:
+        slot_items = [f"➕ Slot {slot_num} Libre - Suelta tu producto aquí"]
         
     slot_containers.append({
         "header": f"Slot {slot_num}",
