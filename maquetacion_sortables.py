@@ -257,8 +257,7 @@ def format_item(o):
     """Formatea las ofertas reales con iconos Unicode para alta fidelidad visual."""
     precio = float(o.get("precio_oferta", 0)) if o.get("precio_oferta") is not None else 0
     nombre = o.get('nombre', 'Sin nombre')
-    sku = o.get('sku', 'S/N')
-    return f"🆔 {o['id_oferta']} | 📦 {nombre} | 💵 ${precio}"
+    return f"📦 {nombre} | 💵 ${precio}"
 
 def parse_item_id(item_str):
     """Extrae el ID numérico puro limpiando los emojis de la cadena."""
