@@ -438,6 +438,7 @@ if st.button("💾 Guardar Configuración Completa del Folleto", type="primary",
                 "numero_columna": None,
             })
 
+    
     if lote_para_guardar:
         try:
             with st.spinner("Sincronizando cambios con Supabase..."):
