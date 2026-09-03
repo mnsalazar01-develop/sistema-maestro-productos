@@ -404,16 +404,14 @@ if filas_tabla_ofertas:
         "id_oferta": None,
         "id_producto": None,
         "id_campana": None,
-        
-        # Ajustamos los anchos (pueden ser "small", "medium", "large" o un número en píxeles)
-        "nombre": st.column_config.TextColumn("📋 Producto", width="medium"),
+        "nombre": st.column_config.TextColumn("📋 Producto", width="large"),
+        "precio_oferta": st.column_config.NumberColumn("💰 Precio", width="small", format="$ %.2f"),
         "numero_pagina": st.column_config.NumberColumn("📄 Pág.", width="small", format="%d"),
         "posicion_slot": st.column_config.NumberColumn("🔢 Slot", width="small", format="%d"),
         "numero_fila": st.column_config.NumberColumn("↕️ Fila", width="small", format="%d"),
         "numero_columna": st.column_config.NumberColumn("↔️ Col.", width="small", format="%d"),
-        "precio_oferta": st.column_config.NumberColumn("💰 Precio", width="medium", format="$ %.2f"),
-        "posicion_mix": st.column_config.TextColumn("🔀 Mix", width="medium"),
-        "sub_molde_estilo": st.column_config.TextColumn("🎨 Estilo", width="medium"),
+        "posicion_mix": st.column_config.TextColumn("🔀 Mix", width="small"),
+        "sub_molde_estilo": st.column_config.TextColumn("🎨 Estilo", width="small"),
     }
 
     # Renderizamos la grilla aplicando la configuración personalizada
