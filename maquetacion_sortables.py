@@ -406,40 +406,14 @@ if filas_tabla_ofertas:
         "id_campana": None,
         
         # Ajustamos los anchos (pueden ser "small", "medium", "large" o un número en píxeles)
-        "nombre": st.column_config.TextColumn("📋 Producto", width="large"),
-        "numero_pagina": st.column_config.NumberColumn(
-            "📄 Pág.", 
-            width="small", 
-            format="%d"
-        ),
-        "posicion_slot": st.column_config.NumberColumn(
-            "🔢 Slot", 
-            width="small", 
-            format="%d"
-        ),
-        "numero_fila": st.column_config.NumberColumn(
-            "↕️ Fila", 
-            width="small", 
-            format="%d"
-        ),
-        "numero_columna": st.column_config.NumberColumn(
-            "↔️ Col.", 
-            width="small", 
-            format="%d"
-        ),
-        "precio_oferta": st.column_config.NumberColumn(
-            "💰 Precio", 
-            width="medium", 
-            format="$ %.2f"  # Formato de dinero con dos decimales
-        ),
-        "posicion_mix": st.column_config.TextColumn(
-            "🔀 Mix", 
-            width="medium"
-        ),
-        "sub_molde_estilo": st.column_config.TextColumn(
-            "🎨 Estilo", 
-            width="medium"
-        ),
+        "nombre": st.column_config.TextColumn("📋 Producto", width="medium"),
+        "numero_pagina": st.column_config.NumberColumn("📄 Pág.", width="small", format="%d"),
+        "posicion_slot": st.column_config.NumberColumn("🔢 Slot", width="small", format="%d"),
+        "numero_fila": st.column_config.NumberColumn("↕️ Fila", width="small", format="%d"),
+        "numero_columna": st.column_config.NumberColumn("↔️ Col.", width="small", format="%d"),
+        "precio_oferta": st.column_config.NumberColumn("💰 Precio", width="medium", format="$ %.2f"),
+        "posicion_mix": st.column_config.TextColumn("🔀 Mix", width="medium"),
+        "sub_molde_estilo": st.column_config.TextColumn("🎨 Estilo", width="medium"),
     }
 
     # Renderizamos la grilla aplicando la configuración personalizada
