@@ -251,38 +251,39 @@ with st.container(border=True):
 num_cols_reales = calcular_num_cols(slots_deseados)
 
 # ==============================================================================
-# 9. FORMATO DE ITEMS ULTRA-DENSOS (CON FILTRADO DE TARJETAS GUÍA)
+# 9. FORMATO DE ITEMS ULTRA-DENSOS (ID OCULTO MEDIANTE HTML INVISIBLE)
 # ==============================================================================
-if "diccionario_ids_sortables" not in st.session_state:
-    st.session_state["diccionario_ids_sortables"] = {}
-
 def format_item(o):
-    """Genera una tarjeta limpia sin IDs y registra la relación en la caché."""
+    """Genera la tarjeta visual inyectando el ID en un contenedor HTML invisible."""
     precio = float(o.get("precio_oferta", 0)) if o.get("precio_oferta") is not None else 0
     nombre = o.get('nombre', 'Sin nombre')
-    texto_tarjeta = f"📦 {nombre} | 💵 ${precio}"
-    st.session_state["diccionario_ids_sortables"][texto_tarjeta] = int(o['id_oferta'])
-    return texto_tarjeta
+    id_oferta = o['id_oferta']
+    
+    # El truco: Metemos el ID dentro de un span con display:none. 
+    # El usuario no ve nada, pero el string lleva el ID incrustado textualmente.
+    id_html_oculto = f'<span style="display:none;">ID_OFERTA:{id_oferta}</span>'
+    
+    return f"📦 {nombre} | 💵 ${precio:,.0f} {id_html_oculto}"
 
 def parse_item_id(item_str):
-    """Recupera el ID de la oferta ignorando de forma segura los textos guía."""
+    """Busca y extrae el ID numérico oculto dentro de la etiqueta HTML."""
     try:
         if not item_str:
             return None
             
-        item_str_limpio = item_str.strip()
-        
-        # 🚨 FILTRO CRÍTICO: Si el texto es una tarjeta guía, la ignoramos olímpicamente
-        if (
-            "vacío" in item_str_limpio 
-            or "Libre" in item_str_limpio 
-            or "Suelta" in item_str_limpio 
-            or "Slot" in item_str_limpio
-        ):
+        # Filtro de seguridad para tarjetas guía
+        if "vacío" in item_str or "Libre" in item_str or "Suelta" in item_str:
             return None
             
-        # Buscamos el ID real en la caché
-        return st.session_state["diccionario_ids_sortables"].get(item_str_limpio)
+        # Buscamos nuestro marcador de ID dentro del string
+        if "ID_OFERTA:" in item_str:
+            # Cortamos el string justo donde empieza el ID
+            parte_id = item_str.split("ID_OFERTA:")[1]
+            # Nos quedamos solo con los números antes de que cierre el tag span
+            id_puro = parte_id.split("</span>")[0].strip()
+            return int(id_puro)
+            
+        return None
     except Exception:
         return None
 
@@ -290,6 +291,7 @@ def parse_item_id(item_str):
 # 10. CONSTRUIR CONTENEDORES CON TARJETAS GUÍA CON EMOJIS
 # ==============================================================================
 ofertas = st.session_state.get("ofertas", [])
+
 # Banco de Ofertas: Captura todo lo que no tiene página asignada
 banco_items = [format_item(o) for o in ofertas if safe_int(o.get("numero_pagina")) is None]
 if not banco_items:
@@ -304,12 +306,11 @@ for slot_num in range(1, slots_deseados + 1):
         and safe_int(o.get("posicion_slot")) == slot_num
     ]
     
-    # 💡 Tip: Ahora puedes desescomentar esto con total seguridad si quieres
-    if not slot_items:
-        slot_items = [f"➕ Slot {slot_num} Libre - Suelta tu producto aquí"]
-        
+    # IMPORTANTE: Si el slot está vacío, lo dejamos vacío []. 
+    # El componente Sortables creará un recuadro gris nativo ideal para soltar objetos,
+    # evitando que se mezclen textos de "Slot Libre" con tus productos.
     slot_containers.append({
-        "header": f"Slot {slot_num}",
+        "header": f"📍 Slot {slot_num}",
         "items": slot_items
     })
 
