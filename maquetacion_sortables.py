@@ -285,28 +285,36 @@ def parse_item_id(item_str):
     except Exception:
         return None
 
-
-
 # ==============================================================================
-# 10. CONSTRUIR CONTENEDORES PARA SORTABLES
+# 10. CONSTRUIR CONTENEDORES CON TARJETAS GUÍA CON EMOJIS
 # ==============================================================================
 ofertas = st.session_state.get("ofertas", [])
 
-# Banco: ofertas libres (sin página asignada)
+# Banco de Ofertas: Captura todo lo que no tiene página asignada
 banco_items = [format_item(o) for o in ofertas if safe_int(o.get("numero_pagina")) is None]
+if not banco_items:
+    banco_items = ["✨ 🛒 El banco está vacío. Cambia de página."]
 
-# Slots: cada slot es un contenedor separado
+# Slots: Construcción modular de casilleros asegurando área de apuntado fija
 slot_containers = []
 for slot_num in range(1, slots_deseados + 1):
-    slot_items = [format_item(o) for o in ofertas
-                  if safe_int(o.get("numero_pagina")) == pag_act
-                  and safe_int(o.get("posicion_slot")) == slot_num]
+    slot_items = [
+        format_item(o) for o in ofertas
+        if safe_int(o.get("numero_pagina")) == pag_act
+        and safe_int(o.get("posicion_slot")) == slot_num
+    ]
+    
+    # Mantenemos la tarjeta de contenido para que el slot no colapse a 0 píxeles
+    if not slot_items:
+        slot_items = [f"➕ Slot {slot_num} Libre - Suelta tu producto aquí"]
+        
     slot_containers.append({
-        "header": f"📍 Slot {slot_num}",
+        "header": f"Slot {slot_num}",
         "items": slot_items
     })
 
-all_containers = [{"header": "📦 Banco de Ofertas", "items": banco_items}] + slot_containers
+# Unificación estructural de los bloques de arrastre
+all_containers = [{"header": "🛒 Banco de Ofertas", "items": banco_items}] + slot_containers
 
 # ==============================================================================
 # 11. RENDERIZAR SORTABLES
