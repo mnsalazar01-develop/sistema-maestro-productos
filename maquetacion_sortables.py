@@ -456,6 +456,8 @@ if st.button("💾 Guardar Configuración Completa del Folleto", type="primary",
             st.rerun()
         except Exception as e:
             st.error(f"❌ Error al guardar en Supabase: {str(e)}"
+
+                     
     else:
         st.warning("⚠️ No hay elementos para persistir.")
             
