@@ -2,24 +2,18 @@ import sys
 import streamlit as st
 from supabase import create_client
 
-# ==============================================================================
-# 🔑 CREDENCIALES DESDE ST.SECRETS
-# ==============================================================================
-try:
-    # Necesitamos la URL nueva y la Service Role Key para poder sobreescribir la tabla
-    URL_DESTINO = st.secrets["supabase"]["url"]
-    KEY_DESTINO = st.secrets["supabase"]["key"]
-except Exception as e:
-    st.error(f"❌ Error al cargar secretos: {e}")
-    sys.exit(1)
+# 2. CONEXIÓN SEGURA HEREDADA CON LAS LLAVES DE SUPABASE
+@st.cache_resource
+def init_supabase_local() -> Client:
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
 
 try:
-    # Nos conectamos al nuevo proyecto donde tienes tu tabla importada
-    supabase = create_client(URL_DESTINO, KEY_DESTINO)
-    st.write("✅ Conexión con el nuevo Supabase establecida.")
+    supabase = init_supabase_local()
 except Exception as e:
-    st.error(f"❌ Error de conexión: {e}")
-    sys.exit(1)
+    st.error(f"❌ Error de Conexión Base: {e}")
+    st.stop()
 
 def corregir_urls_tabla():
     st.write("🔍 Leyendo los registros de productos para analizar las URLs viejas...")
@@ -41,7 +35,7 @@ def corregir_urls_tabla():
     
     # Construimos la base de la nueva URL usando el dominio del nuevo proyecto
     # Formato estándar de Supabase para storage: https://supabase.co
-    url_base_nueva = f"{URL_DESTINO.rstrip('/')}/storage/v1/object/public/imagenes}/"
+    url_base_nueva = f"{URL_DESTINO.rstrip('/')}/storage/v1/object/public/imagenes/"
     
     contador_actualizados = 0
     progreso = st.progress(0)
