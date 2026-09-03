@@ -57,7 +57,7 @@ def corregir_urls_tabla():
         url_nueva_completa = f"{url_base_nueva}{nombre_archivo_foto}"
         
         # Saltamos la actualización si por alguna razón la URL ya estaba corregida
-        if URL_DESTINO in str(url_vieja):
+        if url in str(url_vieja):
             continue
             
         texto_estado.text(f"🔄 [{idx}/{total}] Corrigiendo enlace de ID {id_prod}: {nombre_archivo_foto}")
