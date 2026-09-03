@@ -251,85 +251,152 @@ with st.container(border=True):
 num_cols_reales = calcular_num_cols(slots_deseados)
 
 # ==============================================================================
-# 9. FORMATO DE ITEMS PARA SORTABLES (STRINGS PLANOS)
+# 9. FORMATO DE ITEMS ULTRA-DENSOS PARA SORTABLES (CON ICONOS UNICODE)
 # ==============================================================================
 def format_item(o):
+    """
+    Formatea la tarjeta con indicadores visuales limpios en texto.
+    Usa iconos Unicode para compensar la falta de imágenes nativas.
+    """
     precio = float(o.get("precio_oferta", 0)) if o.get("precio_oferta") is not None else 0
-    return f"{o['id_oferta']}|{o.get('nombre', 'Sin nombre')}|${precio:,.0f}"
+    nombre = o.get('nombre', 'Sin nombre')
+    sku = o.get('sku', 'S/N')
+    return f"🆔 {o['id_oferta']} | 📦 {nombre} | 💵 ${precio:,.0f} | 📎 SKU: {sku}"
 
 def parse_item_id(item_str):
-    return int(item_str.split("|")[0])
+    try:
+        # Extraemos el primer número limpio antes de la tubería
+        partes = item_str.split("|")
+        id_limpio = partes[0].replace("🆔", "").strip()
+        return int(id_limpio)
+    except Exception:
+        return int(item_str.split("|")[0].strip())
+
+# ==============================================================================
+# INYECCIÓN DE CSS DE CHOQUE: ELIMINA EL ROJO Y FIJA ALTURAS MÍNIMAS
+# ==============================================================================
+st.markdown("""
+<style>
+    /* 1. Matar el fondo rojo de los contenedores sortables y darles estilo premium */
+    div[data-testid="stDataFrame"] + div, 
+    .stSortablesContainer,
+    [id^="sort_estable_"] {
+        background-color: #f8fafc !important;
+        border-radius: 12px !important;
+        padding: 10px !important;
+    }
+    
+    /* 2. Forzar que cada bloque (Banco y Slots) tenga fondo neutro y bordes limpios */
+    div.stSelectbox + div div div div[draggable="true"] {
+        background-color: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+    }
+
+    /* 3. SOLUCIÓN AL APUNTADO: Obligar a los slots vacíos a mantener un tamaño mínimo */
+    /* Esto quita el rojo horrible y lo cambia por un gris magnético interactivo */
+    div[data-baseline="sortable"] div,
+    .sortable-list,
+    div div div div[style*="background-color: red"],
+    div div div div[style*="background-color: rgb(255, 0, 0)"] {
+        background-color: #f1f5f9 !important;
+        border: 2px dashed #cbd5e1 !important;
+        border-radius: 8px !important;
+        min-height: 95px !important; /* Altura fija para que nunca colapse a 0px */
+        margin-bottom: 8px !important;
+        padding: 8px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 6px !important;
+    }
+    
+    /* Cambiar el color de las letras del encabezado de los slots */
+    div div div h6, div div div p {
+        color: #1e293b !important;
+        font-weight: 700 !important;
+        margin-bottom: 4px !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # ==============================================================================
 # 10. CONSTRUIR CONTENEDORES PARA SORTABLES
 # ==============================================================================
 ofertas = st.session_state.get("ofertas", [])
 
-# Banco: ofertas libres (sin página asignada)
+# Banco de Ofertas: Captura todo lo que no tiene página asignada (None o 0)
 banco_items = [format_item(o) for o in ofertas if safe_int(o.get("numero_pagina")) is None]
 
-# Slots: cada slot es un contenedor separado
+# Slots: Construcción modular de casilleros de la página actual
 slot_containers = []
 for slot_num in range(1, slots_deseados + 1):
-    slot_items = [format_item(o) for o in ofertas
-                  if safe_int(o.get("numero_pagina")) == pag_act
-                  and safe_int(o.get("posicion_slot")) == slot_num]
+    slot_items = [
+        format_item(o) for o in ofertas
+        if safe_int(o.get("numero_pagina")) == pag_act
+        and safe_int(o.get("posicion_slot")) == slot_num
+    ]
     slot_containers.append({
-        "header": f"📍 Slot {slot_num}",
+        "header": f"📥 Casillero Slot {slot_num}",
         "items": slot_items
     })
 
-all_containers = [{"header": "📦 Banco de Ofertas", "items": banco_items}] + slot_containers
+# Unificación estructural de los bloques de arrastre
+all_containers = [{"header": "🛒 Banco de Ofertas", "items": banco_items}] + slot_containers
 
 # ==============================================================================
-# 11. RENDERIZAR SORTABLES
+# 11. RENDERIZADO DEL PANEL DRAG & DROP REACTIVO A PÁGINAS
 # ==============================================================================
-st.markdown("### 🎨 Arrastra ofertas entre el Banco y los Slots")
-st.caption("💡 Arrastra una oferta del banco a un slot para asignarla. Arrastra de un slot al banco para desasignarla. Cada slot admite máximo 1 oferta.")
+st.markdown("### 🎂 Panel de Distribución por Arrastre")
+st.caption("Mueve las tarjetas entre el Banco y los Slots. Los casilleros vacíos mantendrán su tamaño para facilitar el drop.")
 
+# Al incluir pag_act y slots_deseados en la clave, obligamos a la librería
+# a refrescar los datos limpios en pantalla cada vez que navegas con los botones
 sorted_data = sort_items(
     all_containers,
     multi_containers=True,
     direction="vertical",
-    key=f"sort_p{pag_act}_{slots_deseados}"
+    key=f"sort_estable_p{pag_act}_s{slots_deseados}"
 )
 
 # ==============================================================================
-# 12. PROCESAR RESULTADO DEL DRAG & DROP
+# 12. PROCESAR RESULTADO DEL DRAG & DROP Y APLICAR CAMBIOS
 # ==============================================================================
 if sorted_data:
     cambio = False
     nueva_asignacion = {}  # id_oferta -> (numero_pagina, posicion_slot)
     ids_procesados = set()
-
+    
     for container in sorted_data:
         header = container.get("header", "")
         items = container.get("items", [])
-
-        if header == "📦 Banco de Ofertas":
-            # Todo en el banco queda desasignado
+        
+        if header == "🛒 Banco de Ofertas":
+            # Todo elemento devuelto al banco se limpia (asume None)
             for item_str in items:
                 id_oferta = parse_item_id(item_str)
                 if id_oferta not in ids_procesados:
                     nueva_asignacion[id_oferta] = (None, None)
                     ids_procesados.add(id_oferta)
-
-        elif header.startswith("📍 Slot "):
-            slot_num = int(header.replace("📍 Slot ", ""))
+                    
+        elif header.startswith("📥 Casillero Slot"):
+            # Extraemos el número correlativo del casillero de destino
+            slot_num = int(header.replace("📥 Casillero Slot ", ""))
             if items:
-                # Solo la primera oferta en el slot cuenta
+                # El primer elemento toma posesión legítima del slot
                 id_oferta = parse_item_id(items[0])
                 if id_oferta not in ids_procesados:
                     nueva_asignacion[id_oferta] = (pag_act, slot_num)
                     ids_procesados.add(id_oferta)
-                # El resto (si hay) van al banco
+                
+                # REGLA DE PROTECCIÓN: Si encimas más de una tarjeta, las sobrantes van al banco
                 for extra_str in items[1:]:
                     id_extra = parse_item_id(extra_str)
                     if id_extra not in ids_procesados:
                         nueva_asignacion[id_extra] = (None, None)
                         ids_procesados.add(id_extra)
 
-    # Aplicar cambios a session_state
+    # Impactamos el mapeo en caliente sobre la memoria central de Python
     for o in st.session_state.ofertas:
         id_o = o["id_oferta"]
         if id_o in nueva_asignacion:
@@ -338,9 +405,9 @@ if sorted_data:
                 o["numero_pagina"] = nueva_p
                 o["posicion_slot"] = nueva_s
                 cambio = True
-
+                
     if cambio:
-        st.success("✅ Cambios aplicados.")
+        st.success("✔ Distribución de página actualizada en memoria.")
         st.rerun()
 
 # ==============================================================================
