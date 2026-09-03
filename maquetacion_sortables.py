@@ -371,19 +371,6 @@ if filas_tabla_ofertas:
 else:
     st.info("Ninguna oferta asignada en esta hoja todavía.")
 
-# ==============================================================================
-# 14. RESUMEN DE TODAS LAS PÁGINAS MAQUETADAS
-# ==============================================================================
-todas_asignadas = [o for o in st.session_state.get("ofertas", []) if safe_int(o.get("numero_pagina")) is not None]
-paginas_ocupadas = sorted(list(set([safe_int(o["numero_pagina"]) for o in todas_asignadas])))
-
-if paginas_ocupadas:
-    st.markdown("### 📑 Resumen de páginas con ofertas")
-    cols_resumen = st.columns(min(len(paginas_ocupadas), 8))
-    for idx, p_num in enumerate(paginas_ocupadas):
-        with cols_resumen[idx % 8]:
-            count = len([o for o in todas_asignadas if safe_int(o["numero_pagina"]) == p_num])
-            st.metric(f"Página {p_num}", f"{count} ofertas")
 
 # ==============================================================================
 # 15. GUARDAR EN SUPABASE — TODAS LAS PÁGINAS, SIN TOCAR precio_oferta
