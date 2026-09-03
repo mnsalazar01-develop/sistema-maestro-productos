@@ -251,37 +251,40 @@ with st.container(border=True):
 num_cols_reales = calcular_num_cols(slots_deseados)
 
 # ==============================================================================
-# 9. FORMATO DE ITEMS ULTRA-DENSOS (CON ID 100% INVISIBLE)
+# 9. FORMATO DE ITEMS ULTRA-DENSOS (ID 100% FUERA DEL TEXTO VIA CACHÉ)
 # ==============================================================================
-# Usamos un delimitador único invisible que no altera el texto en pantalla
-DELIMITADOR_OCULTO = "\u200b|🆔|" 
+
+# Inicializamos un diccionario global en la sesión para emparejar textos con IDs
+if "diccionario_ids_sortables" not in st.session_state:
+    st.session_state["diccionario_ids_sortables"] = {}
 
 def format_item(o):
-    """Formatea la tarjeta visual y esconde el ID al final con caracteres invisibles."""
+    """Genera una tarjeta limpia sin IDs y registra la relación en la caché."""
     precio = float(o.get("precio_oferta", 0)) if o.get("precio_oferta") is not None else 0
     nombre = o.get('nombre', 'Sin nombre')
-    id_oferta = o['id_oferta']
     
-    # Lo que ve el usuario en la caja de sortables
-    texto_visible = f"📦 {nombre} | 💵 ${precio:,.0f}"
+    # Este es el texto único y limpio que verá el usuario en la caja
+    texto_tarjeta = f"📦 {nombre} | 💵 ${precio:,.0f}"
     
-    # Inyectamos el ID al final, separado por el delimitador invisible
-    return f"{texto_visible}{DELIMITADOR_OCULTO}{id_oferta}"
+    # Guardamos la relación en la caché de la sesión usando el texto como clave
+    st.session_state["diccionario_ids_sortables"][texto_tarjeta] = int(o['id_oferta'])
+    
+    return texto_tarjeta
 
 def parse_item_id(item_str):
-    """Extrae el ID numérico leyendo el segmento invisible del final de la cadena."""
+    """Recupera el ID de la oferta desde la memoria usando el texto de la caja."""
     try:
         if not item_str or "Slot" in item_str or "Libre" in item_str:
             return None
             
-        # Si el delimitador invisible está presente, cortamos por ahí
-        if DELIMITADOR_OCULTO in item_str:
-            segmento_id = item_str.split(DELIMITADOR_OCULTO)[-1]
-            return int(segmento_id.strip())
-            
-        return None
+        # Limpiamos espacios por si las moscas
+        texto_limpio = item_str.strip()
+        
+        # Buscamos el ID real guardado en el diccionario de la sesión
+        return st.session_state["diccionario_ids_sortables"].get(texto_limpio)
     except Exception:
         return None
+
 
 
 # ==============================================================================
