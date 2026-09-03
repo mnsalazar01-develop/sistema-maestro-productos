@@ -398,9 +398,60 @@ for o in st.session_state.get("ofertas", []):
         })
 
 if filas_tabla_ofertas:
-    st.dataframe(filas_tabla_ofertas, use_container_width=True)
+    # 🛠️ Configuración del tamaño, etiquetas y formato de las columnas
+    configuracion_columnas = {
+        # Ocultamos los IDs técnicos que no aportan valor visual al maquetador
+        "id_oferta": None,
+        "id_producto": None,
+        "id_campana": None,
+        
+        # Ajustamos los anchos (pueden ser "small", "medium", "large" o un número en píxeles)
+        "nombre": st.column_config.TextColumn("📋 Producto", width="large"),
+        "numero_pagina": st.column_config.NumberColumn(
+            "📄 Pág.", 
+            width="small", 
+            format="%d"
+        ),
+        "posicion_slot": st.column_config.NumberColumn(
+            "🔢 Slot", 
+            width="small", 
+            format="%d"
+        ),
+        "numero_fila": st.column_config.NumberColumn(
+            "↕️ Fila", 
+            width="small", 
+            format="%d"
+        ),
+        "numero_columna": st.column_config.NumberColumn(
+            "↔️ Col.", 
+            width="small", 
+            format="%d"
+        ),
+        "precio_oferta": st.column_config.NumberColumn(
+            "💰 Precio", 
+            width="medium", 
+            format="$ %.2f"  # Formato de dinero con dos decimales
+        ),
+        "posicion_mix": st.column_config.TextColumn(
+            "🔀 Mix", 
+            width="medium"
+        ),
+        "sub_molde_estilo": st.column_config.TextColumn(
+            "🎨 Estilo", 
+            width="medium"
+        ),
+    }
+
+    # Renderizamos la grilla aplicando la configuración personalizada
+    st.dataframe(
+        filas_tabla_ofertas, 
+        column_config=configuracion_columnas,
+        use_container_width=True,
+        hide_index=True  # Oculta la columna de índices (0, 1, 2...) para ganar espacio
+    )
 else:
     st.info("Ninguna oferta asignada en esta hoja todavía.")
+
 
 
 # ==============================================================================
