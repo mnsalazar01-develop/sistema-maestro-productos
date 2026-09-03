@@ -251,14 +251,26 @@ with st.container(border=True):
 num_cols_reales = calcular_num_cols(slots_deseados)
 
 # ==============================================================================
-# 9. FORMATO DE ITEMS PARA SORTABLES (STRINGS PLANOS)
+# 9. FORMATO DE ITEMS ULTRA-DENSOS (CON EMOJIS COMPATIBLES)
 # ==============================================================================
 def format_item(o):
+    """Formatea las ofertas reales con iconos Unicode para alta fidelidad visual."""
     precio = float(o.get("precio_oferta", 0)) if o.get("precio_oferta") is not None else 0
-    return f"{o['id_oferta']}|{o.get('nombre', 'Sin nombre')}|${precio:,.0f}"
+    nombre = o.get('nombre', 'Sin nombre')
+    return f"📦 {nombre} | 💵 ${precio}"
 
 def parse_item_id(item_str):
-    return int(item_str.split("|")[0])
+    """Extrae el ID numérico puro limpiando los emojis de la cadena."""
+    try:
+        if "Slot" in item_str or "Libre" in item_str:
+            return None
+        # Separamos por la primera tubería para aislar el segmento del ID
+        segmento_id = item_str.split("|")[0]
+        # Limpiamos el emoji de la llave de identificación y espacios sucios
+        id_limpio = segmento_id.replace("🆔", "").strip()
+        return int(id_limpio)
+    except Exception:
+        return None
 
 # ==============================================================================
 # 10. CONSTRUIR CONTENEDORES PARA SORTABLES
