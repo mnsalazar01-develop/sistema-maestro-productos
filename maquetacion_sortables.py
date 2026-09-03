@@ -251,26 +251,38 @@ with st.container(border=True):
 num_cols_reales = calcular_num_cols(slots_deseados)
 
 # ==============================================================================
-# 9. FORMATO DE ITEMS ULTRA-DENSOS (CON EMOJIS COMPATIBLES)
+# 9. FORMATO DE ITEMS ULTRA-DENSOS (CON ID 100% INVISIBLE)
 # ==============================================================================
+# Usamos un delimitador único invisible que no altera el texto en pantalla
+DELIMITADOR_OCULTO = "\u200b|🆔|" 
+
 def format_item(o):
-    """Formatea las ofertas reales con iconos Unicode para alta fidelidad visual."""
+    """Formatea la tarjeta visual y esconde el ID al final con caracteres invisibles."""
     precio = float(o.get("precio_oferta", 0)) if o.get("precio_oferta") is not None else 0
     nombre = o.get('nombre', 'Sin nombre')
-    return f"📦 {nombre} | 💵 ${precio}"
+    id_oferta = o['id_oferta']
+    
+    # Lo que ve el usuario en la caja de sortables
+    texto_visible = f"📦 {nombre} | 💵 ${precio:,.0f}"
+    
+    # Inyectamos el ID al final, separado por el delimitador invisible
+    return f"{texto_visible}{DELIMITADOR_OCULTO}{id_oferta}"
 
 def parse_item_id(item_str):
-    """Extrae el ID numérico puro limpiando los emojis de la cadena."""
+    """Extrae el ID numérico leyendo el segmento invisible del final de la cadena."""
     try:
-        if "Slot" in item_str or "Libre" in item_str:
+        if not item_str or "Slot" in item_str or "Libre" in item_str:
             return None
-        # Separamos por la primera tubería para aislar el segmento del ID
-        segmento_id = item_str.split("|")[0]
-        # Limpiamos el emoji de la llave de identificación y espacios sucios
-        id_limpio = segmento_id.replace("🆔", "").strip()
-        return int(id_limpio)
+            
+        # Si el delimitador invisible está presente, cortamos por ahí
+        if DELIMITADOR_OCULTO in item_str:
+            segmento_id = item_str.split(DELIMITADOR_OCULTO)[-1]
+            return int(segmento_id.strip())
+            
+        return None
     except Exception:
         return None
+
 
 # ==============================================================================
 # 10. CONSTRUIR CONTENEDORES PARA SORTABLES
