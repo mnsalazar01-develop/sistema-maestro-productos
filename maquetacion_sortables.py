@@ -264,7 +264,7 @@ def format_item(o):
     nombre = o.get('nombre', 'Sin nombre')
     
     # Este es el texto único y limpio que verá el usuario en la caja
-    texto_tarjeta = f"📦 {nombre} | 💵 ${precio:,.0f}"
+    texto_tarjeta = f"📦 {nombre} | 💵 ${precio}"
     
     # Guardamos la relación en la caché de la sesión usando el texto como clave
     st.session_state["diccionario_ids_sortables"][texto_tarjeta] = int(o['id_oferta'])
