@@ -443,7 +443,7 @@ else:
     st.info("Ninguna oferta asignada en esta hoja todavía.")
 
 # ==============================================================================
-# 15. GUARDAR EN SUPABASE — TODAS LAS PÁGINAS, SIN TOCAR precio_oferta
+# 14. GUARDAR EN SUPABASE — TODAS LAS PÁGINAS, SIN TOCAR precio_oferta
 # ==============================================================================
 if st.button("💾 Guardar Configuración Completa del Folleto", type="primary", use_container_width=True):
     lote_para_guardar = []
@@ -499,7 +499,7 @@ if st.button("💾 Guardar Configuración Completa del Folleto", type="primary",
         st.warning("⚠️ No hay elementos para persistir.")
 
 # ==============================================================================
-# 🟢 16. BOTONERA INFERIOR INTERACTIVA — MAPA DE HOJAS + CONTEO DE ITEMS
+# 15. BOTONERA INFERIOR INTERACTIVA — MAPA DE HOJAS + CONTEO DE ITEMS
 # ==============================================================================
 st.divider()
 st.markdown("### 🗺️ Mapa General del Folleto (Flatplan)")
