@@ -251,112 +251,85 @@ with st.container(border=True):
 num_cols_reales = calcular_num_cols(slots_deseados)
 
 # ==============================================================================
-# 9. FORMATO DE ITEMS ULTRA-DENSOS (CON EMOJIS COMPATIBLES)
+# 9. FORMATO DE ITEMS PARA SORTABLES (STRINGS PLANOS)
 # ==============================================================================
 def format_item(o):
-    """Formatea las ofertas reales con iconos Unicode para alta fidelidad visual."""
     precio = float(o.get("precio_oferta", 0)) if o.get("precio_oferta") is not None else 0
-    nombre = o.get('nombre', 'Sin nombre')
-    return f"📦 {nombre} | 💵 ${precio}"
+    return f"{o['id_oferta']}|{o.get('nombre', 'Sin nombre')}|${precio:,.0f}"
 
 def parse_item_id(item_str):
-    """Extrae el ID numérico puro limpiando los emojis de la cadena."""
-    try:
-        if "Slot" in item_str or "Libre" in item_str:
-            return None
-        # Separamos por la primera tubería para aislar el segmento del ID
-        segmento_id = item_str.split("|")[0]
-        # Limpiamos el emoji de la llave de identificación y espacios sucios
-        id_limpio = segmento_id.replace("🆔", "").strip()
-        return int(id_limpio)
-    except Exception:
-        return None
+    return int(item_str.split("|")[0])
 
 # ==============================================================================
-# 10. CONSTRUIR CONTENEDORES CON TARJETAS GUÍA CON EMOJIS
+# 10. CONSTRUIR CONTENEDORES PARA SORTABLES
 # ==============================================================================
 ofertas = st.session_state.get("ofertas", [])
 
-# Banco de Ofertas: Captura todo lo que no tiene página asignada
+# Banco: ofertas libres (sin página asignada)
 banco_items = [format_item(o) for o in ofertas if safe_int(o.get("numero_pagina")) is None]
-if not banco_items:
-    banco_items = ["✨ 🛒 El banco está vacío. Cambia de página."]
 
-# Slots: Construcción modular de casilleros asegurando área de apuntado fija
+# Slots: cada slot es un contenedor separado
 slot_containers = []
 for slot_num in range(1, slots_deseados + 1):
-    slot_items = [
-        format_item(o) for o in ofertas
-        if safe_int(o.get("numero_pagina")) == pag_act
-        and safe_int(o.get("posicion_slot")) == slot_num
-    ]
-    
-    # Mantenemos la tarjeta de contenido para que el slot no colapse a 0 píxeles
-    #if not slot_items:
-    #    slot_items = [f"➕ Slot {slot_num} Libre - Suelta tu producto aquí"]
-        
+    slot_items = [format_item(o) for o in ofertas
+                  if safe_int(o.get("numero_pagina")) == pag_act
+                  and safe_int(o.get("posicion_slot")) == slot_num]
     slot_containers.append({
-        "header": f"Slot {slot_num}",
+        "header": f"📍 Slot {slot_num}",
         "items": slot_items
     })
 
-# Unificación estructural de los bloques de arrastre
-all_containers = [{"header": "🛒 Banco de Ofertas", "items": banco_items}] + slot_containers
+all_containers = [{"header": "📦 Banco de Ofertas", "items": banco_items}] + slot_containers
 
 # ==============================================================================
-# 11. RENDERIZADO DEL PANEL DRAG & DROP REACTIVO A PÁGINAS
+# 11. RENDERIZAR SORTABLES
 # ==============================================================================
-st.markdown("### 🎂 Panel de Distribución por Arrastre")
-st.caption("Mueve las tarjetas entre el Banco y los Slots. Cambia de página para maquetar otra hoja.")
+st.markdown("### 🎨 Arrastra ofertas entre el Banco y los Slots")
+st.caption("💡 Arrastra una oferta del banco a un slot para asignarla. Arrastra de un slot al banco para desasignarla. Cada slot admite máximo 1 oferta.")
 
-# Clave dinámica para forzar la actualización al cambiar de hoja
 sorted_data = sort_items(
     all_containers,
     multi_containers=True,
     direction="vertical",
-    key=f"sort_estable_p{pag_act}_s{slots_deseados}"
+    key=f"sort_p{pag_act}_{slots_deseados}"
 )
 
 # ==============================================================================
-# 12. PROCESAR RESULTADO DEL DRAG & DROP Y FILTRADO DE DATOS REALES
+# 12. PROCESAR RESULTADO DEL DRAG & DROP
 # ==============================================================================
 if sorted_data:
     cambio = False
     nueva_asignacion = {}  # id_oferta -> (numero_pagina, posicion_slot)
     ids_procesados = set()
-    
+
     for container in sorted_data:
         header = container.get("header", "")
         items = container.get("items", [])
-        
-        if header == "🛒 Banco de Ofertas":
+
+        if header == "📦 Banco de Ofertas":
+            # Todo en el banco queda desasignado
             for item_str in items:
                 id_oferta = parse_item_id(item_str)
-                # Si es una tarjeta real y no ha sido procesada, va al banco
-                if id_oferta is not None and id_oferta not in ids_procesados:
+                if id_oferta not in ids_procesados:
                     nueva_asignacion[id_oferta] = (None, None)
                     ids_procesados.add(id_oferta)
-                    
-        elif header.startswith("Slot "):
-            slot_num = int(header.replace("Slot ", "").strip())
-            
-            # Recorremos y extraemos únicamente las tarjetas que tengan IDs numéricos reales
-            items_reales = [parse_item_id(i) for i in items if parse_item_id(i) is not None]
-            
-            if items_reales:
-                # El primer producto real toma el control del casillero
-                id_oferta = items_reales[0]
+
+        elif header.startswith("📍 Slot "):
+            slot_num = int(header.replace("📍 Slot ", ""))
+            if items:
+                # Solo la primera oferta en el slot cuenta
+                id_oferta = parse_item_id(items[0])
                 if id_oferta not in ids_procesados:
                     nueva_asignacion[id_oferta] = (pag_act, slot_num)
                     ids_procesados.add(id_oferta)
-                
-                # Si arrastró más de uno por accidente, los sobrantes van al banco
-                for id_extra in items_reales[1:]:
+                # El resto (si hay) van al banco
+                for extra_str in items[1:]:
+                    id_extra = parse_item_id(extra_str)
                     if id_extra not in ids_procesados:
                         nueva_asignacion[id_extra] = (None, None)
                         ids_procesados.add(id_extra)
 
-    # Impactamos el mapa de coordenadas sobre la memoria de la sesión
+    # Aplicar cambios a session_state
     for o in st.session_state.ofertas:
         id_o = o["id_oferta"]
         if id_o in nueva_asignacion:
@@ -365,12 +338,10 @@ if sorted_data:
                 o["numero_pagina"] = nueva_p
                 o["posicion_slot"] = nueva_s
                 cambio = True
-                
+
     if cambio:
-        st.success("✔ Distribución de página actualizada en memoria.")
+        st.success("✅ Cambios aplicados.")
         st.rerun()
-
-
 
 # ==============================================================================
 # 13. TABLA DE ASIGNADAS (PÁGINA ACTUAL)
@@ -384,46 +355,35 @@ for o in st.session_state.get("ofertas", []):
     if num_pag == pag_act and pos_slot is not None:
         filas_tabla_ofertas.append({
             "id_oferta": o["id_oferta"],
-            "id_campana": id_campana_activa,
             "id_producto": o["id_producto"],
-            "nombre": o["nombre"],
-            "precio_oferta": o.get("precio_oferta"),
+            "id_campana": id_campana_activa,
             "numero_pagina": num_pag,
             "posicion_slot": pos_slot,
-            "numero_fila": ((pos_slot - 1) // num_cols_reales) + 1,
-            "numero_columna": ((pos_slot - 1) % num_cols_reales) + 1,
+            "precio_oferta": o.get("precio_oferta"),
             "posicion_mix": cfg.get("distribucion", "Equilibrado"),
             "sub_molde_estilo": cfg.get("estilo", "Estándar"),
+            "numero_fila": ((pos_slot - 1) // num_cols_reales) + 1,
+            "numero_columna": ((pos_slot - 1) % num_cols_reales) + 1,
         })
 
 if filas_tabla_ofertas:
-    # 🛠️ Configuración del tamaño, etiquetas y formato de las columnas
-    configuracion_columnas = {
-        # Ocultamos los IDs técnicos que no aportan valor visual al maquetador
-        "id_oferta": None,
-        "id_producto": None,
-        "id_campana": None,
-        "nombre": st.column_config.TextColumn("📋 Producto", width="large"),
-        "precio_oferta": st.column_config.NumberColumn("💰 Precio", width="small"),
-        "numero_pagina": st.column_config.NumberColumn("📄 Pág.", width="small"),
-        "posicion_slot": st.column_config.NumberColumn("🔢 Slot", width="small"),
-        "numero_fila": st.column_config.NumberColumn("↕️ Fila", width="small"),
-        "numero_columna": st.column_config.NumberColumn("↔️ Col.", width="small"),
-        "posicion_mix": st.column_config.TextColumn("🔀 Mix", width="small"),
-        "sub_molde_estilo": st.column_config.TextColumn("🎨 Estilo", width="small"),
-    }
-
-    # Renderizamos la grilla aplicando la configuración personalizada
-    st.dataframe(
-        filas_tabla_ofertas, 
-        column_config=configuracion_columnas,
-        use_container_width=True,
-        hide_index=True  # Oculta la columna de índices (0, 1, 2...) para ganar espacio
-    )
+    st.dataframe(filas_tabla_ofertas, use_container_width=True)
 else:
     st.info("Ninguna oferta asignada en esta hoja todavía.")
 
+# ==============================================================================
+# 14. RESUMEN DE TODAS LAS PÁGINAS MAQUETADAS
+# ==============================================================================
+todas_asignadas = [o for o in st.session_state.get("ofertas", []) if safe_int(o.get("numero_pagina")) is not None]
+paginas_ocupadas = sorted(list(set([safe_int(o["numero_pagina"]) for o in todas_asignadas])))
 
+if paginas_ocupadas:
+    st.markdown("### 📑 Resumen de páginas con ofertas")
+    cols_resumen = st.columns(min(len(paginas_ocupadas), 8))
+    for idx, p_num in enumerate(paginas_ocupadas):
+        with cols_resumen[idx % 8]:
+            count = len([o for o in todas_asignadas if safe_int(o["numero_pagina"]) == p_num])
+            st.metric(f"Página {p_num}", f"{count} ofertas")
 
 # ==============================================================================
 # 15. GUARDAR EN SUPABASE — TODAS LAS PÁGINAS, SIN TOCAR precio_oferta
@@ -461,7 +421,6 @@ if st.button("💾 Guardar Configuración Completa del Folleto", type="primary",
                 "numero_columna": None,
             })
 
-    
     if lote_para_guardar:
         try:
             with st.spinner("Sincronizando cambios con Supabase..."):
@@ -478,75 +437,6 @@ if st.button("💾 Guardar Configuración Completa del Folleto", type="primary",
                 del st.session_state.ofertas
             st.rerun()
         except Exception as e:
-            st.error(f"❌ Error al guardar en Supabase: {str(e)}")                     
+            st.error(f"❌ Error al guardar en Supabase: {str(e)}")
     else:
         st.warning("⚠️ No hay elementos para persistir.")
-
-# ==============================================================================
-# 🟢 16. BOTONERA INFERIOR INTERACTIVA — MAPA DE HOJAS + CONTEO DE ITEMS
-# ==============================================================================
-st.divider()
-st.markdown("### 🗺️ Mapa General del Folleto (Flatplan)")
-st.caption("Los botones resaltados indican la página que estás visualizando actualmente. Haz clic en cualquier hoja para saltar directamente a ella.")
-
-# 1. Bloque de Compatibilidad: Aseguramos que existan las variables de control en tu script
-pag_act = int(st.session_state.get("pagina_actual", 1))
-
-# Intentamos leer el conteo real de ofertas por página desde st.session_state.ofertas
-mapa_aforos_visor_local = {}
-for o in st.session_state.get("ofertas", []):
-    # Usamos tu helper safe_int si está disponible, o un fallback entero
-    try:
-        p_num = safe_int(o.get("numero_pagina"))
-    except NameError:
-        p_num = o.get("numero_pagina")
-        p_num = int(p_num) if p_num is not None and str(p_num).strip() != "" and str(p_num) != "0" else None
-        
-    if p_num is not None:
-        mapa_aforos_visor_local[p_num] = mapa_aforos_visor_local.get(p_num, 0) + 1
-
-# Mapeamos el conteo al diccionario que requiere tu botonera
-conteo_por_pagina = dict(mapa_aforos_visor_local)
-
-# Respaldo de variables de modo de vista por si no están declaradas más arriba
-modo_vista = st.session_state.get("modo_vista", "Folleto Individual (Pág por Pág)")
-pag_izq_target = pag_act
-pag_der_target = pag_act # En modo individual ambas apuntan a la misma página
-
-# 2. Renderizado de la matriz de 20 páginas (Bloques de 4 columnas)
-for fila_bloque in range(1, 21, 4):
-    columnas_flatplan = st.columns(4)
-    for sub_col_idx in range(4):
-        id_p_bucle = fila_bloque + sub_col_idx
-        if id_p_bucle <= 20:
-            # Extraemos la cantidad de productos asignados a esta hoja (0 por defecto)
-            skus_conteo = conteo_por_pagina.get(id_p_bucle, 0)
-            etiqueta_bucle = f"📄 HOJA {id_p_bucle} [{skus_conteo} Items]"
-            
-            # Resaltamos con color llamativo (primary) la página en la que el usuario está parado
-            tipo_color = (
-                "primary"
-                if id_p_bucle in [pag_izq_target, pag_der_target]
-                else "secondary"
-            )
-            
-            with columnas_flatplan[sub_col_idx]:
-                if st.button(
-                    etiqueta_bucle,
-                    use_container_width=True,
-                    type=tipo_color,
-                    key=f"btn_nav_visor_p_{id_p_bucle}",
-                ):
-                    # Sincronización del estado de navegación con el paginador de Sortables
-                    if modo_vista == "Folleto Individual (Pág por Pág)":
-                        st.session_state["pagina_actual"] = int(id_p_bucle)
-                        st.session_state["pliego_actual_viva"] = int(id_p_bucle)
-                        st.session_state["cambio_vista_hecho"] = True
-                    else:
-                        st.session_state["pagina_actual"] = int(id_p_bucle)
-                        st.session_state["pliego_actual_viva"] = int((id_p_bucle + 1) // 2)
-                        st.session_state["cambio_vista_hecho"] = False
-
-                    # Forzamos la recarga limpia de Streamlit para redibujar el Sortable de la página elegida
-                    st.rerun()
-
