@@ -386,7 +386,7 @@ for o in st.session_state.get("ofertas", []):
         filas_tabla_ofertas.append({
             "id_oferta": o["id_oferta"],
             "id_producto": o["id_producto"],
-            "nombre" = o.get('nombre',
+            "nombre": o["nombre"],
             "id_campana": id_campana_activa,
             "numero_pagina": num_pag,
             "posicion_slot": pos_slot,
