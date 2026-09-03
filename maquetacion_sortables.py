@@ -251,35 +251,39 @@ with st.container(border=True):
 num_cols_reales = calcular_num_cols(slots_deseados)
 
 # ==============================================================================
-# 9. FORMATO DE ITEMS Y EXTRACCIÓN DE IDS (BLINDAJE CONTRA FANTASMAS)
+# 9. FORMATO DE ITEMS ULTRA-DENSOS (CON EMOJIS COMPATIBLES)
 # ==============================================================================
 def format_item(o):
-    """Formatea las ofertas reales con texto plano y limpio."""
+    """Formatea las ofertas reales con iconos Unicode para alta fidelidad visual."""
     precio = float(o.get("precio_oferta", 0)) if o.get("precio_oferta") is not None else 0
     nombre = o.get('nombre', 'Sin nombre')
     sku = o.get('sku', 'S/N')
-    return f"{o['id_oferta']} | {nombre} | ${precio:,.0f} | SKU: {sku}"
+    return f"🆔 {o['id_oferta']} | 📦 {nombre} | 💵 ${precio:,.0f} | 📎 SKU: {sku}"
 
 def parse_item_id(item_str):
-    """Extrae el ID de la oferta ignorando tarjetas del sistema."""
+    """Extrae el ID numérico puro limpiando los emojis de la cadena."""
     try:
-        if "Slot Libre" in item_str:
+        if "Slot" in item_str or "Libre" in item_str:
             return None
-        return int(item_str.split("|")[0].strip())
+        # Separamos por la primera tubería para aislar el segmento del ID
+        segmento_id = item_str.split("|")[0]
+        # Limpiamos el emoji de la llave de identificación y espacios sucios
+        id_limpio = segmento_id.replace("🆔", "").strip()
+        return int(id_limpio)
     except Exception:
         return None
 
 # ==============================================================================
-# 10. CONSTRUIR CONTENEDORES CON TARJETAS MAGNETIZADAS ANTI-COLAPSO
+# 10. CONSTRUIR CONTENEDORES CON TARJETAS GUÍA CON EMOJIS
 # ==============================================================================
 ofertas = st.session_state.get("ofertas", [])
 
 # Banco de Ofertas: Captura todo lo que no tiene página asignada
 banco_items = [format_item(o) for o in ofertas if safe_int(o.get("numero_pagina")) is None]
 if not banco_items:
-    banco_items = ["✨ El banco está vacío. Cambia de página."]
+    banco_items = ["✨ 🛒 El banco está vacío. Cambia de página."]
 
-# Slots: Construcción modular de casilleros asegurando área de apuntado
+# Slots: Construcción modular de casilleros asegurando área de apuntado fija
 slot_containers = []
 for slot_num in range(1, slots_deseados + 1):
     slot_items = [
@@ -288,8 +292,7 @@ for slot_num in range(1, slots_deseados + 1):
         and safe_int(o.get("posicion_slot")) == slot_num
     ]
     
-    # EL SECRETO: Si el slot está vacío, le inyectamos la tarjeta fantasma.
-    # Esto elimina el fondo rojo chillón y le da altura inmediata al Slot 4.
+    # Mantenemos la tarjeta de contenido para que el slot no colapse a 0 píxeles
     if not slot_items:
         slot_items = [f"➕ Slot {slot_num} Libre - Suelta tu producto aquí"]
         
@@ -305,7 +308,7 @@ all_containers = [{"header": "Banco de Ofertas", "items": banco_items}] + slot_c
 # 11. RENDERIZADO DEL PANEL DRAG & DROP REACTIVO A PÁGINAS
 # ==============================================================================
 st.markdown("### 🎂 Panel de Distribución por Arrastre")
-st.caption("Mueve las tarjetas entre el Banco y los Slots. Los casilleros vacíos muestran una guía para facilitar el drop.")
+st.caption("Mueve las tarjetas entre el Banco y los Slots. Cambia de página para maquetar otra hoja.")
 
 # Clave dinámica para forzar la actualización al cambiar de hoja
 sorted_data = sort_items(
@@ -338,23 +341,23 @@ if sorted_data:
         elif header.startswith("Slot "):
             slot_num = int(header.replace("Slot ", "").strip())
             
-            # Recorremos los elementos que cayeron en el slot
+            # Recorremos y extraemos únicamente las tarjetas que tengan IDs numéricos reales
             items_reales = [parse_item_id(i) for i in items if parse_item_id(i) is not None]
             
             if items_reales:
-                # El primer producto real se queda legítimamente con el casillero
+                # El primer producto real toma el control del casillero
                 id_oferta = items_reales[0]
                 if id_oferta not in ids_procesados:
                     nueva_asignacion[id_oferta] = (pag_act, slot_num)
                     ids_procesados.add(id_oferta)
                 
-                # Si arrastró más de uno por accidente, los sobrantes se desasignan al banco
+                # Si arrastró más de uno por accidente, los sobrantes van al banco
                 for id_extra in items_reales[1:]:
                     if id_extra not in ids_procesados:
                         nueva_asignacion[id_extra] = (None, None)
                         ids_procesados.add(id_extra)
 
-    # Impactamos el mapa de coordenadas sobre la memoria central de Python
+    # Impactamos el mapa de coordenadas sobre la memoria de la sesión
     for o in st.session_state.ofertas:
         id_o = o["id_oferta"]
         if id_o in nueva_asignacion:
@@ -367,6 +370,7 @@ if sorted_data:
     if cambio:
         st.success("✔ Distribución de página actualizada en memoria.")
         st.rerun()
+
 
 
 # ==============================================================================
