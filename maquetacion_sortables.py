@@ -251,41 +251,53 @@ with st.container(border=True):
 num_cols_reales = calcular_num_cols(slots_deseados)
 
 # ==============================================================================
-# 9. FORMATO DE ITEMS ULTRA-DENSOS (ID OCULTO MEDIANTE HTML INVISIBLE)
+# 9. FORMATO DE ITEMS ULTRA-DENSOS (CACHE BLINDADA POR NOMBRE DE PRODUCTO)
 # ==============================================================================
+
+# Inicializamos el diccionario de equivalencias si no existe en la sesión
+if "mapa_nombre_a_id" not in st.session_state:
+    st.session_state["mapa_nombre_a_id"] = {}
+
 def format_item(o):
-    """Genera la tarjeta visual inyectando el ID en un contenedor HTML invisible."""
+    """Genera una tarjeta limpia para el usuario y guarda la relación en memoria."""
     precio = float(o.get("precio_oferta", 0)) if o.get("precio_oferta") is not None else 0
-    nombre = o.get('nombre', 'Sin nombre')
-    id_oferta = o['id_oferta']
+    nombre = o.get('nombre', 'Sin nombre').strip()
     
-    # El truco: Metemos el ID dentro de un span con display:none. 
-    # El usuario no ve nada, pero el string lleva el ID incrustado textualmente.
-    id_html_oculto = f'<span style="display:none;">ID_OFERTA:{id_oferta}</span>'
+    # Registramos la relación directa usando el nombre limpio como llave única
+    st.session_state["mapa_nombre_a_id"][nombre] = int(o['id_oferta'])
     
-    return f"📦 {nombre} | 💵 ${precio:,.0f} {id_html_oculto}"
+    # Esto es lo ÚNICO que se renderizará en la caja roja. Cero códigos raros.
+    return f"📦 {nombre} | 💵 ${precio:,.0f}"
 
 def parse_item_id(item_str):
-    """Busca y extrae el ID numérico oculto dentro de la etiqueta HTML."""
+    """Extrae el nombre del producto del string de la caja y recupera su ID real."""
     try:
         if not item_str:
             return None
             
-        # Filtro de seguridad para tarjetas guía
-        if "vacío" in item_str or "Libre" in item_str or "Suelta" in item_str:
+        item_str_limpio = item_str.strip()
+        
+        # 1. Filtro inmediato: Si es una tarjeta guía o texto de entorno, lo ignoramos
+        if (
+            "vacío" in item_str_limpio 
+            or "Libre" in item_str_limpio 
+            or "Suelta" in item_str_limpio 
+            or "Slot" in item_str_limpio
+        ):
             return None
             
-        # Buscamos nuestro marcador de ID dentro del string
-        if "ID_OFERTA:" in item_str:
-            # Cortamos el string justo donde empieza el ID
-            parte_id = item_str.split("ID_OFERTA:")[1]
-            # Nos quedamos solo con los números antes de que cierre el tag span
-            id_puro = parte_id.split("</span>")[0].strip()
-            return int(id_puro)
+        # 2. Aislamos el nombre del producto quitando el emoji inicial y el precio del final
+        # Ejemplo: "📦 Crema de Leche | 💵 $4" -> "Crema de Leche"
+        if "📦" in item_str_limpio and "|" in item_str_limpio:
+            nombre_producto = item_str_limpio.split("|")[0].replace("📦", "").strip()
+            
+            # 3. Buscamos el ID original en nuestro mapa de memoria
+            return st.session_state["mapa_nombre_a_id"].get(nombre_producto)
             
         return None
     except Exception:
         return None
+
 
 # ==============================================================================
 # 10. CONSTRUIR CONTENEDORES CON TARJETAS GUÍA CON EMOJIS
