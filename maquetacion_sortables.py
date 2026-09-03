@@ -302,7 +302,7 @@ for slot_num in range(1, slots_deseados + 1):
     })
 
 # Unificación estructural de los bloques de arrastre
-all_containers = [{"header": "Banco de Ofertas", "items": banco_items}] + slot_containers
+all_containers = [{"header": "🛒 Banco de Ofertas", "items": banco_items}] + slot_containers
 
 # ==============================================================================
 # 11. RENDERIZADO DEL PANEL DRAG & DROP REACTIVO A PÁGINAS
@@ -330,7 +330,7 @@ if sorted_data:
         header = container.get("header", "")
         items = container.get("items", [])
         
-        if header == "Banco de Ofertas":
+        if header == "🛒 Banco de Ofertas":
             for item_str in items:
                 id_oferta = parse_item_id(item_str)
                 # Si es una tarjeta real y no ha sido procesada, va al banco
