@@ -354,7 +354,7 @@ if sorted_data:
         header = container.get("header", "")
         items = container.get("items", [])
 
-        if header == "📦 Banco de Ofertas":
+        if header == "🛒 Banco de Ofertas":
             # Todo en el banco queda desasignado
             for item_str in items:
                 id_oferta = parse_item_id(item_str)
