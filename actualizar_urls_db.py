@@ -59,8 +59,8 @@ def corregir_urls_tabla():
         url_nueva_completa = f"{url_base_nueva}{nombre_archivo_foto}"
         
         # 💡 CORRECCIÓN CRÍTICA: Validamos contra la variable 'url' existente para evitar el NameError
-        if url in str(url_vieja) and "authenticated" in str(url_vieja):
-            continue
+        #if url in str(url_vieja) and "authenticated" in str(url_vieja):
+        #    continue
             
         texto_estado.text(f"🔄 [{idx}/{total}] Corrigiendo enlace de ID {id_prod}: {nombre_archivo_foto}")
         progreso.progress(idx / total)
