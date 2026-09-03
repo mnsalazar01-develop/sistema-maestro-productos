@@ -35,7 +35,7 @@ def corregir_urls_tabla():
     
     # Construimos la base de la nueva URL usando el dominio del nuevo proyecto
     # Formato estándar de Supabase para storage: https://supabase.co
-    url_base_nueva = f"{URL_DESTINO.rstrip('/')}/storage/v1/object/public/imagenes/"
+    url_base_nueva = f"{url.rstrip('/')}/storage/v1/object/public/imagenes/"
     
     contador_actualizados = 0
     progreso = st.progress(0)
