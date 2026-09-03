@@ -7,9 +7,8 @@ from supabase import create_client
 # ==============================================================================
 try:
     # Necesitamos la URL nueva y la Service Role Key para poder sobreescribir la tabla
-    URL_DESTINO = st.secrets["supabase_destino"]["url"]
-    KEY_DESTINO = st.secrets["supabase_destino"]["key"]
-    BUCKET_DESTINO = st.secrets["supabase_destino"]["bucket_name"]
+    URL_DESTINO = st.secrets["supabase"]["url"]
+    KEY_DESTINO = st.secrets["supabase"]["key"]
 except Exception as e:
     st.error(f"❌ Error al cargar secretos: {e}")
     sys.exit(1)
@@ -42,7 +41,7 @@ def corregir_urls_tabla():
     
     # Construimos la base de la nueva URL usando el dominio del nuevo proyecto
     # Formato estándar de Supabase para storage: https://supabase.co
-    url_base_nueva = f"{URL_DESTINO.rstrip('/')}/storage/v1/object/authenticated/{BUCKET_DESTINO}/"
+    url_base_nueva = f"{URL_DESTINO.rstrip('/')}/storage/v1/object/public/imagenes}/"
     
     contador_actualizados = 0
     progreso = st.progress(0)
