@@ -305,8 +305,8 @@ for slot_num in range(1, slots_deseados + 1):
     ]
     
     # Mantenemos la tarjeta de contenido para que el slot no colapse a 0 píxeles
-    if not slot_items:
-        slot_items = [f"➕ Slot {slot_num} Libre - Suelta tu producto aquí"]
+    #if not slot_items:
+    #    slot_items = [f"➕ Slot {slot_num} Libre - Suelta tu producto aquí"]
         
     slot_containers.append({
         "header": f"Slot {slot_num}",
