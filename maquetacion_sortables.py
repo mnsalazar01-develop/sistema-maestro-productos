@@ -386,14 +386,15 @@ for o in st.session_state.get("ofertas", []):
         filas_tabla_ofertas.append({
             "id_oferta": o["id_oferta"],
             "id_producto": o["id_producto"],
+            "nombre" = o.get('nombre',
             "id_campana": id_campana_activa,
             "numero_pagina": num_pag,
             "posicion_slot": pos_slot,
+            "numero_fila": ((pos_slot - 1) // num_cols_reales) + 1,
+            "numero_columna": ((pos_slot - 1) % num_cols_reales) + 1,
             "precio_oferta": o.get("precio_oferta"),
             "posicion_mix": cfg.get("distribucion", "Equilibrado"),
             "sub_molde_estilo": cfg.get("estilo", "Estándar"),
-            "numero_fila": ((pos_slot - 1) // num_cols_reales) + 1,
-            "numero_columna": ((pos_slot - 1) % num_cols_reales) + 1,
         })
 
 if filas_tabla_ofertas:
