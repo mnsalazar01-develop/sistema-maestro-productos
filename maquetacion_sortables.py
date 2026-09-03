@@ -440,3 +440,73 @@ if st.button("💾 Guardar Configuración Completa del Folleto", type="primary",
             st.error(f"❌ Error al guardar en Supabase: {str(e)}")
     else:
         st.warning("⚠️ No hay elementos para persistir.")
+
+# ==============================================================================
+# 🟢 16. BOTONERA INFERIOR INTERACTIVA — MAPA DE HOJAS + CONTEO DE ITEMS
+# ==============================================================================
+st.divider()
+st.markdown("### 🗺️ Mapa General del Folleto (Flatplan)")
+st.caption("Los botones resaltados indican la página que estás visualizando actualmente. Haz clic en cualquier hoja para saltar directamente a ella.")
+
+# 1. Bloque de Compatibilidad: Aseguramos que existan las variables de control en tu script
+pag_act = int(st.session_state.get("pagina_actual", 1))
+
+# Intentamos leer el conteo real de ofertas por página desde st.session_state.ofertas
+mapa_aforos_visor_local = {}
+for o in st.session_state.get("ofertas", []):
+    # Usamos tu helper safe_int si está disponible, o un fallback entero
+    try:
+        p_num = safe_int(o.get("numero_pagina"))
+    except NameError:
+        p_num = o.get("numero_pagina")
+        p_num = int(p_num) if p_num is not None and str(p_num).strip() != "" and str(p_num) != "0" else None
+        
+    if p_num is not None:
+        mapa_aforos_visor_local[p_num] = mapa_aforos_visor_local.get(p_num, 0) + 1
+
+# Mapeamos el conteo al diccionario que requiere tu botonera
+conteo_por_pagina = dict(mapa_aforos_visor_local)
+
+# Respaldo de variables de modo de vista por si no están declaradas más arriba
+modo_vista = st.session_state.get("modo_vista", "Folleto Individual (Pág por Pág)")
+pag_izq_target = pag_act
+pag_der_target = pag_act # En modo individual ambas apuntan a la misma página
+
+# 2. Renderizado de la matriz de 20 páginas (Bloques de 4 columnas)
+for fila_bloque in range(1, 21, 4):
+    columnas_flatplan = st.columns(4)
+    for sub_col_idx in range(4):
+        id_p_bucle = fila_bloque + sub_col_idx
+        if id_p_bucle <= 20:
+            # Extraemos la cantidad de productos asignados a esta hoja (0 por defecto)
+            skus_conteo = conteo_por_pagina.get(id_p_bucle, 0)
+            etiqueta_bucle = f"📄 HOJA {id_p_bucle} [{skus_conteo} Items]"
+            
+            # Resaltamos con color llamativo (primary) la página en la que el usuario está parado
+            tipo_color = (
+                "primary"
+                if id_p_bucle in [pag_izq_target, pag_der_target]
+                else "secondary"
+            )
+            
+            with columnas_flatplan[sub_col_idx]:
+                if st.button(
+                    etiqueta_bucle,
+                    use_container_width=True,
+                    type=tipo_color,
+                    key=f"btn_nav_visor_p_{id_p_bucle}",
+                ):
+                    # Sincronización del estado de navegación con el paginador de Sortables
+                    if modo_vista == "Folleto Individual (Pág por Pág)":
+                        st.session_state["pagina_actual"] = int(id_p_bucle)
+                        st.session_state["pliego_actual_viva"] = int(id_p_bucle)
+                        st.session_state["cambio_vista_hecho"] = True
+                    else:
+                        st.session_state["pagina_actual"] = int(id_p_bucle)
+                        st.session_state["pliego_actual_viva"] = int((id_p_bucle + 1) // 2)
+                        st.session_state["cambio_vista_hecho"] = False
+
+                    # Forzamos la recarga limpia de Streamlit para redibujar el Sortable de la página elegida
+                    st.rerun()
+
+
