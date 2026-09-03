@@ -8,7 +8,7 @@ from supabase import create_client
 try:
     # Necesitamos la URL nueva y la Service Role Key para poder sobreescribir la tabla
     URL_DESTINO = st.secrets["supabase_destino"]["url"]
-    KEY_DESTINO = st.secrets["supabase_destino"]["service_role_key"]
+    KEY_DESTINO = st.secrets["supabase_destino"]["key"]
     BUCKET_DESTINO = st.secrets["supabase_destino"]["bucket_name"]
 except Exception as e:
     st.error(f"❌ Error al cargar secretos: {e}")
