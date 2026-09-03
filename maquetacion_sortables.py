@@ -267,7 +267,7 @@ def format_item(o):
     st.session_state["mapa_nombre_a_id"][nombre] = int(o['id_oferta'])
     
     # Esto es lo ÚNICO que se renderizará en la caja roja. Cero códigos raros.
-    return f"📦 {nombre} | 💵 ${precio:,.0f}"
+    return f"📦 {nombre} | 💵 ${precio}"
 
 def parse_item_id(item_str):
     """Extrae el nombre del producto del string de la caja y recupera su ID real."""
