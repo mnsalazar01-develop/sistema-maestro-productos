@@ -403,22 +403,44 @@ for o in st.session_state.get("ofertas", []):
     if num_pag == pag_act and pos_slot is not None:
         filas_tabla_ofertas.append({
             "id_oferta": o["id_oferta"],
-            "id_producto": o["id_producto"],
             "id_campana": id_campana_activa,
+            "id_producto": o["id_producto"],
+            "nombre": o["nombre"],
+            "precio_oferta": o.get("precio_oferta"),
             "numero_pagina": num_pag,
             "posicion_slot": pos_slot,
-            "precio_oferta": o.get("precio_oferta"),
-            "posicion_mix": cfg.get("distribucion", "Equilibrado"),
-            "sub_molde_estilo": cfg.get("estilo", "Estándar"),
             "numero_fila": ((pos_slot - 1) // num_cols_reales) + 1,
             "numero_columna": ((pos_slot - 1) % num_cols_reales) + 1,
+            "posicion_mix": cfg.get("distribucion", "Equilibrado"),
+            "sub_molde_estilo": cfg.get("estilo", "Estándar"),
         })
 
 if filas_tabla_ofertas:
-    st.dataframe(filas_tabla_ofertas, use_container_width=True)
+    # 🛠️ Configuración del tamaño, etiquetas y formato de las columnas
+    configuracion_columnas = {
+        # Ocultamos los IDs técnicos que no aportan valor visual al maquetador
+        "id_oferta": None,
+        "id_producto": None,
+        "id_campana": None,
+        "nombre": st.column_config.TextColumn("📋 Producto", width="large"),
+        "precio_oferta": st.column_config.NumberColumn("💰 Precio", width="small"),
+        "numero_pagina": st.column_config.NumberColumn("📄 Pág.", width="small"),
+        "posicion_slot": st.column_config.NumberColumn("🔢 Slot", width="small"),
+        "numero_fila": st.column_config.NumberColumn("↕️ Fila", width="small"),
+        "numero_columna": st.column_config.NumberColumn("↔️ Col.", width="small"),
+        "posicion_mix": st.column_config.TextColumn("🔀 Mix", width="small"),
+        "sub_molde_estilo": st.column_config.TextColumn("🎨 Estilo", width="small"),
+    }
+
+    # Renderizamos la grilla aplicando la configuración personalizada
+    st.dataframe(
+        filas_tabla_ofertas, 
+        column_config=configuracion_columnas,
+        use_container_width=True,
+        hide_index=True  # Oculta la columna de índices (0, 1, 2...) para ganar espacio
+    )
 else:
     st.info("Ninguna oferta asignada en esta hoja todavía.")
-
 
 # ==============================================================================
 # 15. GUARDAR EN SUPABASE — TODAS LAS PÁGINAS, SIN TOCAR precio_oferta
