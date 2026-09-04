@@ -7,7 +7,7 @@ import streamlit as st
 def init_supabase_local() -> Client:
     URL_NUEVA = st.secrets["supabase"]["url"]
     KEY_NUEVA = st.secrets["supabase"]["key"]
-    return create_client(url, key)
+    return create_client(URL_NUEVA,KEY_NUEVA)
 
     try:
         supabase = init_supabase_local()
