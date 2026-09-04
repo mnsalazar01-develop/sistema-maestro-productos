@@ -168,19 +168,19 @@ def calcular_num_cols(num_slots):
     return 4
 
 # ==============================================================================
-# 7. CARGA DE OFERTAS (INMUNIZADA CONTRA SOBREESCRITURAS)
+# 7. CARGA DE OFERTAS (INMUNIZADA Y PROTEGIDA CONTRA BORRADOS)
 # ==============================================================================
 
-# Inicializamos la clave en el session_state si no existe de forma segura
-if "ofertas_memoria" not in st.session_state:
-    st.session_state["ofertas_memoria"] = []
-if "campana_id_actual" not in st.session_state:
-    st.session_state["campana_id_actual"] = None
+# Aseguramos claves únicas en la memoria global de Streamlit
+if "ofertas_estables_ram" not in st.session_state:
+    st.session_state["ofertas_estables_ram"] = []
+if "id_campana_memoria" not in st.session_state:
+    st.session_state["id_campana_memoria"] = None
 
-# Solo vamos a la base de datos si el usuario cambió de campaña en el selector
-if st.session_state["campana_id_actual"] != id_campana_activa:
+# SOLO vamos a Supabase si el usuario REALMENTE cambió de campaña en el selector
+if st.session_state["id_campana_memoria"] != id_campana_activa:
     try:
-        with st.spinner("Cargando ofertas desde el servidor..."):
+        with st.spinner("Sincronizando ofertas desde el servidor comercial..."):
             resp_ofertas = supabase.table("ofertas").select("*").eq("id_campana", id_campana_activa).execute()
             ofertas_campana = resp_ofertas.data if resp_ofertas.data else []
             
@@ -196,11 +196,12 @@ if st.session_state["campana_id_actual"] != id_campana_activa:
             
             mapa_imagenes_firmadas = firmar_lote_imagenes(urls_totales_a_firmar)
             
-            # Formateo estructural inicial
+            # Inicialización paramétrica limpia de registros
             for o in ofertas_campana:
                 o["numero_pagina"] = safe_int(o.get("numero_pagina"))
                 o["posicion_slot"] = safe_int(o.get("posicion_slot"))
-                o["posicion_mix"] = safe_int(o.get("posicion_mix"), 1)  # Aseguramos entero base para el Mix
+                # Nos aseguramos de que posicion_mix nazca como un entero (1 por defecto)
+                o["posicion_mix"] = safe_int(o.get("posicion_mix"), 1) 
                 
                 id_p = o.get("id_producto")
                 if id_p in dict_productos:
@@ -211,16 +212,18 @@ if st.session_state["campana_id_actual"] != id_campana_activa:
                     o["nombre"] = f"Oferta sin producto asignado (#{o['id_oferta']})"
                     o["img"] = "https://picsum.photos"
             
-            # Guardamos en nuestra variable persistente e inmunizada
-            st.session_state["ofertas_memoria"] = ofertas_campana
-            st.session_state["campana_id_actual"] = id_campana_activa
+            # Guardamos en la variable protegida
+            st.session_state["ofertas_estables_ram"] = ofertas_campana
+            st.session_state["id_campana_memoria"] = id_campana_activa
             
     except Exception as e:
-        st.error(f"❌ Error crítico al cargar ofertas: {str(e)}")
+        st.error(f"❌ Error crítico en la ingesta de datos: {str(e)}")
         st.stop()
 
-# Re-vinculamos la variable de lectura para no romper el resto de tus bloques del script
-st.session_state.ofertas = st.session_state["ofertas_memoria"]
+# Apuntamos la variable de trabajo a nuestra RAM protegida para no romper el resto de tu script
+st.session_state.ofertas = st.session_state["ofertas_estables_ram"]
+st.session_state.campana_anterior = id_campana_activa
+
 
 # ==============================================================================
 # 8. NAVEGACIÓN
