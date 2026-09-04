@@ -2,24 +2,31 @@ import sys
 import requests  # Petición directa libre de bloqueos
 import streamlit as st
 
-# 1. CONEXION DIRECTA A TU BASE DE DATOS DE PRUEBAS
+# 2. CONEXIÓN SEGURA HEREDADA CON LAS LLAVES DE SUPABASE
 @st.cache_resource
-def init_supabase() -> Client:
-    return create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
+def init_supabase_local() -> Client:
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
 
-supabase_client = init_supabase()
+try:
+    supabase = init_supabase_local()
+except Exception as e:
+    st.error(f"❌ Error de Conexión Base: {e}")
+    st.stop()
+
 
 def contar_archivos_reales_bucket():
     st.write("🔍 Conectando con el servidor de almacenamiento de Supabase...")
     
     # Endpoint oficial de la API de Supabase para listar objetos
-    api_url = f"{URL_NUEVA.rstrip('/')}/storage/v1/object/list/imagenes"
+    api_url = f"{url.rstrip('/')}/storage/v1/object/list/imagenes"
     
-    headers = {
-        "Authorization": f"Bearer {KEY_NUEVA}",
-        "ApiKey": KEY_NUEVA,
-        "Content-Type": "application/json"
-    }
+    #headers = {
+    #    "Authorization": f"Bearer {KEY_NUEVA}",
+    #    "ApiKey": KEY_NUEVA,
+    #    "Content-Type": "application/json"
+    #}
     
     # Configuramos un límite de 1000 para asegurarnos de que cuente todo tu catálogo de 600 fotos de un solo golpe
     payload = {
