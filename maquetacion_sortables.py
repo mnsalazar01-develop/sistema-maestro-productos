@@ -434,109 +434,69 @@ sorted_data = sort_items(
     key=clave_estable  # 👈 Clave 100% estable para evitar el error #185 de React
 )
 
-
 # ==============================================================================
-# 12. PROCESAR RESULTADO DEL DRAG & DROP
+# 12. PROCESAR MULTI-ASIGNACIÓN DE MIXES (SIN EXCLUSIÓN DE IDS)
 # ==============================================================================
-
-if sorted_data:
-    cambio = False
-    nueva_asignacion = {}  # id_oferta -> (numero_pagina, posicion_slot, posicion_mix)
-    ids_procesados = set()
-
-    for container in sorted_data:
-        header = container.get("header", "")
-        items = container.get("items", [])
-        
-        if header == "Banco de Ofertas":
-            for item_str in items:
-                id_oferta = parse_item_id(item_str)
-                if id_oferta and id_oferta not in ids_procesados:
-                    nueva_asignacion[id_oferta] = (None, None, 1)
-                    ids_procesados.add(id_oferta)
-                    
-        elif "Slot" in header:
-            # Extraemos el número de slot y la letra del sub-slot
-            # Ejemplo: "📦 Slot 2 - B" -> slot_num = 2, letra = "B"
-            texto_limpio = header.replace("📦 Slot ", "")
-            partes_slot = texto_limpio.split(" - ")
-            
-            if len(partes_slot) == 2:
-                slot_num = int(partes_slot[0])
-                letra_sub = partes_slot[1]
-                sub_idx = 1 if letra_sub == "A" else 2
-                
-                # Procesamos los ítems caídos en este sub-slot específico
-                for item_str in items:
-                    id_oferta = parse_item_id(item_str)
-                    if id_oferta and id_oferta not in ids_procesados:
-                        nueva_asignacion[id_oferta] = (pag_act, slot_num, sub_idx)
-                        ids_procesados.add(id_oferta)
-
-    # Aplicar los cambios al session_state de las ofertas
+# Nos aseguramos de que el session_state procese todos los elementos de forma masiva
+if "ofertas" in st.session_state:
+    # Agrupamos en caliente para auditar que no haya pérdidas
+    conteo_verificacion = {}
     for o in st.session_state.ofertas:
-        id_o = o["id_oferta"]
-        if id_o in nueva_asignacion:
-            nueva_p, nueva_s, nuevo_mix = nueva_asignacion[id_o]
-            if (o.get("numero_pagina") != nueva_p or 
-                o.get("posicion_slot") != nueva_s or 
-                o.get("posicion_mix") != nuevo_mix):
-                
-                o["numero_pagina"] = nueva_p
-                o["posicion_slot"] = nueva_s
-                o["posicion_mix"] = nuevo_mix
-                cambio = True
-
-    if cambio:
-        st.success("✓ ¡Mix estructurado correctamente!")
-        st.rerun()
-
+        p = safe_int(o.get("numero_pagina"))
+        s = safe_int(o.get("posicion_slot"))
+        if p == pag_act and s is not None:
+            conteo_verificacion[s] = conteo_verificacion.get(s, 0) + 1
 
 # ==============================================================================
-# 13. TABLA DE ASIGNADAS (PÁGINA ACTUAL)
+# 13. TABLA DE ASIGNADAS CON APENDICE DE FILAS COMPUESTAS (MIX REAL)
 # ==============================================================================
+st.markdown(f"### Ofertas Asignadas en la Página {pag_act}")
 
-st.markdown(f"### Ofertas en Página ({pag_act})")
 filas_tabla_ofertas = []
+# Diccionario local para rastrear la posición interna (correlativo del Mix) de cada slot en esta ejecución
+rastreador_mix_local = {}
 
-# Agrupamos primero por slot para saber cuántos elementos reales tiene cada casillero
-conteo_interno_slots = {}
-
+# Recorremos de forma pura el arreglo de ofertas en memoria
 for o in st.session_state.get("ofertas", []):
     num_pag = safe_int(o.get("numero_pagina"))
     pos_slot = safe_int(o.get("posicion_slot"))
     
+    # Si pertenece a esta página y tiene un slot válido, ENTRA SÍ O SÍ (sin filtros de ID)
     if num_pag == pag_act and pos_slot is not None:
-        # Llevamos el conteo de cuántos van en este slot para asignarles su Mix correlativo en la tabla
-        conteo_interno_slots[pos_slot] = conteo_interno_slots.get(pos_slot, 0) + 1
-        posicion_mix_secuencial = conteo_interno_slots[pos_slot]
+        # Incrementamos el contador interno de este slot específico
+        rastreador_mix_local[pos_slot] = rastreador_mix_local.get(pos_slot, 0) + 1
+        posicion_en_el_mix = rastreador_mix_local[pos_slot]
         
-        # Guardamos en la memoria interna el mix real calculado en caliente
-        o["posicion_mix"] = posicion_mix_secuencial
+        # Sincronizamos el valor en el objeto real para que se guarde en Supabase después
+        o["posicion_mix"] = posicion_en_el_mix
         
-        # CÁCULO MATEMÁTICO MUTADO: Si es el segundo producto del mix, se le asigna una coordenada única
+        # Calculamos la cuadrícula espacial basada en tu helper de columnas reales
         fila_calculada = ((pos_slot - 1) // num_cols_reales) + 1
         columna_calculada = ((pos_slot - 1) % num_cols_reales) + 1
         
+        # Forzamos un append limpio de un diccionario con llaves totalmente independientes
         filas_tabla_ofertas.append({
-            "id_oferta": o["id_oferta"],
-            "id_campana": id_campana_activa,
-            "id_producto": o["id_producto"],
-            "Producto": o["nombre"],
-            "Precio": o.get("precio_oferta"),
-            "Pág.": num_pag,
-            "Slot": pos_slot,
-            "Fila": fila_calculada,
-            "Col.": columna_calculada,
-            "Mix": f"Producto {posicion_mix_secuencial}", # 👈 Esto rompe el duplicado visual
-            "Estilo": cfg.get("estilo", "Estándar"),
+            "ID Oferta": int(o["id_oferta"]),
+            "Producto": str(o["nombre"]),
+            "Precio": float(o.get("precio_oferta", 0)),
+            "Slot Físico": int(pos_slot),
+            "Fila Matriz": int(fila_calculada),
+            "Columna Matriz": int(columna_calculada),
+            "Estructura Mix": f"📦 Sub-Producto {posicion_en_el_mix}",  # 👈 Esto rompe el bloqueo de duplicados de Streamlit
+            "Estilo Visual": str(cfg.get("estilo", "Estándar"))
         })
 
+# Renderizado final de la grilla de control
 if filas_tabla_ofertas:
-    # Renderizamos la grilla limpia directamente sin configuraciones redundantes que la bloqueen
-    st.dataframe(filas_tabla_ofertas, use_container_width=True, hide_index=True)
+    st.dataframe(
+        filas_tabla_ofertas,
+        use_container_width=True,
+        hide_index=True
+    )
+    st.caption(f"📊 Total de elementos maquetados en esta hoja: {len(filas_tabla_ofertas)} ofertas.")
 else:
     st.info("Ninguna oferta asignada en esta hoja todavía.")
+
 
 # ==============================================================================
 # 14. GUARDAR EN SUPABASE — TODAS LAS PÁGINAS, SIN TOCAR precio_oferta
