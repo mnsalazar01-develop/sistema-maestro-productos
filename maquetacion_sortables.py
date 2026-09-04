@@ -323,6 +323,79 @@ for slot_num in range(1, slots_deseados + 1):
             "items": slot_items
         })
 
+# ==============================================================================
+# 10. MAQUETADOR NATIVO MULTI-PRODUCTO (SIN COMBATES DE LIBRERÍAS)
+# ==============================================================================
+st.markdown("### Asignación de Ofertas al Mix de la Página")
+
+ofertas = st.session_state.get("ofertas", [])
+
+# Separamos las ofertas del banco (las que no tienen página asignada)
+banco_ofertas = [o for o in ofertas if safe_int(o.get("numero_pagina")) is None]
+
+if not banco_ofertas:
+    st.info("💡 El banco está vacío. Todas las ofertas de esta campaña ya fueron maquetadas.")
+else:
+    # Creamos un contenedor limpio para añadir ofertas a los slots de forma masiva
+    with st.container(border=True):
+        st.markdown("#### 📥 Asignar Producto del Banco a un Slot")
+        col_prod, col_sl, col_btn = st.columns([2, 1, 1])
+        
+        with col_prod:
+            # Creamos la lista de opciones usando el formateador que ya tienes configurado
+            opciones_banco = {format_item(o): o["id_oferta"] for o in banco_ofertas}
+            prod_seleccionado_txt = st.selectbox("Selecciona el Producto:", options=list(opciones_banco.keys()))
+            id_oferta_a_mover = opciones_banco[prod_seleccionado_txt]
+            
+        with col_sl:
+            # Elige a qué número de slot meterlo
+            slot_destino = st.number_input("Al Slot #:", min_value=1, max_value=slots_deseados, value=1, step=1)
+            
+        with col_btn:
+            st.write("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
+            if st.button("➕ Añadir al Slot (Mix)", use_container_width=True, type="primary"):
+                # 🟢 CALCULAR LA POSICIÓN DEL MIX AUTOMÁTICAMENTE
+                # Buscamos cuántos productos ya tiene asignados ese mismo slot en esta página
+                productos_en_ese_slot = [
+                    o for o in ofertas 
+                    if safe_int(o.get("numero_pagina")) == pag_act 
+                    and safe_int(o.get("posicion_slot")) == slot_destino
+                ]
+                siguiente_posicion_mix = len(productos_en_ese_slot) + 1
+                
+                # Buscamos la oferta en el session_state y le asignamos sus nuevas coordenadas
+                for o in st.session_state.ofertas:
+                    if o["id_oferta"] == id_oferta_a_mover:
+                        o["numero_pagina"] = pag_act
+                        o["posicion_slot"] = slot_destino
+                        o["posicion_mix"] = siguiente_posicion_mix  # Guarda 1, 2, 3... correlativo
+                        break
+                        
+                st.success("✓ Producto añadido al Mix con éxito.")
+                st.toast("Actualizando grilla inferior...", icon="🔄")
+                st.rerun()
+
+# 🟢 BOTÓN PARA DEVOLVER PRODUCTOS AL BANCO (DESASIGNAR)
+ofertas_asignadas_hoja = [
+    o for o in ofertas 
+    if safe_int(o.get("numero_pagina")) == pag_act and o.get("posicion_slot") is not None
+]
+
+if ofertas_asignadas_hoja:
+    with st.expander("🗑️ Quitar productos maquetados de esta página"):
+        opciones_asignadas = {f"Slot {o['posicion_slot']} | {o['nombre']}": o['id_oferta'] for o in ofertas_asignadas_hoja}
+        quitar_txt = st.selectbox("Selecciona producto a remover:", options=list(opciones_asignadas.keys()))
+        id_oferta_a_quitar = opciones_asignadas[quitar_txt]
+        
+        if st.button("🔴 Devolver al Banco de Ofertas", use_container_width=True):
+            for o in st.session_state.ofertas:
+                if o["id_oferta"] == id_oferta_a_quitar:
+                    o["numero_pagina"] = None
+                    o["posicion_slot"] = None
+                    o["posicion_mix"] = 1
+                    break
+            st.success("✓ Producto devuelto al banco.")
+            st.rerun()
 
 # ==============================================================================
 # 11. RENDERIZAR SORTABLES
