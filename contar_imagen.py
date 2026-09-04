@@ -1,9 +1,12 @@
 import sys
 import requests  # Petición directa libre de bloqueos
 import streamlit as st
-from supabase import create_client, Client  # REPARADO: Importación faltante
+from supabase import create_client, Client
 
-# 1. CARGA DE CREDENCIALES GLOBALES (Para que funcionen en todo el script)
+# CONFIGURACIÓN DE PÁGINA (Para que la galería se vea amplia)
+st.set_page_config(layout="wide")
+
+# 1. CARGA DE CREDENCIALES GLOBALES
 try:
     URL_NUEVA = st.secrets["supabase"]["url"]
     KEY_NUEVA = st.secrets["supabase"]["key"]
@@ -11,7 +14,7 @@ except Exception as e:
     st.error(f"❌ Error al leer las claves de acceso de st.secrets: {e}")
     st.stop()
 
-# 2. CONEXIÓN SEGURA HEREDADA CON LAS LLAVES DE SUPABASE
+# 2. CONEXIÓN SEGURA CON SUPABASE
 @st.cache_resource
 def init_supabase_local() -> Client:
     return create_client(URL_NUEVA, KEY_NUEVA)
@@ -22,63 +25,94 @@ except Exception as e:
     st.error(f"❌ Error de Conexión Base: {e}")
     st.stop()
 
-def contar_archivos_reales_bucket():
-    st.write("🔍 Conectando con el servidor de almacenamiento de Supabase...")
-    
-    # Endpoint oficial de la API de Supabase para listar objetos
+# FUNCIÓN PARA RECOGER TODOS LOS ARCHIVOS
+def obtener_todos_los_archivos():
     api_url = f"{URL_NUEVA.rstrip('/')}/storage/v1/object/list/imagenes"
-    
     headers = {
         "Authorization": f"Bearer {KEY_NUEVA}",
         "ApiKey": KEY_NUEVA,
         "Content-Type": "application/json"
     }
-    
-    # Configuramos un límite de 1000 para asegurar el tiro
     payload = {
         "prefix": "",
         "limit": 1000,
         "offset": 0,
         "sortBy": {"column": "name", "order": "asc"}
     }
-    
     try:
-        # Hacemos la consulta directa por POST HTTP
         respuesta = requests.post(api_url, headers=headers, json=payload, timeout=15)
-        
-        # REPARADO: Corregido '1=' por '!='
         if respuesta.status_code != 200:
-            st.error(f"❌ El servidor de Supabase rechazó la consulta (Código {respuesta.status_code})")
-            return
-            
-        archivos_servidor = respuesta.json()
-        
-        # Filtramos para descontar los archivos ocultos y extraer solo los nombres
-        lista_imagenes_reales = [a.get('name') for a in archivos_servidor if a.get('name') != '.emptyFolderPlaceholder']
-        cantidad_total = len(lista_imagenes_reales)
-        
-        # Desplegamos el resultado final
-        st.metric(label="📸 Total de Imágenes en Bucket", value=f"{cantidad_total} archivos")
-        
-        if cantidad_total > 0:
-            st.success(f"✨ ¡Verificación completada! Hay **{cantidad_total} objetos** listos en tu catálogo.")
-            
-            # SOLUCIÓN AL COPIADO: Creamos un bloque de texto descargable
-            texto_descarga = "\n".join(lista_imagenes_reales)
-            
-            st.download_button(
-                label="📥 Descargar Listado de Archivos (.txt)",
-                data=texto_descarga,
-                file_name="lista_imagenes_bucket.txt",
-                mime="text/plain",
-                use_container_width=True
-            )
-        else:
-            st.warning("⚠️ El bucket se encuentra totalmente vacío actualmente.")
-            
-    except Exception as e:
-        st.error(f"❌ Ocurrió un error de red al intentar escanear el almacenamiento: {e}")
+            return None
+        archivos = respuesta.json()
+        # Filtramos para no mostrar archivos fantasmas del sistema
+        return [a.get('name') for a in archivos if a.get('name') != '.emptyFolderPlaceholder']
+    except:
+        return None
 
-# Dibujamos un botón de prueba en la interfaz de Streamlit
-if st.button("📊 Verificar Cantidad Real en el Almacenamiento", type="primary", use_container_width=True):
-    contar_archivos_reales_bucket()
+# --- INTERFAZ DE USUARIO EN STREAMLIT ---
+st.title("🗂️ Administrador Avanzado de Catálogo")
+st.write("Visualiza tus 646 fotos sin las restricciones de la web de Supabase.")
+
+# Botón superior de escaneo rápido
+if st.button("📊 Escanear Almacenamiento en Tiempo Real", use_container_width=True):
+    with st.spinner("Sincronizando con el servidor de Supabase..."):
+        imagenes = obtener_todos_los_archivos()
+        if imagenes is not None:
+            st.session_state['lista_fotos'] = imagenes
+            st.success(f"¡Sincronizado! Se detectaron **{len(imagenes)}** archivos en el servidor.")
+        else:
+            st.error("No se pudo conectar con el almacenamiento.")
+
+# Cargar la lista automáticamente en segundo plano si no se ha escaneado
+if 'lista_fotos' not in st.session_state:
+    imagenes_iniciales = obtener_todos_los_archivos()
+    if imagenes_iniciales:
+        st.session_state['lista_fotos'] = imagenes_iniciales
+    else:
+        st.session_state['lista_fotos'] = []
+
+lista_actual = st.session_state['lista_fotos']
+
+if lista_actual:
+    # Métrica principal
+    st.metric(label="📸 Total de Imágenes Detectadas", value=f"{len(lista_actual)} archivos")
+    
+    # BUSCADOR EN TIEMPO REAL
+    busqueda = st.text_input("🔍 Buscar foto por nombre:", placeholder="Ej: producto_01")
+    
+    # Filtrado por texto
+    if busqueda:
+        fotos_filtradas = [f for f in lista_actual if busqueda.lower() in f.lower()]
+    else:
+        fotos_filtradas = lista_actual
+
+    st.write(f"Mostrando {len(fotos_filtradas)} resultados:")
+
+    # DISEÑO DE LA GALERÍA EN CUADRÍCULA (4 Columnas)
+    columnas_por_fila = 4
+    columnas = st.columns(columnas_por_fila)
+    
+    # Construcción de URLs públicas para renderizar
+    url_base_publica = f"{URL_NUEVA.rstrip('/')}/storage/v1/object/public/imagenes/"
+
+    for indice, nombre_archivo in enumerate(fotos_filtradas):
+        columna_actual = columnas[indice % columnas_por_fila]
+        url_imagen_completa = url_base_publica + nombre_archivo
+        
+        with columna_actual:
+            # Contenedor visual para cada foto
+            with st.container(border=True):
+                # Renderiza la imagen directo desde Supabase
+                st.image(url_imagen_completa, use_container_width=True)
+                # Muestra el nombre recortado por estética
+                st.caption(f"📄 {nombre_archivo[:25]}..." if len(nombre_archivo) > 25 else f"📄 {nombre_archivo}")
+                
+                # Botón individual para descargar la foto a la PC
+                st.download_button(
+                    label="Descargar",
+                    data=url_imagen_completa,
+                    file_name=nombre_archivo,
+                    key=f"btn_{indice}"
+                )
+else:
+    st.info("Presiona el botón de 'Escanear Almacenamiento' para cargar tus imágenes por primera vez.")
