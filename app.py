@@ -77,7 +77,7 @@ pagina_maqueta = st.Page("maquetacion.py", title="⏳ Maquetación", icon="⏳")
 pagina_maqueta_index = st.Page("maquetacion_componente.py", title="⏳ Maquetación Index", icon="⏳")
 pagina_sortables = st.Page("maquetacion_sortables.py", title="⏳ Maquetación Sortables", icon="⏳")
 pagina_robusta = st.Page("maquetacion_robusta.py", title="⏳ Maquetación Robusta", icon="⏳")
-pagina_contar = st.Page("contar_imagen.py", title="⏳ Contar Imagen", icon="⏳")
+pagina_contar = st.Page("prototipo_maquetador.py", title="⏳ Prototipo Maquetador V0", icon="⏳")
 # Costura v4.6.0: Apuntamos directamente al archivo clasificar_web_drag.py para correr 100% en la nube
 pagina_qt_local = st.Page("clasificar_web_drag.py", title="Clasificador Drag & Drop", icon="🖱️")
 pagina_folletos = st.Page("app_folletos.py", title="Pagina Folletos", icon="🖱️")
