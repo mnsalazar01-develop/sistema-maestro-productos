@@ -414,17 +414,22 @@ if ofertas_asignadas_hoja:
             st.rerun()
 
 # ==============================================================================
-# 11. RENDERIZAR SORTABLES
+# 11. RENDERIZAR SORTABLES (LLAVE FIJA ANTI-BUCLE DE REACT)
 # ==============================================================================
-st.markdown("### 🎨 Arrastra ofertas entre el Banco y los Slots")
-st.caption("💡 Arrastra una oferta del banco a un slot para asignarla. Arrastra de un slot al banco para desasignarla. Cada slot admite máximo 1 oferta.")
+st.markdown("### Arrastra ofertas entre el Banco y los Slots")
+st.caption("💡 Tip: Arrastra los elementos en orden vertical para estructurar tu Mix.")
+
+# Usamos una clave que SOLO dependa de la página actual y de los slots configurados.
+# Al NO incluir el conteo de elementos (len), React no entrará en bucle infinito al soltar el producto.
+clave_estable = f"sortable_fijo_p{pag_act}_s{slots_deseados}"
 
 sorted_data = sort_items(
     all_containers,
     multi_containers=True,
     direction="vertical",
-    key=f"sortables_mix_fijo_p{pag_act}_v3"
+    key=clave_estable  # 👈 Clave 100% estable para evitar el error #185 de React
 )
+
 
 # ==============================================================================
 # 12. PROCESAR RESULTADO DEL DRAG & DROP
