@@ -168,43 +168,59 @@ def calcular_num_cols(num_slots):
     return 4
 
 # ==============================================================================
-# 7. CARGA DE OFERTAS
+# 7. CARGA DE OFERTAS (INMUNIZADA CONTRA SOBREESCRITURAS)
 # ==============================================================================
-if "ofertas" not in st.session_state or st.session_state.get("campana_anterior") != id_campana_activa:
+
+# Inicializamos la clave en el session_state si no existe de forma segura
+if "ofertas_memoria" not in st.session_state:
+    st.session_state["ofertas_memoria"] = []
+if "campana_id_actual" not in st.session_state:
+    st.session_state["campana_id_actual"] = None
+
+# Solo vamos a la base de datos si el usuario cambió de campaña en el selector
+if st.session_state["campana_id_actual"] != id_campana_activa:
     try:
-        resp_ofertas = supabase.table("ofertas").select("*").eq("id_campana", id_campana_activa).execute()
-        ofertas_campana = resp_ofertas.data if resp_ofertas.data else []
-
-        lista_id_productos = list(set([o["id_producto"] for o in ofertas_campana if o.get("id_producto") is not None]))
-        dict_productos = {}
-        urls_totales_a_firmar = []
-
-        if lista_id_productos:
-            resp_prod = supabase.table("productos").select("id_producto, nombre, url_imagen").in_("id_producto", lista_id_productos).execute()
-            if resp_prod.data:
-                dict_productos = {p["id_producto"]: p for p in resp_prod.data}
-                urls_totales_a_firmar = list(set([p.get("url_imagen") for p in resp_prod.data if p.get("url_imagen")]))
-
-        mapa_imagenes_firmadas = firmar_lote_imagenes(urls_totales_a_firmar)
-
-        for o in ofertas_campana:
-            o["numero_pagina"] = safe_int(o.get("numero_pagina"))
-            o["posicion_slot"] = safe_int(o.get("posicion_slot"))
-
-            id_p = o.get("id_producto")
-            if id_p in dict_productos:
-                o["nombre"] = dict_productos[id_p].get("nombre") or f"Producto #{id_p}"
-                url_original = dict_productos[id_p].get("url_imagen")
-                o["img"] = mapa_imagenes_firmadas.get(url_original, url_original or "https://picsum.photos/100")
-            else:
-                o["nombre"] = f"Oferta sin producto asignado (#{o['id_oferta']})"
-                o["img"] = "https://picsum.photos/100"
-
-        st.session_state.ofertas = ofertas_campana
-        st.session_state.campana_anterior = id_campana_activa
+        with st.spinner("Cargando ofertas desde el servidor..."):
+            resp_ofertas = supabase.table("ofertas").select("*").eq("id_campana", id_campana_activa).execute()
+            ofertas_campana = resp_ofertas.data if resp_ofertas.data else []
+            
+            lista_id_productos = list(set([o["id_producto"] for o in ofertas_campana if o.get("id_producto") is not None]))
+            dict_productos = {}
+            urls_totales_a_firmar = []
+            
+            if lista_id_productos:
+                resp_prod = supabase.table("productos").select("id_producto, nombre, url_imagen").in_("id_producto", lista_id_productos).execute()
+                if resp_prod.data:
+                    dict_productos = {p["id_producto"]: p for p in resp_prod.data}
+                    urls_totales_a_firmar = list(set([p.get("url_imagen") for p in resp_prod.data if p.get("url_imagen")]))
+            
+            mapa_imagenes_firmadas = firmar_lote_imagenes(urls_totales_a_firmar)
+            
+            # Formateo estructural inicial
+            for o in ofertas_campana:
+                o["numero_pagina"] = safe_int(o.get("numero_pagina"))
+                o["posicion_slot"] = safe_int(o.get("posicion_slot"))
+                o["posicion_mix"] = safe_int(o.get("posicion_mix"), 1)  # Aseguramos entero base para el Mix
+                
+                id_p = o.get("id_producto")
+                if id_p in dict_productos:
+                    o["nombre"] = dict_productos[id_p].get("nombre") or f"Producto #{id_p}"
+                    url_original = dict_productos[id_p].get("url_imagen")
+                    o["img"] = mapa_imagenes_firmadas.get(url_original, url_original or "https://picsum.photos")
+                else:
+                    o["nombre"] = f"Oferta sin producto asignado (#{o['id_oferta']})"
+                    o["img"] = "https://picsum.photos"
+            
+            # Guardamos en nuestra variable persistente e inmunizada
+            st.session_state["ofertas_memoria"] = ofertas_campana
+            st.session_state["campana_id_actual"] = id_campana_activa
+            
     except Exception as e:
-        st.error(f"❌ Error al cargar ofertas: {str(e)}")
-        st.session_state.ofertas = []
+        st.error(f"❌ Error crítico al cargar ofertas: {str(e)}")
+        st.stop()
+
+# Re-vinculamos la variable de lectura para no romper el resto de tus bloques del script
+st.session_state.ofertas = st.session_state["ofertas_memoria"]
 
 # ==============================================================================
 # 8. NAVEGACIÓN
@@ -568,7 +584,7 @@ if st.button("💾 Guardar Configuración Completa del Folleto", type="primary",
             st.toast("Base de datos actualizada correctamente", icon="🚀")
 
             if "ofertas" in st.session_state:
-                del st.session_state.ofertas
+                #del st.session_state.ofertas
             st.rerun()
         except Exception as e:
             st.error(f"❌ Error al guardar en Supabase: {str(e)}")
