@@ -312,19 +312,24 @@ if not banco_items:
 # Slots: Construcción modular de casilleros asegurando área de apuntado fija
 slot_containers = []
 for slot_num in range(1, slots_deseados + 1):
-    slot_items = [
-        format_item(o) for o in ofertas
+    # Traemos las ofertas de este slot y las ordenamos por su posicion_mix si existe
+    ofertas_del_slot = [
+        o for o in ofertas
         if safe_int(o.get("numero_pagina")) == pag_act
         and safe_int(o.get("posicion_slot")) == slot_num
     ]
     
-    # IMPORTANTE: Si el slot está vacío, lo dejamos vacío []. 
-    # El componente Sortables creará un recuadro gris nativo ideal para soltar objetos,
-    # evitando que se mezclen textos de "Slot Libre" con tus productos.
+    # Intentamos respetar el orden interno que tengan en el mix
+    ofertas_del_slot.sort(key=lambda x: safe_int(x.get("posicion_mix"), 1))
+    
+    # Formateamos las tarjetas
+    slot_items = [format_item(o) for o in ofertas_del_slot]
+
     slot_containers.append({
-        "header": f"📍 Slot {slot_num}",
+        "header": f" Slot {slot_num}",
         "items": slot_items
     })
+
 
 # Unificación estructural de los bloques de arrastre
 all_containers = [{"header": "🛒 Banco de Ofertas", "items": banco_items}] + slot_containers
@@ -339,7 +344,7 @@ sorted_data = sort_items(
     all_containers,
     multi_containers=True,
     direction="vertical",
-    key=f"sort_p{pag_act}_{slots_deseados}"
+    key=f"sortables_mix_{firma_cambio}"  # 👈 Clave dinámica reactiva
 )
 
 # ==============================================================================
