@@ -345,50 +345,62 @@ sorted_data = sort_items(
 # ==============================================================================
 # 12. PROCESAR RESULTADO DEL DRAG & DROP
 # ==============================================================================
+
 if sorted_data:
     cambio = False
-    nueva_asignacion = {}  # id_oferta -> (numero_pagina, posicion_slot)
+    nueva_asignacion = {}  # id_oferta -> diccionario con su nueva ruta paramétrica
     ids_procesados = set()
 
     for container in sorted_data:
         header = container.get("header", "")
         items = container.get("items", [])
 
-        if header == "🛒 Banco de Ofertas":
-            # Todo en el banco queda desasignado
+        if header == "Banco de Ofertas":
+            # Todo en el banco queda desasignado y sin posición en el mix
             for item_str in items:
                 id_oferta = parse_item_id(item_str)
-                if id_oferta not in ids_procesados:
-                    nueva_asignacion[id_oferta] = (None, None)
+                if id_oferta and id_oferta not in ids_procesados:
+                    nueva_asignacion[id_oferta] = {
+                        "pagina": None, 
+                        "slot": None, 
+                        "mix": 1
+                    }
                     ids_procesados.add(id_oferta)
 
-        elif header.startswith("📍 Slot "):
-            slot_num = int(header.replace("📍 Slot ", ""))
-            if items:
-                # Recorremos TODOS los elementos que el usuario metió en el slot
-                for indice_mix, item_str in enumerate(items):
-                    id_oferta = parse_item_id(item_str)
-                    
-                    if id_oferta and id_oferta not in ids_procesados:
-                        # Guardamos la página, el slot Y LA POSICIÓN INTERNA (índice + 1)
-                        # Ejemplo: el primero será 1, el segundo 2, etc.
-                        nueva_asignacion[id_oferta] = (pag_act, slot_num, indice_mix + 1)
-                        ids_procesados.add(id_oferta)
+        elif header.startswith(" Slot "):
+            slot_num = int(header.replace(" Slot ", ""))
+            
+            # 🟢 AQUÍ PASA LA MAGIA: Guardamos TODOS los ítems y les asignamos su orden (1, 2, 3...)
+            for idx_internos, item_str in enumerate(items):
+                id_oferta = parse_item_id(item_str)
+                if id_oferta and id_oferta not in ids_procesados:
+                    nueva_asignacion[id_oferta] = {
+                        "pagina": pag_act, 
+                        "slot": slot_num, 
+                        "mix": idx_internos + 1  # Secuencial automático para el escenario B del visor
+                    }
+                    ids_procesados.add(id_oferta)
 
-    
-    # Aplicar cambios a session_state
+    # Aplicar cambios de forma segura a st.session_state sin romper el desempaquetado
     for o in st.session_state.ofertas:
         id_o = o["id_oferta"]
         if id_o in nueva_asignacion:
-            nueva_p, nueva_s = nueva_asignacion[id_o]
-            if o.get("numero_pagina") != nueva_p or o.get("posicion_slot") != nueva_s:
-                o["numero_pagina"] = nueva_p
-                o["posicion_slot"] = nueva_s
+            datos_nuevos = nueva_asignacion[id_o]
+            
+            # Verificamos si realmente cambió algo antes de activar el rerun
+            if (o.get("numero_pagina") != datos_nuevos["pagina"] or 
+                o.get("posicion_slot") != datos_nuevos["slot"] or
+                o.get("posicion_mix") != datos_nuevos["mix"]):
+                
+                o["numero_pagina"] = datos_nuevos["pagina"]
+                o["posicion_slot"] = datos_nuevos["slot"]
+                o["posicion_mix"] = datos_nuevos["mix"]  # 👈 Guardamos el número entero limpio
                 cambio = True
 
     if cambio:
-        st.success("✅ Cambios aplicados.")
+        st.success("✓ Cambios aplicados al Mix de la Celda.")
         st.rerun()
+
 
 # ==============================================================================
 # 13. TABLA DE ASIGNADAS (PÁGINA ACTUAL)
