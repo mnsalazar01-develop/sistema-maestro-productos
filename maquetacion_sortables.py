@@ -365,18 +365,17 @@ if sorted_data:
         elif header.startswith("📍 Slot "):
             slot_num = int(header.replace("📍 Slot ", ""))
             if items:
-                # Solo la primera oferta en el slot cuenta
-                id_oferta = parse_item_id(items[0])
-                if id_oferta not in ids_procesados:
-                    nueva_asignacion[id_oferta] = (pag_act, slot_num)
-                    ids_procesados.add(id_oferta)
-                # El resto (si hay) van al banco
-                for extra_str in items[1:]:
-                    id_extra = parse_item_id(extra_str)
-                    if id_extra not in ids_procesados:
-                        nueva_asignacion[id_extra] = (None, None)
-                        ids_procesados.add(id_extra)
+                # Recorremos TODOS los elementos que el usuario metió en el slot
+                for indice_mix, item_str in enumerate(items):
+                    id_oferta = parse_item_id(item_str)
+                    
+                    if id_oferta and id_oferta not in ids_procesados:
+                        # Guardamos la página, el slot Y LA POSICIÓN INTERNA (índice + 1)
+                        # Ejemplo: el primero será 1, el segundo 2, etc.
+                        nueva_asignacion[id_oferta] = (pag_act, slot_num, indice_mix + 1)
+                        ids_procesados.add(id_oferta)
 
+    
     # Aplicar cambios a session_state
     for o in st.session_state.ofertas:
         id_o = o["id_oferta"]
