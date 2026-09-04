@@ -334,7 +334,7 @@ sorted_data = sort_items(
     all_containers,
     multi_containers=True,
     direction="vertical",
-    key=f"sortables_mix_{firma_cambio}"  # 👈 Clave dinámica reactiva
+    key=f"sortables_mix_fijo_p{pag_act}_v3"
 )
 
 # ==============================================================================
