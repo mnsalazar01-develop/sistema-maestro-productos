@@ -299,36 +299,30 @@ def parse_item_id(item_str):
         return None
 
 
-# ==============================================================================
-# 10. CONSTRUIR CONTENEDORES CON TARJETAS GUÍA CON EMOJIS
-# ==============================================================================
-ofertas = st.session_state.get("ofertas", [])
-
-# Banco de Ofertas: Captura todo lo que no tiene página asignada
-banco_items = [format_item(o) for o in ofertas if safe_int(o.get("numero_pagina")) is None]
-if not banco_items:
-    banco_items = ["✨ 🛒 El banco está vacío. Cambia de página."]
-
-# Slots: Construcción modular de casilleros asegurando área de apuntado fija
+# Slots: Construcción modular con soporte de sub-slots para evitar el bloqueo del componente
 slot_containers = []
-for slot_num in range(1, slots_deseados + 1):
-    # Traemos las ofertas de este slot y las ordenamos por su posicion_mix si existe
-    ofertas_del_slot = [
-        o for o in ofertas
-        if safe_int(o.get("numero_pagina")) == pag_act
-        and safe_int(o.get("posicion_slot")) == slot_num
-    ]
-    
-    # Intentamos respetar el orden interno que tengan en el mix
-    ofertas_del_slot.sort(key=lambda x: safe_int(x.get("posicion_mix"), 1))
-    
-    # Formateamos las tarjetas
-    slot_items = [format_item(o) for o in ofertas_del_slot]
 
-    slot_containers.append({
-        "header": f" Slot {slot_num}",
-        "items": slot_items
-    })
+# Determinamos cuántos sub-slots por celda queremos permitir (ejemplo: máximo 2 productos por slot para el mix)
+MAX_ITEMS_POR_MIX = 2 
+
+for slot_num in range(1, slots_deseados + 1):
+    # Si el estilo o distribución requiere Mix, creamos sub-contenedores visuales
+    for sub_idx in range(1, MAX_ITEMS_POR_MIX + 1):
+        letra_sub = "A" if sub_idx == 1 else "B"
+        
+        # Filtramos la oferta que coincida con la página, el slot y su posición interna en el mix
+        slot_items = [
+            format_item(o) for o in ofertas
+            if safe_int(o.get("numero_pagina")) == pag_act
+            and safe_int(o.get("posicion_slot")) == slot_num
+            and safe_int(o.get("posicion_mix"), 1) == sub_idx
+        ]
+        
+        slot_containers.append({
+            "header": f"📦 Slot {slot_num} - {letra_sub}",
+            "items": slot_items
+        })
+
 
 
 # Unificación estructural de los bloques de arrastre
@@ -351,59 +345,57 @@ sorted_data = sort_items(
 # 12. PROCESAR RESULTADO DEL DRAG & DROP
 # ==============================================================================
 
+# 12. PROCESAR RESULTADO DEL DRAG & DROP
 if sorted_data:
     cambio = False
-    nueva_asignacion = {}  # id_oferta -> diccionario con su nueva ruta paramétrica
+    nueva_asignacion = {}  # id_oferta -> (numero_pagina, posicion_slot, posicion_mix)
     ids_procesados = set()
 
     for container in sorted_data:
         header = container.get("header", "")
         items = container.get("items", [])
-
+        
         if header == "Banco de Ofertas":
-            # Todo en el banco queda desasignado y sin posición en el mix
             for item_str in items:
                 id_oferta = parse_item_id(item_str)
                 if id_oferta and id_oferta not in ids_procesados:
-                    nueva_asignacion[id_oferta] = {
-                        "pagina": None, 
-                        "slot": None, 
-                        "mix": 1
-                    }
+                    nueva_asignacion[id_oferta] = (None, None, 1)
                     ids_procesados.add(id_oferta)
-
-        elif header.startswith(" Slot "):
-            slot_num = int(header.replace(" Slot ", ""))
+                    
+        elif "Slot" in header:
+            # Extraemos el número de slot y la letra del sub-slot
+            # Ejemplo: "📦 Slot 2 - B" -> slot_num = 2, letra = "B"
+            texto_limpio = header.replace("📦 Slot ", "")
+            partes_slot = texto_limpio.split(" - ")
             
-            # 🟢 AQUÍ PASA LA MAGIA: Guardamos TODOS los ítems y les asignamos su orden (1, 2, 3...)
-            for idx_internos, item_str in enumerate(items):
-                id_oferta = parse_item_id(item_str)
-                if id_oferta and id_oferta not in ids_procesados:
-                    nueva_asignacion[id_oferta] = {
-                        "pagina": pag_act, 
-                        "slot": slot_num, 
-                        "mix": idx_internos + 1  # Secuencial automático para el escenario B del visor
-                    }
-                    ids_procesados.add(id_oferta)
+            if len(partes_slot) == 2:
+                slot_num = int(partes_slot[0])
+                letra_sub = partes_slot[1]
+                sub_idx = 1 if letra_sub == "A" else 2
+                
+                # Procesamos los ítems caídos en este sub-slot específico
+                for item_str in items:
+                    id_oferta = parse_item_id(item_str)
+                    if id_oferta and id_oferta not in ids_procesados:
+                        nueva_asignacion[id_oferta] = (pag_act, slot_num, sub_idx)
+                        ids_procesados.add(id_oferta)
 
-    # Aplicar cambios de forma segura a st.session_state sin romper el desempaquetado
+    # Aplicar los cambios al session_state de las ofertas
     for o in st.session_state.ofertas:
         id_o = o["id_oferta"]
         if id_o in nueva_asignacion:
-            datos_nuevos = nueva_asignacion[id_o]
-            
-            # Verificamos si realmente cambió algo antes de activar el rerun
-            if (o.get("numero_pagina") != datos_nuevos["pagina"] or 
-                o.get("posicion_slot") != datos_nuevos["slot"] or
-                o.get("posicion_mix") != datos_nuevos["mix"]):
+            nueva_p, nueva_s, nuevo_mix = nueva_asignacion[id_o]
+            if (o.get("numero_pagina") != nueva_p or 
+                o.get("posicion_slot") != nueva_s or 
+                o.get("posicion_mix") != nuevo_mix):
                 
-                o["numero_pagina"] = datos_nuevos["pagina"]
-                o["posicion_slot"] = datos_nuevos["slot"]
-                o["posicion_mix"] = datos_nuevos["mix"]  # 👈 Guardamos el número entero limpio
+                o["numero_pagina"] = nueva_p
+                o["posicion_slot"] = nueva_s
+                o["posicion_mix"] = nuevo_mix
                 cambio = True
 
     if cambio:
-        st.success("✓ Cambios aplicados al Mix de la Celda.")
+        st.success("✓ ¡Mix estructurado correctamente!")
         st.rerun()
 
 
