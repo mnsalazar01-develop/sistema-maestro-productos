@@ -324,10 +324,6 @@ for slot_num in range(1, slots_deseados + 1):
         })
 
 
-
-# Unificación estructural de los bloques de arrastre
-all_containers = [{"header": "🛒 Banco de Ofertas", "items": banco_items}] + slot_containers
-
 # ==============================================================================
 # 11. RENDERIZAR SORTABLES
 # ==============================================================================
