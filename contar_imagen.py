@@ -2,20 +2,18 @@ import sys
 import requests  # Petición directa libre de bloqueos
 import streamlit as st
 
+# 1. CONEXION DIRECTA A TU BASE DE DATOS DE PRUEBAS
+@st.cache_resource
+def init_supabase() -> Client:
+    return create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
+
+supabase_client = init_supabase()
+
 def contar_archivos_reales_bucket():
     st.write("🔍 Conectando con el servidor de almacenamiento de Supabase...")
     
-    try:
-        # Extraemos las credenciales desde tus secrets del proyecto nuevo
-        URL_NUEVA = st.secrets["supabase_destino"]["url"]
-        KEY_NUEVA = st.secrets["supabase_destino"]["service_role_key"]
-        BUCKET_NUEVO = st.secrets["supabase_destino"]["bucket_name"]
-    except Exception as e:
-        st.error(f"❌ Error al leer las claves de acceso de los secretos: {e}")
-        return
-
     # Endpoint oficial de la API de Supabase para listar objetos
-    api_url = f"{URL_NUEVA.rstrip('/')}/storage/v1/object/list/{BUCKET_NUEVO}"
+    api_url = f"{URL_NUEVA.rstrip('/')}/storage/v1/object/list/imagenes"
     
     headers = {
         "Authorization": f"Bearer {KEY_NUEVA}",
