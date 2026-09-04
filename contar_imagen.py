@@ -9,11 +9,11 @@ def init_supabase_local() -> Client:
     key = st.secrets["supabase"]["key"]
     return create_client(url, key)
 
-try:
-    supabase = init_supabase_local()
-except Exception as e:
-    st.error(f"❌ Error de Conexión Base: {e}")
-    st.stop()
+    try:
+        supabase = init_supabase_local()
+    except Exception as e:
+        st.error(f"❌ Error de Conexión Base: {e}")
+        st.stop()
 
 
 def contar_archivos_reales_bucket():
