@@ -340,7 +340,7 @@ for slot_num in range(1, slots_deseados + 1):
         })
 
 # ==============================================================================
-# 10. MAQUETADOR NATIVO MULTI-PRODUCTO (SIN COMBATES DE LIBRERÍAS)
+# 10. MAQUETADOR NATIVO MULTI-PRODUCTO (ANTI-ERRORES DE REACT)
 # ==============================================================================
 st.markdown("### Asignación de Ofertas al Mix de la Página")
 
@@ -352,46 +352,46 @@ banco_ofertas = [o for o in ofertas if safe_int(o.get("numero_pagina")) is None]
 if not banco_ofertas:
     st.info("💡 El banco está vacío. Todas las ofertas de esta campaña ya fueron maquetadas.")
 else:
-    # Creamos un contenedor limpio para añadir ofertas a los slots de forma masiva
+    # Creamos un panel limpio para inyectar productos a los slots
     with st.container(border=True):
         st.markdown("#### 📥 Asignar Producto del Banco a un Slot")
-        col_prod, col_sl, col_btn = st.columns([2, 1, 1])
+        col_prod, col_sl, col_btn = st.columns([3, 1, 1])
         
         with col_prod:
-            # Creamos la lista de opciones usando el formateador que ya tienes configurado
+            # Diccionario para emparejar el texto visual con el ID real de la oferta
             opciones_banco = {format_item(o): o["id_oferta"] for o in banco_ofertas}
-            prod_seleccionado_txt = st.selectbox("Selecciona el Producto:", options=list(opciones_banco.keys()))
+            prod_seleccionado_txt = st.selectbox("Selecciona el Producto del Banco:", options=list(opciones_banco.keys()))
             id_oferta_a_mover = opciones_banco[prod_seleccionado_txt]
             
         with col_sl:
-            # Elige a qué número de slot meterlo
             slot_destino = st.number_input("Al Slot #:", min_value=1, max_value=slots_deseados, value=1, step=1)
             
         with col_btn:
             st.write("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
-            if st.button("➕ Añadir al Slot (Mix)", use_container_width=True, type="primary"):
-                # 🟢 CALCULAR LA POSICIÓN DEL MIX AUTOMÁTICAMENTE
-                # Buscamos cuántos productos ya tiene asignados ese mismo slot en esta página
+            if st.button("➕ Añadir al Slot", use_container_width=True, type="primary"):
+                
+                # 🟢 CÁLCULO AUTOMÁTICO DE POSICION_MIX
+                # Contamos cuántas ofertas ya viven en ese slot específico de esta página
                 productos_en_ese_slot = [
                     o for o in ofertas 
                     if safe_int(o.get("numero_pagina")) == pag_act 
                     and safe_int(o.get("posicion_slot")) == slot_destino
                 ]
+                # Si hay 0, el nuevo será la posición 1. Si hay 1, el nuevo será la posición 2 (Mix)
                 siguiente_posicion_mix = len(productos_en_ese_slot) + 1
                 
-                # Buscamos la oferta en el session_state y le asignamos sus nuevas coordenadas
+                # Buscamos la oferta en el session_state y la movemos en la RAM
                 for o in st.session_state.ofertas:
                     if o["id_oferta"] == id_oferta_a_mover:
                         o["numero_pagina"] = pag_act
                         o["posicion_slot"] = slot_destino
-                        o["posicion_mix"] = siguiente_posicion_mix  # Guarda 1, 2, 3... correlativo
+                        o["posicion_mix"] = siguiente_posicion_mix  # Asignación paramétrica real
                         break
                         
-                st.success("✓ Producto añadido al Mix con éxito.")
-                st.toast("Actualizando grilla inferior...", icon="🔄")
+                st.success("✓ Producto añadido al slot.")
                 st.rerun()
 
-# 🟢 BOTÓN PARA DEVOLVER PRODUCTOS AL BANCO (DESASIGNAR)
+# 🟢 PANEL DE RETORNO: PERMITE QUITAR ELEMENTOS DE LA PÁGINA
 ofertas_asignadas_hoja = [
     o for o in ofertas 
     if safe_int(o.get("numero_pagina")) == pag_act and o.get("posicion_slot") is not None
@@ -412,6 +412,7 @@ if ofertas_asignadas_hoja:
                     break
             st.success("✓ Producto devuelto al banco.")
             st.rerun()
+
 
 # ==============================================================================
 # 11. RENDERIZAR SORTABLES (LLAVE FIJA ANTI-BUCLE DE REACT)
