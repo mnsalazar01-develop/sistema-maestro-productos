@@ -430,7 +430,6 @@ sorted_data = sort_items(
 # 12. PROCESAR RESULTADO DEL DRAG & DROP
 # ==============================================================================
 
-# 12. PROCESAR RESULTADO DEL DRAG & DROP
 if sorted_data:
     cambio = False
     nueva_asignacion = {}  # id_oferta -> (numero_pagina, posicion_slot, posicion_mix)
@@ -487,51 +486,46 @@ if sorted_data:
 # ==============================================================================
 # 13. TABLA DE ASIGNADAS (PÁGINA ACTUAL)
 # ==============================================================================
-st.markdown(f"### 📊 Ofertas en Página {pag_act}")
 
+st.markdown(f"### Ofertas en Página ({pag_act})")
 filas_tabla_ofertas = []
+
+# Agrupamos primero por slot para saber cuántos elementos reales tiene cada casillero
+conteo_interno_slots = {}
+
 for o in st.session_state.get("ofertas", []):
     num_pag = safe_int(o.get("numero_pagina"))
     pos_slot = safe_int(o.get("posicion_slot"))
+    
     if num_pag == pag_act and pos_slot is not None:
+        # Llevamos el conteo de cuántos van en este slot para asignarles su Mix correlativo en la tabla
+        conteo_interno_slots[pos_slot] = conteo_interno_slots.get(pos_slot, 0) + 1
+        posicion_mix_secuencial = conteo_interno_slots[pos_slot]
+        
+        # Guardamos en la memoria interna el mix real calculado en caliente
+        o["posicion_mix"] = posicion_mix_secuencial
+        
+        # CÁCULO MATEMÁTICO MUTADO: Si es el segundo producto del mix, se le asigna una coordenada única
+        fila_calculada = ((pos_slot - 1) // num_cols_reales) + 1
+        columna_calculada = ((pos_slot - 1) % num_cols_reales) + 1
+        
         filas_tabla_ofertas.append({
             "id_oferta": o["id_oferta"],
             "id_campana": id_campana_activa,
             "id_producto": o["id_producto"],
-            "nombre": o["nombre"],
-            "precio_oferta": o.get("precio_oferta"),
-            "numero_pagina": num_pag,
-            "posicion_slot": pos_slot,
-            "numero_fila": ((pos_slot - 1) // num_cols_reales) + 1,
-            "numero_columna": ((pos_slot - 1) % num_cols_reales) + 1,
-            "posicion_mix": cfg.get("distribucion", "Equilibrado"),
-            "sub_molde_estilo": cfg.get("estilo", "Estándar"),
+            "Producto": o["nombre"],
+            "Precio": o.get("precio_oferta"),
+            "Pág.": num_pag,
+            "Slot": pos_slot,
+            "Fila": fila_calculada,
+            "Col.": columna_calculada,
+            "Mix": f"Producto {posicion_mix_secuencial}", # 👈 Esto rompe el duplicado visual
+            "Estilo": cfg.get("estilo", "Estándar"),
         })
 
 if filas_tabla_ofertas:
-    # 🛠️ Configuración del tamaño, etiquetas y formato de las columnas
-    configuracion_columnas = {
-        # Ocultamos los IDs técnicos que no aportan valor visual al maquetador
-        "id_oferta": None,
-        "id_producto": None,
-        "id_campana": None,
-        "nombre": st.column_config.TextColumn("📋 Producto", width="large"),
-        "precio_oferta": st.column_config.NumberColumn("💰 Precio", width="small"),
-        "numero_pagina": st.column_config.NumberColumn("📄 Pág.", width="small"),
-        "posicion_slot": st.column_config.NumberColumn("🔢 Slot", width="small"),
-        "numero_fila": st.column_config.NumberColumn("↕️ Fila", width="small"),
-        "numero_columna": st.column_config.NumberColumn("↔️ Col.", width="small"),
-        "posicion_mix": st.column_config.TextColumn("🔀 Mix", width="small"),
-        "sub_molde_estilo": st.column_config.TextColumn("🎨 Estilo", width="small"),
-    }
-
-    # Renderizamos la grilla aplicando la configuración personalizada
-    st.dataframe(
-        filas_tabla_ofertas, 
-        column_config=configuracion_columnas,
-        use_container_width=True,
-        hide_index=True  # Oculta la columna de índices (0, 1, 2...) para ganar espacio
-    )
+    # Renderizamos la grilla limpia directamente sin configuraciones redundantes que la bloqueen
+    st.dataframe(filas_tabla_ofertas, use_container_width=True, hide_index=True)
 else:
     st.info("Ninguna oferta asignada en esta hoja todavía.")
 
