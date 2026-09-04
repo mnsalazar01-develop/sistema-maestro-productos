@@ -20,7 +20,7 @@ def contar_archivos_reales_bucket():
     st.write("🔍 Conectando con el servidor de almacenamiento de Supabase...")
     
     # Endpoint oficial de la API de Supabase para listar objetos
-    api_url = f"{url.rstrip('/')}/storage/v1/object/list/imagenes"
+    api_url = f"{url.rstrip('/')}/storage/v1/object/public/imagenes"
     
     #headers = {
     #    "Authorization": f"Bearer {KEY_NUEVA}",
