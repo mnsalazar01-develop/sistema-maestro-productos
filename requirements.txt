@@ -3,3 +3,5 @@ pandas
 openpyxl
 streamlit-dnd
 streamlit-sortables
+psycopg2-binary
+sqlalchemy
