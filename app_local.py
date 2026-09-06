@@ -6,15 +6,15 @@ import os
 st.set_page_config(page_title="Gestor Local de Productos", layout="wide")
 
 st.title("📦 Inventario Local de Productos")
-st.write("Mostrando datos desde `base_temporal.db` e imágenes desde `storage_local/`")
+st.write("Mostrando datos desde `Sandbox_Ofertas_2026.db` e imágenes desde `storage_local/`")
 
 # Función para conectar a la base de datos
 def obtener_productos():
     if not os.path.exists("base_temporal.db"):
-        st.error("No se encontró el archivo 'base_temporal.db'. Créalo primero con DB Browser for SQLite.")
+        st.error("No se encontró el archivo 'Sandbox_Ofertas_2026.db'. Créalo primero con DB Browser for SQLite.")
         return []
     
-    conn = sqlite3.connect("base_temporal.db")
+    conn = sqlite3.connect("Sandbox_Ofertas_2026.db")
     cursor = conn.cursor()
     
     # Ajusta el nombre de tu tabla si es diferente a 'ofertas'
