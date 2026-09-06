@@ -84,6 +84,7 @@ pagina_folletos = st.Page("app_folletos.py", title="Pagina Folletos", icon="🖱
 pagina_nativo = st.Page("clasificador_nativo.py", title="Pagina Nativo", icon="🖱️")
 pagina_conexion = st.Page("probar_conexion.py", title="Conexion", icon="⚙️")
 pagina_local = st.Page("app_local.py", title="App Local", icon="⚙️")
+pagina_datos = st.Page("subir_csv.py", title="Subir Datos", icon="⚙️")
 # 4. CONSTRUCCIÓN AUTOMÁTICA DEL MOTOR DE NAVEGACIÓN EN LA BARRA LATERAL
 enrutador_global = st.navigation([
     pagina_inicio,
@@ -104,7 +105,9 @@ enrutador_global = st.navigation([
     pagina_robusta,
     pagina_conexion,
     pagina_contar,
-    pagina_local
+    pagina_local,
+    pagina_datos
+    
 ])
 
 # Componentes fijos de control e identidad comercial en la barra de la izquierda
